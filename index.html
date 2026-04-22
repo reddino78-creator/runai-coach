@@ -268,9 +268,10 @@ select.input-field option { background:var(--dark3); }
 
 /* DASHBOARD */
 .dash-nav { background:rgba(17,17,17,.92); backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,.05); padding:0 32px; display:flex; align-items:center; height:60px; position:sticky; top:0; z-index:100; gap:0; }
-.dash-logo { font-family:'DM Serif Display',serif; font-size:20px; margin-right:28px; flex-shrink:0; }
+.dash-logo { font-family:'DM Mono',monospace; font-size:14px; letter-spacing:2px; margin-right:28px; flex-shrink:0; }
 .dash-logo em { font-style:normal; color:var(--orange); }
-.dash-tabs { display:flex; flex:1; overflow-x:auto; }
+.dash-tabs { display:flex; flex:1; overflow-x:auto; scrollbar-width:none; }
+.dash-tabs::-webkit-scrollbar { display:none; }
 .dash-tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--gray); padding:0 16px; height:60px; font-family:'Pretendard',sans-serif; font-size:13px; cursor:pointer; transition:all .2s; white-space:nowrap; }
 .dash-tab:hover { color:var(--gray-light); }
 .dash-tab.active { color:var(--white); border-bottom-color:var(--orange); }
@@ -280,8 +281,38 @@ select.input-field option { background:var(--dark3); }
 .logout-btn { background:none; border:none; color:var(--gray); font-size:12px; cursor:pointer; padding:4px 8px; font-family:'Pretendard',sans-serif; }
 .logout-btn:hover { color:var(--red); }
 
+/* 모바일 하단 탭바 */
+.mobile-nav {
+  display:none;
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(17,17,17,.96);
+  backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.06);
+  z-index:200;
+  padding:8px 0 env(safe-area-inset-bottom);
+}
+.mobile-nav-tabs { display:flex; }
+.mobile-tab {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:4px;
+  padding:8px 4px;
+  background:none; border:none;
+  color:var(--gray); cursor:pointer;
+  font-family:'Pretendard',sans-serif;
+  font-size:10px; transition:all .2s;
+}
+.mobile-tab.active { color:var(--orange); }
+.mobile-tab-icon { font-size:20px; }
+
+@media(max-width:768px) {
+  .dash-nav { padding:0 16px; }
+  .dash-tabs { display:none; }
+  .dash-user .user-nm { display:none; }
+  .mobile-nav { display:block; }
+  .dash-body { padding:20px 14px 90px; }
+}
+
 .dash-body { max-width:1080px; margin:0 auto; padding:36px 28px; }
-@media(max-width:768px){.dash-body{padding:20px 14px}}
 
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
@@ -680,6 +711,27 @@ select.input-field option { background:var(--dark3); }
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
     </div>
   </nav>
+
+  <!-- 모바일 하단 탭바 -->
+  <div class="mobile-nav">
+    <div class="mobile-nav-tabs">
+      <button class="mobile-tab active" onclick="switchPanelMobile(this,'p-daily')">
+        <span class="mobile-tab-icon">📊</span>일일
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-weekly')">
+        <span class="mobile-tab-icon">📅</span>주간
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-monthly')">
+        <span class="mobile-tab-icon">📈</span>월간
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-coach')">
+        <span class="mobile-tab-icon">🤖</span>코치
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-settings')">
+        <span class="mobile-tab-icon">⚙️</span>설정
+      </button>
+    </div>
+  </div>
 
   <div class="dash-body">
     <!-- GOAL HERO -->
@@ -1206,6 +1258,14 @@ function switchPanel(btn, panelId) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(panelId).classList.add('active');
+}
+
+function switchPanelMobile(btn, panelId) {
+  document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+  window.scrollTo(0, 0);
 }
 
 // ── SETTINGS SAVE ──
