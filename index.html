@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RunAI Coach</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange: #FC4C02;
+  --orange-light: #FF6B35;
+  --black: #090909;
+  --dark: #111111;
+  --dark2: #181818;
+  --dark3: #222222;
+  --gray: #777777;
+  --gray-light: #BBBBBB;
+  --white: #F4F1EC;
+  --green: #27AE60;
+  --yellow: #F0B429;
+  --red: #E74C3C;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--black); color:var(--white); font-family:'Pretendard',-apple-system,sans-serif; min-height:100vh; }
+
+/* SCREENS */
+.screen { display:none; }
+.screen.active { display:block; min-height:100vh; }
+
+/* LANDING */
+.landing-wrap { min-height:100vh; position:relative; overflow:hidden; }
+.bg-glow { position:absolute; width:700px; height:700px; background:radial-gradient(circle,rgba(252,76,2,0.13) 0%,transparent 65%); top:-250px; right:-150px; animation:breathe 6s ease-in-out infinite; pointer-events:none; }
+@keyframes breathe { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.15);opacity:1} }
+.landing-nav { display:flex; justify-content:space-between; align-items:center; padding:28px 48px; position:relative; z-index:10; }
+.logo { font-family:'DM Serif Display',serif; font-size:22px; }
+.logo em { font-style:normal; color:var(--orange); }
+.nav-btns { display:flex; gap:10px; }
+.btn-ghost { background:none; border:1px solid rgba(255,255,255,0.15); color:var(--gray-light); padding:10px 22px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; }
+.btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
+.btn-orange { background:var(--orange); border:none; color:white; padding:10px 22px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .25s; }
+.btn-orange:hover { background:var(--orange-light); transform:translateY(-1px); }
+.hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:80px 24px 60px; position:relative; z-index:10; }
+.hero-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(252,76,2,0.1); border:1px solid rgba(252,76,2,0.25); color:var(--orange); padding:7px 18px; border-radius:100px; font-size:12px; font-family:'DM Mono',monospace; margin-bottom:32px; animation:fadeUp .5s ease both; }
+.hero h1 { font-family:'DM Serif Display',serif; font-size:clamp(52px,9vw,96px); line-height:.95; letter-spacing:-2px; margin-bottom:24px; animation:fadeUp .5s ease .1s both; }
+.hero h1 i { font-style:italic; color:var(--orange); }
+.hero p { font-size:17px; color:var(--gray-light); max-width:500px; line-height:1.65; font-weight:300; margin-bottom:48px; animation:fadeUp .5s ease .2s both; }
+.hero-btns { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; animation:fadeUp .5s ease .3s both; }
+.btn-hero { background:var(--orange); border:none; color:white; padding:18px 44px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:all .3s; }
+.btn-hero:hover { background:var(--orange-light); transform:translateY(-3px); box-shadow:0 20px 50px rgba(252,76,2,.35); }
+.btn-hero-ghost { background:none; border:1px solid rgba(255,255,255,.18); color:var(--white); padding:18px 44px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:16px; cursor:pointer; transition:all .3s; }
+.btn-hero-ghost:hover { border-color:rgba(252,76,2,.5); color:var(--orange); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+
+/* AUTH MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(12px); z-index:1000; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; padding:20px; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--dark2); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:48px; width:100%; max-width:420px; position:relative; transform:translateY(20px); transition:transform .3s; }
+.modal-overlay.open .modal { transform:translateY(0); }
+.modal-close { position:absolute; top:20px; right:20px; background:none; border:none; color:var(--gray); font-size:20px; cursor:pointer; }
+.modal-logo { font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:6px; text-align:center; }
+.modal-logo em { font-style:normal; color:var(--orange); }
+.modal-sub { text-align:center; font-size:13px; color:var(--gray); margin-bottom:28px; }
+.tab-sw { display:flex; background:var(--dark3); border-radius:10px; padding:4px; margin-bottom:24px; }
+.tab-sw-btn { flex:1; padding:9px; border:none; background:none; color:var(--gray); font-family:'Pretendard',sans-serif; font-size:14px; font-weight:500; cursor:pointer; border-radius:7px; transition:all .2s; }
+.tab-sw-btn.active { background:var(--orange); color:white; }
+.form-group { margin-bottom:14px; }
+.form-label { display:block; font-size:11px; color:var(--gray); margin-bottom:6px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.5px; }
+.form-input { width:100%; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:13px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:15px; outline:none; transition:border-color .2s; }
+.form-input:focus { border-color:var(--orange); }
+.form-input::placeholder { color:var(--gray); }
+.form-submit { width:100%; background:var(--orange); border:none; color:white; padding:15px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; margin-top:6px; }
+.form-submit:hover { background:var(--orange-light); }
+.form-error { color:var(--red); font-size:13px; margin-top:6px; display:none; }
+.divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--gray); font-size:12px; }
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.07); }
+.strava-btn { width:100%; background:var(--dark3); border:1px solid rgba(252,76,2,.3); color:var(--white); padding:13px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.strava-btn:hover { background:rgba(252,76,2,.1); border-color:var(--orange); }
+
+/* ONBOARDING */
+#screen-onboarding { display:flex; align-items:center; justify-content:center; padding:40px 20px; }
+.ob-card { background:var(--dark2); border:1px solid rgba(255,255,255,.07); border-radius:24px; padding:48px; width:100%; max-width:640px; }
+.step-dots { display:flex; gap:6px; margin-bottom:36px; }
+.step-dot { height:4px; flex:1; border-radius:100px; background:rgba(255,255,255,.1); transition:background .3s; }
+.step-dot.done { background:var(--orange); }
+.ob-title { font-family:'DM Serif Display',serif; font-size:34px; line-height:1.1; margin-bottom:8px; }
+.ob-sub { font-size:14px; color:var(--gray); margin-bottom:32px; }
+.ob-step { display:none; }
+.ob-step.active { display:block; }
+
+/* GOAL CARDS */
+.goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+@media(max-width:560px){.goal-grid{grid-template-columns:1fr}}
+.goal-card { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:14px; padding:18px; cursor:pointer; transition:all .2s; position:relative; }
+.goal-card:hover { border-color:rgba(252,76,2,.3); }
+.goal-card.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.gc-icon { font-size:24px; margin-bottom:8px; }
+.gc-title { font-weight:700; font-size:14px; margin-bottom:3px; }
+.gc-time { font-family:'DM Mono',monospace; font-size:18px; color:var(--orange); margin-bottom:3px; }
+.gc-desc { font-size:11px; color:var(--gray); }
+.gc-check { position:absolute; top:10px; right:10px; width:18px; height:18px; background:var(--orange); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; opacity:0; transition:opacity .2s; }
+.goal-card.sel .gc-check { opacity:1; }
+
+/* FORM GRID */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.input-label { display:block; font-size:11px; color:var(--gray); margin-bottom:6px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.5px; }
+.input-field { width:100%; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:13px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
+.input-field:focus { border-color:var(--orange); }
+.input-field::placeholder { color:var(--gray); }
+select.input-field { cursor:pointer; }
+select.input-field option { background:var(--dark3); }
+
+/* LEVEL OPTIONS */
+.level-opts { display:flex; flex-direction:column; gap:8px; margin-bottom:24px; }
+.level-opt { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:14px; }
+.level-opt:hover { border-color:rgba(252,76,2,.3); }
+.level-opt.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.lo-icon { font-size:22px; }
+.lo-info { flex:1; }
+.lo-name { font-weight:600; font-size:14px; margin-bottom:2px; }
+.lo-desc { font-size:12px; color:var(--gray); }
+.lo-badge { font-family:'DM Mono',monospace; font-size:10px; padding:3px 8px; border-radius:100px; background:rgba(255,255,255,.06); color:var(--gray-light); }
+
+/* NOTIF OPTIONS */
+.notif-opts { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+.notif-opt { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:12px; }
+.notif-opt.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.notif-chk { width:20px; height:20px; border:2px solid rgba(255,255,255,.15); border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; transition:all .2s; flex-shrink:0; }
+.notif-opt.sel .notif-chk { background:var(--orange); border-color:var(--orange); }
+
+/* OB BTNS */
+.ob-btns { display:flex; gap:10px; justify-content:flex-end; }
+.btn-back { background:none; border:1px solid rgba(255,255,255,.1); color:var(--gray-light); padding:13px 26px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; }
+.btn-next { background:var(--orange); border:none; color:white; padding:13px 32px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; }
+.btn-next:hover { background:var(--orange-light); }
+
+/* DASHBOARD */
+.dash-nav { background:rgba(17,17,17,.92); backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,.05); padding:0 32px; display:flex; align-items:center; height:60px; position:sticky; top:0; z-index:100; gap:0; }
+.dash-logo { font-family:'DM Serif Display',serif; font-size:20px; margin-right:28px; flex-shrink:0; }
+.dash-logo em { font-style:normal; color:var(--orange); }
+.dash-tabs { display:flex; flex:1; overflow-x:auto; }
+.dash-tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--gray); padding:0 16px; height:60px; font-family:'Pretendard',sans-serif; font-size:13px; cursor:pointer; transition:all .2s; white-space:nowrap; }
+.dash-tab:hover { color:var(--gray-light); }
+.dash-tab.active { color:var(--white); border-bottom-color:var(--orange); }
+.dash-user { display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; }
+.user-av { width:30px; height:30px; background:linear-gradient(135deg,var(--orange),#FF8C5A); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+.user-nm { font-size:13px; color:var(--gray-light); }
+.logout-btn { background:none; border:none; color:var(--gray); font-size:12px; cursor:pointer; padding:4px 8px; font-family:'Pretendard',sans-serif; }
+.logout-btn:hover { color:var(--red); }
+
+.dash-body { max-width:1080px; margin:0 auto; padding:36px 28px; }
+@media(max-width:768px){.dash-body{padding:20px 14px}}
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* GOAL HERO */
+.goal-hero { background:linear-gradient(135deg,rgba(252,76,2,.18),rgba(252,76,2,.04)); border:1px solid rgba(252,76,2,.25); border-radius:20px; padding:32px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+.gh-left h2 { font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:6px; }
+.gh-left p { font-size:13px; color:var(--gray-light); }
+.gh-pace { display:inline-flex; align-items:center; gap:5px; background:rgba(252,76,2,.15); color:var(--orange); padding:4px 12px; border-radius:100px; font-family:'DM Mono',monospace; font-size:11px; margin-top:8px; }
+.gh-right { display:flex; gap:28px; align-items:center; flex-wrap:wrap; }
+.gh-metric-val { font-family:'DM Serif Display',serif; font-size:36px; color:var(--orange); line-height:1; }
+.gh-metric-lbl { font-size:11px; color:var(--gray); margin-top:3px; }
+.prog-wrap { position:relative; }
+.prog-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.prog-pct { font-family:'DM Serif Display',serif; font-size:20px; color:var(--orange); }
+.prog-lbl { font-size:9px; color:var(--gray); }
+
+/* STATS */
+.stats-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+@media(max-width:900px){.stats-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.stats-4{grid-template-columns:1fr}}
+.stat-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:20px; transition:all .25s; }
+.stat-card:hover { border-color:rgba(252,76,2,.2); transform:translateY(-2px); }
+.sc-label { font-size:10px; color:var(--gray); text-transform:uppercase; letter-spacing:1px; font-family:'DM Mono',monospace; margin-bottom:8px; }
+.sc-val { font-family:'DM Serif Display',serif; font-size:30px; margin-bottom:3px; }
+.sc-sub { font-size:11px; color:var(--gray); }
+.sc-trend { font-size:11px; font-weight:600; margin-top:6px; }
+.up{color:var(--green)} .warn{color:var(--yellow)} .dn{color:var(--red)}
+
+/* SECTION */
+.section-hd { font-family:'DM Serif Display',serif; font-size:20px; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+.section-hd::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.05); }
+
+/* ACTIVITY CARDS */
+.act-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:22px 26px; margin-bottom:12px; display:grid; grid-template-columns:1fr auto; gap:18px; transition:all .2s; }
+.act-card:hover { border-color:rgba(252,76,2,.15); }
+@media(max-width:600px){.act-card{grid-template-columns:1fr}}
+.act-date { font-size:11px; color:var(--orange); font-family:'DM Mono',monospace; margin-bottom:5px; }
+.act-name { font-family:'DM Serif Display',serif; font-size:18px; margin-bottom:12px; }
+.act-stats { display:flex; gap:20px; flex-wrap:wrap; }
+.as-val { font-family:'DM Mono',monospace; font-size:16px; }
+.as-lbl { font-size:10px; color:var(--gray); margin-top:2px; }
+.pace-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:100px; font-size:10px; font-family:'DM Mono',monospace; margin-top:8px; }
+.pb-good{background:rgba(39,174,96,.15);color:var(--green)}
+.pb-close{background:rgba(240,180,41,.15);color:var(--yellow)}
+.pb-slow{background:rgba(231,76,60,.15);color:var(--red)}
+.act-analysis { max-width:320px; background:rgba(252,76,2,.05); border:1px solid rgba(252,76,2,.12); border-radius:12px; padding:16px; }
+.aa-hd { font-size:11px; color:var(--orange); font-weight:600; margin-bottom:6px; }
+.aa-txt { font-size:12px; color:var(--gray-light); line-height:1.65; }
+
+/* WEEKLY */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.chart-box { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:22px; }
+.cb-title { font-size:12px; color:var(--gray-light); font-weight:600; margin-bottom:16px; }
+.bar-row { display:flex; align-items:flex-end; gap:5px; height:90px; }
+.b-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+.b-bar { width:100%; border-radius:3px 3px 0 0; transition:height 1s ease; }
+.b-bar.fill { background:rgba(252,76,2,.3); }
+.b-bar.fill.cur { background:var(--orange); }
+.b-day { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; }
+.b-km { font-size:9px; color:var(--gray-light); }
+.trend-rows { display:flex; flex-direction:column; gap:8px; }
+.trend-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+.tr-week { color:var(--gray); }
+.tr-pace { font-family:'DM Mono',monospace; }
+.trend-row.now .tr-week { color:var(--orange); font-weight:600; }
+.trend-row.now .tr-pace { color:var(--orange); }
+
+/* COACH BOX */
+.coach-box { background:var(--dark2); border:1px solid rgba(252,76,2,.18); border-radius:18px; padding:26px; margin-bottom:24px; }
+.cb-hd { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+.cb-av { width:42px; height:42px; background:linear-gradient(135deg,var(--orange),var(--orange-light)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.cb-nm { font-weight:700; font-size:14px; }
+.cb-sb { font-size:11px; color:var(--gray); }
+.cb-msg { font-size:14px; color:var(--gray-light); line-height:1.8; border-left:3px solid var(--orange); padding-left:16px; margin-bottom:18px; }
+.tips-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+@media(max-width:640px){.tips-3{grid-template-columns:1fr}}
+.tip { background:var(--dark3); border-radius:10px; padding:14px; }
+.tip-icon { font-size:18px; margin-bottom:6px; }
+.tip-title { font-size:12px; font-weight:700; margin-bottom:3px; }
+.tip-desc { font-size:11px; color:var(--gray); line-height:1.5; }
+
+/* PLAN WEEK */
+.plan-week { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:24px; }
+@media(max-width:640px){.plan-week{grid-template-columns:repeat(4,1fr)}}
+.plan-d { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:12px; padding:12px 8px; text-align:center; cursor:pointer; transition:all .2s; }
+.plan-d.today { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.plan-d.rest { opacity:.4; }
+.pd-name { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; margin-bottom:6px; }
+.pd-type { font-size:10px; font-weight:600; margin-bottom:3px; }
+.pd-km { font-family:'DM Serif Display',serif; font-size:16px; color:var(--orange); }
+.pd-km.rest { font-family:'Pretendard',sans-serif; font-size:10px; color:var(--gray); }
+
+/* SETTINGS */
+.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){.settings-grid{grid-template-columns:1fr}}
+.settings-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:24px; }
+.sc-title { font-size:15px; font-weight:700; margin-bottom:3px; }
+.sc-sub-text { font-size:12px; color:var(--gray); margin-bottom:18px; }
+.settings-full { grid-column:1/-1; }
+.save-btn { background:var(--orange); border:none; color:white; padding:11px 24px; border-radius:9px; font-family:'Pretendard',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; margin-top:10px; }
+.save-btn:hover { background:var(--orange-light); }
+
+/* CHAT */
+.chat-input-row { display:flex; gap:8px; }
+.chat-quick { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.cq-btn { background:var(--dark3); border:1px solid rgba(255,255,255,.07); color:var(--gray-light); padding:8px 12px; border-radius:7px; font-size:12px; cursor:pointer; font-family:'Pretendard',sans-serif; transition:all .2s; }
+.cq-btn:hover { border-color:rgba(252,76,2,.3); color:var(--orange); }
+.chat-field { flex:1; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:9px; padding:12px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:14px; outline:none; }
+.chat-field:focus { border-color:var(--orange); }
+.chat-send { background:var(--orange); border:none; color:white; padding:12px 20px; border-radius:9px; font-family:'Pretendard',sans-serif; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.chat-ans { display:none; background:rgba(252,76,2,.05); border:1px solid rgba(252,76,2,.15); border-radius:12px; padding:16px; margin-top:12px; }
+.ca-hd { font-size:11px; color:var(--orange); font-weight:600; margin-bottom:6px; }
+.ca-txt { font-size:13px; color:var(--gray-light); line-height:1.7; }
+
+/* TOAST */
+.toast { position:fixed; bottom:24px; right:24px; background:var(--dark2); border:1px solid rgba(252,76,2,.25); border-radius:12px; padding:14px 20px; font-size:13px; transform:translateY(80px); opacity:0; transition:all .3s; z-index:9999; max-width:300px; }
+.toast.show { transform:translateY(0); opacity:1; }
+
+/* LOADING */
+.loading-screen { position:fixed; inset:0; background:var(--black); display:flex; align-items:center; justify-content:center; z-index:10000; }
+.loading-logo { font-family:'DM Serif Display',serif; font-size:32px; animation:pulse 1.5s ease-in-out infinite; }
+.loading-logo em { font-style:normal; color:var(--orange); }
+@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">Run<em>AI</em></div>
+</div>
+
+<!-- LANDING -->
+<div id="screen-landing" class="screen">
+  <div class="landing-wrap">
+    <div class="bg-glow"></div>
+    <nav class="landing-nav">
+      <div class="logo">Run<em>AI</em></div>
+      <div class="nav-btns">
+        <button class="btn-ghost" onclick="openAuth('login')">로그인</button>
+        <button class="btn-orange" onclick="openAuth('signup')">무료 시작</button>
+      </div>
+    </nav>
+    <div class="hero">
+      <div class="hero-pill">🏃 AI 기반 마라톤 퍼스널 코치</div>
+      <h1>달리기를<br><i>과학으로</i></h1>
+      <p>Strava 기록을 AI가 분석해 일일·주간·월간 리포트와<br>마라톤 완주를 위한 맞춤 훈련 계획을 제공합니다.</p>
+      <div class="hero-btns">
+        <button class="btn-hero" onclick="openAuth('signup')">🏃 Strava로 시작하기</button>
+        <button class="btn-hero-ghost" onclick="openAuth('login')">로그인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="modal-logo">Run<em>AI</em></div>
+    <div class="modal-sub">마라톤 AI 코치와 함께 시작하세요</div>
+    <div class="tab-sw">
+      <button class="tab-sw-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
+      <button class="tab-sw-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">회원가입</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" type="email" id="loginEmail" placeholder="runner@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input class="form-input" type="password" id="loginPw" placeholder="••••••••">
+      </div>
+      <div class="form-error" id="loginError">이메일 또는 비밀번호를 확인해주세요.</div>
+      <button class="form-submit" onclick="doLogin()">로그인</button>
+    </div>
+    <!-- SIGNUP -->
+    <div id="signupForm" style="display:none">
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input class="form-input" type="text" id="signupName" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" type="email" id="signupEmail" placeholder="runner@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호 (8자 이상)</label>
+        <input class="form-input" type="password" id="signupPw" placeholder="••••••••">
+      </div>
+      <div class="form-error" id="signupError">모든 항목을 입력해주세요.</div>
+      <button class="form-submit" onclick="doSignup()">회원가입 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="screen-onboarding" class="screen">
+  <div class="ob-card">
+    <div class="step-dots">
+      <div class="step-dot done" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+      <div class="step-dot" id="dot4"></div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="ob-step active" id="step1">
+      <div class="ob-title">목표 기록을<br>선택해주세요</div>
+      <div class="ob-sub">풀코스 마라톤(42.195km) 기준입니다</div>
+      <div class="goal-grid">
+        <div class="goal-card" onclick="selectGoal(this,'3:00:00','4:16')"><div class="gc-icon">⚡</div><div class="gc-title">서브 3</div><div class="gc-time">3:00:00</div><div class="gc-desc">페이스 4:16/km · 상위 2%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'3:30:00','4:58')"><div class="gc-icon">🔥</div><div class="gc-title">서브 3:30</div><div class="gc-time">3:30:00</div><div class="gc-desc">페이스 4:58/km · 상위 10%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card sel" id="defaultGoal" onclick="selectGoal(this,'3:50:00','5:27')"><div class="gc-icon">🎯</div><div class="gc-title">서브 3:50</div><div class="gc-time">3:50:00</div><div class="gc-desc">페이스 5:27/km · 상위 20%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'4:00:00','5:41')"><div class="gc-icon">🏅</div><div class="gc-title">서브 4</div><div class="gc-time">4:00:00</div><div class="gc-desc">페이스 5:41/km · 상위 35%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'4:30:00','6:23')"><div class="gc-icon">🌟</div><div class="gc-title">서브 4:30</div><div class="gc-time">4:30:00</div><div class="gc-desc">페이스 6:23/km · 완주 목표</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'5:00:00','7:06')"><div class="gc-icon">🏃</div><div class="gc-title">완주 목표</div><div class="gc-time">5:00:00</div><div class="gc-desc">페이스 7:06/km · 첫 마라톤</div><div class="gc-check">✓</div></div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label class="input-label">직접 입력 (HH:MM:SS)</label>
+        <input class="input-field" type="text" id="customTime" placeholder="예: 3:45:00" style="max-width:220px">
+      </div>
+      <div class="ob-btns"><button class="btn-next" onclick="goStep(2)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="ob-step" id="step2">
+      <div class="ob-title">레이스 정보를<br>알려주세요</div>
+      <div class="ob-sub">훈련 기간 계산에 사용됩니다</div>
+      <div class="form-grid">
+        <div><label class="input-label">레이스 이름</label><input class="input-field" type="text" id="raceName" placeholder="서울 마라톤" value="서울 마라톤"></div>
+        <div><label class="input-label">레이스 날짜</label><input class="input-field" type="date" id="raceDate" value="2026-09-20"></div>
+        <div><label class="input-label">현재 주간 달리기 거리</label><select class="input-field" id="weeklyKm"><option>20km 미만</option><option>20~40km</option><option selected>40~60km</option><option>60~80km</option><option>80km 이상</option></select></div>
+        <div><label class="input-label">주간 훈련 가능일</label><select class="input-field" id="trainDays"><option>주 3일</option><option>주 4일</option><option selected>주 5일</option><option>주 6일</option></select></div>
+      </div>
+      <div class="ob-btns"><button class="btn-back" onclick="goStep(1)">← 이전</button><button class="btn-next" onclick="goStep(3)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="ob-step" id="step3">
+      <div class="ob-title">러닝 수준을<br>알려주세요</div>
+      <div class="ob-sub">맞춤 훈련 강도 설정에 사용됩니다</div>
+      <div class="level-opts">
+        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">🌱</div><div class="lo-info"><div class="lo-name">입문자</div><div class="lo-desc">달리기 시작 1년 미만, 5km 완주 가능</div></div><div class="lo-badge">Beginner</div></div>
+        <div class="level-opt sel" onclick="selectLevel(this)"><div class="lo-icon">🏃</div><div class="lo-info"><div class="lo-name">중급자</div><div class="lo-desc">하프마라톤 경험, 주 3~4회 달림</div></div><div class="lo-badge">Intermediate</div></div>
+        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">⚡</div><div class="lo-info"><div class="lo-name">고급자</div><div class="lo-desc">풀마라톤 완주 경험, 주 5회 이상</div></div><div class="lo-badge">Advanced</div></div>
+      </div>
+      <div class="ob-btns"><button class="btn-back" onclick="goStep(2)">← 이전</button><button class="btn-next" onclick="goStep(4)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="ob-step" id="step4">
+      <div class="ob-title">알림 채널을<br>선택해주세요</div>
+      <div class="ob-sub">운동 완료 후 분석 결과를 어디서 받을지 선택하세요</div>
+      <div class="notif-opts">
+        <div class="notif-opt sel" onclick="toggleNotif(this)"><div class="notif-chk">✓</div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📱 텔레그램</div><div style="font-size:12px;color:var(--gray)">운동 완료 즉시 분석 알림</div></div></div>
+        <div class="notif-opt" onclick="toggleNotif(this)"><div class="notif-chk"></div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📧 이메일</div><div style="font-size:12px;color:var(--gray)">주간·월간 리포트 이메일 발송</div></div></div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label class="input-label">텔레그램 Chat ID</label>
+        <input class="input-field" type="text" id="telegramId" placeholder="Chat ID 입력" style="max-width:260px">
+      </div>
+      <div class="ob-btns"><button class="btn-back" onclick="goStep(3)">← 이전</button><button class="btn-next" onclick="finishOnboarding()">🚀 시작하기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen">
+  <nav class="dash-nav">
+    <div class="dash-logo">Run<em>AI</em></div>
+    <div class="dash-tabs">
+      <button class="dash-tab active" onclick="switchPanel(this,'p-daily')">일일 분석</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-weekly')">주간 리포트</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-monthly')">월간 리포트</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-coach')">AI 코치</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-settings')">설정</button>
+    </div>
+    <div class="dash-user">
+      <div class="user-av" id="userInitial">J</div>
+      <span class="user-nm" id="userName">-</span>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="dash-body">
+    <!-- GOAL HERO -->
+    <div class="goal-hero">
+      <div class="gh-left">
+        <h2 id="gh-race">🎯 서울 마라톤 풀코스</h2>
+        <p id="gh-target">목표: 3시간 50분 이내 완주</p>
+        <div class="gh-pace" id="gh-pace">⚡ 목표 페이스 5:27/km</div>
+      </div>
+      <div class="gh-right">
+        <div><div class="gh-metric-val" id="gh-days">--</div><div class="gh-metric-lbl">일 남음</div></div>
+        <div class="prog-wrap">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="33" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
+            <circle id="progCircle" cx="40" cy="40" r="33" fill="none" stroke="#FC4C02" stroke-width="7" stroke-dasharray="207.3" stroke-dashoffset="66.3" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+          </svg>
+          <div class="prog-center"><div class="prog-pct" id="progPct">68%</div><div class="prog-lbl">달성률</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAILY -->
+    <div class="tab-panel active" id="p-daily">
+      <div class="stats-4">
+        <div class="stat-card"><div class="sc-label">이번 주 거리</div><div class="sc-val">52.3<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 60km</div><div class="sc-trend up">↑ +8.2km vs 지난주</div></div>
+        <div class="stat-card"><div class="sc-label">평균 페이스</div><div class="sc-val">5:32<span style="font-size:14px;color:var(--gray)">/km</span></div><div class="sc-sub">목표 5:27/km</div><div class="sc-trend warn">→ 목표까지 5초</div></div>
+        <div class="stat-card"><div class="sc-label">이번 달 누적</div><div class="sc-val">68<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 100km</div><div class="sc-trend up">↑ 순조로운 진행</div></div>
+        <div class="stat-card"><div class="sc-label">예상 완주 기록</div><div class="sc-val" style="font-size:22px">3:51:30</div><div class="sc-sub">현재 페이스 기준</div><div class="sc-trend warn">→ 목표까지 1:30</div></div>
+      </div>
+      <div class="section-hd">최근 활동 분석</div>
+      <div id="activitiesList">
+        <div class="act-card">
+          <div>
+            <div class="act-date">2026.04.22 (수) · 오후 7:16</div>
+            <div class="act-name">스트라바 자동화 테스트 런</div>
+            <div class="act-stats">
+              <div><div class="as-val">8.0km</div><div class="as-lbl">거리</div></div>
+              <div><div class="as-val">1:00:00</div><div class="as-lbl">시간</div></div>
+              <div><div class="as-val">7:30/km</div><div class="as-lbl">페이스</div></div>
+              <div><div class="as-val">450</div><div class="as-lbl">칼로리</div></div>
+            </div>
+            <span class="pace-badge pb-slow">● 목표보다 2:03 느림</span>
+          </div>
+          <div class="act-analysis">
+            <div class="aa-hd">🤖 Claude AI 분석</div>
+            <div class="aa-txt">오늘 8km를 지구력 훈련 페이스로 완주했습니다. 유산소 기반 강화에 효과적이에요. 다음엔 5km를 5:30/km로 시도해보세요!</div>
+          </div>
+        </div>
+        <div class="act-card">
+          <div>
+            <div class="act-date">2026.04.20 (월) · 오전 6:30</div>
+            <div class="act-name">Morning Easy Run</div>
+            <div class="act-stats">
+              <div><div class="as-val">12.5km</div><div class="as-lbl">거리</div></div>
+              <div><div class="as-val">1:08:45</div><div class="as-lbl">시간</div></div>
+              <div><div class="as-val">5:30/km</div><div class="as-lbl">페이스</div></div>
+              <div><div class="as-val">680</div><div class="as-lbl">칼로리</div></div>
+            </div>
+            <span class="pace-badge pb-close">● 목표 페이스와 3초 차이</span>
+          </div>
+          <div class="act-analysis">
+            <div class="aa-hd">🤖 Claude AI 분석</div>
+            <div class="aa-txt"><strong>훌륭해요!</strong> 이 페이스 유지 시 3:51:30 완주 예상. 목표까지 1분 30초 차이입니다!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEEKLY -->
+    <div class="tab-panel" id="p-weekly">
+      <div class="two-col">
+        <div class="chart-box">
+          <div class="cb-title">이번 주 일별 달리기 (km)</div>
+          <div class="bar-row">
+            <div class="b-col"><div class="b-km">12.5</div><div class="b-bar fill" style="height:78%"></div><div class="b-day">월</div></div>
+            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">화</div></div>
+            <div class="b-col"><div class="b-km">8</div><div class="b-bar fill cur" style="height:50%"></div><div class="b-day">수</div></div>
+            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">목</div></div>
+            <div class="b-col"><div class="b-km">16</div><div class="b-bar fill" style="height:100%;opacity:.3"></div><div class="b-day">금</div></div>
+            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">토</div></div>
+            <div class="b-col"><div class="b-km">15.8</div><div class="b-bar fill" style="height:99%;opacity:.3"></div><div class="b-day">일</div></div>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="cb-title">주간 평균 페이스 트렌드</div>
+          <div class="trend-rows">
+            <div class="trend-row"><span class="tr-week">4주 전</span><span class="tr-pace">6:02/km</span></div>
+            <div class="trend-row"><span class="tr-week">3주 전</span><span class="tr-pace">5:51/km</span></div>
+            <div class="trend-row"><span class="tr-week">2주 전</span><span class="tr-pace">5:41/km</span></div>
+            <div class="trend-row"><span class="tr-week">지난 주</span><span class="tr-pace">5:35/km</span></div>
+            <div class="trend-row now"><span class="tr-week">이번 주 ↑</span><span class="tr-pace">5:32/km</span></div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);font-size:11px;color:var(--green)">✓ 4주 연속 향상 · 목표까지 5초!</div>
+          </div>
+        </div>
+      </div>
+      <div class="section-hd">주간 AI 분석</div>
+      <div class="coach-box">
+        <div class="cb-hd"><div class="cb-av">🤖</div><div><div class="cb-nm">Claude AI 주간 리포트</div><div class="cb-sb">2026년 4월 3주차 · 총 52.3km</div></div></div>
+        <div class="cb-msg">이번 주 52.3km, 평균 페이스 5:32/km. 4주 연속 향상으로 <strong>9월 서브 3:50 목표 달성 가능성이 높습니다!</strong></div>
+        <div class="tips-3">
+          <div class="tip"><div class="tip-icon">🏃</div><div class="tip-title">다음 주 계획</div><div class="tip-desc">인터벌 2회, 장거리 18km, LSD 22km</div></div>
+          <div class="tip"><div class="tip-icon">💪</div><div class="tip-title">강점</div><div class="tip-desc">꾸준한 페이스 향상, 볼륨 안정적 유지</div></div>
+          <div class="tip"><div class="tip-icon">⚡</div><div class="tip-title">개선점</div><div class="tip-desc">인터벌 강화, 목요일 회복런 추가</div></div>
+        </div>
+      </div>
+      <div class="section-hd">다음 주 훈련 계획</div>
+      <div class="plan-week">
+        <div class="plan-d rest"><div class="pd-name">MON</div><div class="pd-type" style="color:var(--gray)">휴식</div><div class="pd-km rest">Rest</div></div>
+        <div class="plan-d"><div class="pd-name">TUE</div><div class="pd-type" style="color:#9B59B6">인터벌</div><div class="pd-km">12</div></div>
+        <div class="plan-d today"><div class="pd-name">WED</div><div class="pd-type" style="color:var(--orange)">장거리</div><div class="pd-km">18</div></div>
+        <div class="plan-d"><div class="pd-name">THU</div><div class="pd-type" style="color:var(--green)">회복런</div><div class="pd-km">8</div></div>
+        <div class="plan-d rest"><div class="pd-name">FRI</div><div class="pd-type" style="color:var(--gray)">휴식</div><div class="pd-km rest">Rest</div></div>
+        <div class="plan-d"><div class="pd-name">SAT</div><div class="pd-type" style="color:#2D9CDB">템포런</div><div class="pd-km">14</div></div>
+        <div class="plan-d"><div class="pd-name">SUN</div><div class="pd-type" style="color:var(--orange)">LSD</div><div class="pd-km">22</div></div>
+      </div>
+    </div>
+
+    <!-- MONTHLY -->
+    <div class="tab-panel" id="p-monthly">
+      <div class="stats-4">
+        <div class="stat-card"><div class="sc-label">4월 누적 거리</div><div class="sc-val">68<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 100km</div><div class="sc-trend up">↑ +15km vs 3월</div></div>
+        <div class="stat-card"><div class="sc-label">월 평균 페이스</div><div class="sc-val">5:38<span style="font-size:14px;color:var(--gray)">/km</span></div><div class="sc-sub">3월: 5:52/km</div><div class="sc-trend up">↑ 14초 향상</div></div>
+        <div class="stat-card"><div class="sc-label">목표 준비도</div><div class="sc-val">72<span style="font-size:14px;color:var(--gray)">%</span></div><div class="sc-sub">9월 레이스 기준</div><div class="sc-trend up">✓ 달성 가능</div></div>
+        <div class="stat-card"><div class="sc-label">이번 달 훈련</div><div class="sc-val">14<span style="font-size:14px;color:var(--gray)">회</span></div><div class="sc-sub">이번 달</div><div class="sc-trend up">↑ 꾸준함 유지</div></div>
+      </div>
+      <div class="section-hd">월간 AI 리포트</div>
+      <div class="coach-box">
+        <div class="cb-hd"><div class="cb-av">📊</div><div><div class="cb-nm">4월 월간 분석 · 서울 마라톤 로드맵</div><div class="cb-sb">Claude AI 생성 · 목표: 3:50:00</div></div></div>
+        <div class="cb-msg">4월 68km, 평균 페이스 5:38/km. <strong>9월 서브 3:50 달성 가능성 매우 높습니다.</strong> 5월부터 주간 70km로 늘리고 6월 하프마라톤으로 중간 점검을 권장합니다.</div>
+        <div class="tips-3">
+          <div class="tip"><div class="tip-icon">📅</div><div class="tip-title">5월 목표</div><div class="tip-desc">주간 70km, 페이스 5:25/km, 25km 장거리 1회</div></div>
+          <div class="tip"><div class="tip-icon">🎯</div><div class="tip-title">6월 점검</div><div class="tip-desc">하프마라톤 레이스 참가 목표 1:48:00</div></div>
+          <div class="tip"><div class="tip-icon">🏆</div><div class="tip-title">8-9월 전략</div><div class="tip-desc">8월 테이퍼링 → 레이스 2주 전 최종 조정</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI COACH -->
+    <div class="tab-panel" id="p-coach">
+      <div class="coach-box">
+        <div class="cb-hd"><div class="cb-av">🤖</div><div><div class="cb-nm">Claude AI 코치</div><div class="cb-sb">Strava 데이터 기반 맞춤 코칭</div></div></div>
+        <div style="background:var(--dark3);border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;color:var(--gray-light);line-height:1.7">
+          <span style="color:var(--orange);font-weight:600">오늘의 코칭</span><br><br>
+          현재 주간 52km를 유지하고 있어요! 서브 3:50을 위해 <strong>장거리런(20km+)을 격주로 추가</strong>하고 경사 훈련으로 후반부 버티는 힘을 키우세요.
+        </div>
+        <div class="chat-quick">
+          <button class="cq-btn" onclick="askCoach('이번 주 훈련 강도 평가해줘')">이번 주 훈련 강도?</button>
+          <button class="cq-btn" onclick="askCoach('레이스 당일 페이스 전략 알려줘')">레이스 당일 전략</button>
+          <button class="cq-btn" onclick="askCoach('부상 예방 팁 알려줘')">부상 예방 팁</button>
+          <button class="cq-btn" onclick="askCoach('탄수화물 로딩 방법 알려줘')">탄수화물 로딩</button>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-field" id="coachQ" type="text" placeholder="코치에게 무엇이든 질문하세요...">
+          <button class="chat-send" onclick="askCoach()">전송</button>
+        </div>
+        <div class="chat-ans" id="coachAns">
+          <div class="ca-hd">🤖 Claude AI</div>
+          <div class="ca-txt" id="coachAnsTxt"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab-panel" id="p-settings">
+      <div class="section-hd">설정</div>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <div class="sc-title">개인 정보</div>
+          <div class="sc-sub-text">기본 프로필을 수정하세요</div>
+          <label class="input-label">이름</label>
+          <input class="input-field" type="text" id="settingName" style="margin-bottom:10px">
+          <label class="input-label">이메일</label>
+          <input class="input-field" type="email" id="settingEmail" style="margin-bottom:10px">
+          <button class="save-btn" onclick="saveProfile()">저장</button>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">목표 기록 변경</div>
+          <div class="sc-sub-text">마라톤 목표를 수정하세요</div>
+          <label class="input-label">목표 기록</label>
+          <input class="input-field" type="text" id="settingGoal" style="margin-bottom:10px">
+          <label class="input-label">레이스 날짜</label>
+          <input class="input-field" type="date" id="settingRaceDate" style="margin-bottom:10px">
+          <label class="input-label">레이스 이름</label>
+          <input class="input-field" type="text" id="settingRaceName" style="margin-bottom:10px">
+          <button class="save-btn" onclick="saveGoal()">목표 업데이트</button>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">Strava 연동</div>
+          <div class="sc-sub-text">Strava 계정 연결 상태</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px">
+            <span style="color:var(--green);font-size:18px">✓</span>
+            <div><div style="font-size:13px;font-weight:600">연결됨</div><div style="font-size:11px;color:var(--gray)" id="stravaStatus">Strava 계정 연동 완료</div></div>
+          </div>
+          <button class="save-btn" style="background:var(--dark3);border:1px solid rgba(255,255,255,.1);color:var(--gray-light)" onclick="toast('🔄 Strava 재연결 중...')">재연결</button>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">텔레그램 알림</div>
+          <div class="sc-sub-text">분석 결과 수신 설정</div>
+          <label class="input-label">텔레그램 Chat ID</label>
+          <input class="input-field" type="text" id="settingTelegram" placeholder="Chat ID" style="margin-bottom:10px">
+          <label class="input-label">주간 리포트 요일</label>
+          <select class="input-field" style="margin-bottom:10px"><option selected>월요일 오전 8시</option><option>일요일 저녁 8시</option></select>
+          <button class="save-btn" onclick="saveTelegram()">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE CONFIG ──
+// 아래 두 줄을 본인의 Supabase 정보로 교체하세요!
+const SUPABASE_URL = https://lshfrgybvwcvrreqofcv.supabase.co
+const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzaGZyZ3lidndjdnJyZXFvZmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODEwOTMsImV4cCI6MjA5MjM1NzA5M30.KKD6MMY9eUxowDNwT974L4CzgNnw7GwPs1jEGjr0x5Y
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── STATE ──
+let currentUser = null;
+let userGoal = { time: '3:50:00', pace: '5:27' };
+let obStep = 1;
+
+// ── INIT ──
+window.addEventListener('load', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadUserData();
+    showScreen('dashboard');
+  } else {
+    showScreen('landing');
+  }
+  document.getElementById('loadingScreen').style.display = 'none';
+});
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+  }
+});
+
+// ── SCREENS ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+// ── AUTH ──
+function openAuth(tab) {
+  document.getElementById('authModal').classList.add('open');
+  switchAuthTab(tab);
+}
+function closeAuth() {
+  document.getElementById('authModal').classList.remove('open');
+}
+function switchAuthTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signupForm').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('loginTabBtn').classList.toggle('active', tab === 'login');
+  document.getElementById('signupTabBtn').classList.toggle('active', tab === 'signup');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  if (!email || !pw) { showErr('loginError', true); return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) { showErr('loginError', true); return; }
+  currentUser = data.user;
+  closeAuth();
+  await loadUserData();
+  showScreen('dashboard');
+  toast('👋 다시 오셨네요!');
+}
+
+async function doSignup() {
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pw = document.getElementById('signupPw').value;
+  if (!name || !email || !pw || pw.length < 8) { showErr('signupError', true); return; }
+  const { data, error } = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
+  if (error) { document.getElementById('signupError').textContent = error.message; showErr('signupError', true); return; }
+  currentUser = data.user;
+  // Save profile
+  await sb.from('profiles').upsert({ id: currentUser.id, name, email });
+  closeAuth();
+  showScreen('onboarding');
+  toast('🎉 가입 완료! 목표를 설정해볼게요.');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  showScreen('landing');
+  toast('👋 로그아웃 됐습니다.');
+}
+
+function showErr(id, show) {
+  document.getElementById(id).style.display = show ? 'block' : 'none';
+}
+
+// ── ONBOARDING ──
+function goStep(n) {
+  document.getElementById('step' + obStep).classList.remove('active');
+  obStep = n;
+  document.getElementById('step' + n).classList.add('active');
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('dot' + i).classList.toggle('done', i <= n);
+  }
+}
+
+function selectGoal(el, time, pace) {
+  document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  userGoal = { time, pace };
+}
+
+function selectLevel(el) {
+  document.querySelectorAll('.level-opt').forEach(o => o.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function toggleNotif(el) {
+  el.classList.toggle('sel');
+  el.querySelector('.notif-chk').textContent = el.classList.contains('sel') ? '✓' : '';
+}
+
+async function finishOnboarding() {
+  const customTime = document.getElementById('customTime').value;
+  if (customTime) userGoal.time = customTime;
+  
+  const goalData = {
+    user_id: currentUser.id,
+    race_name: document.getElementById('raceName').value,
+    race_date: document.getElementById('raceDate').value,
+    target_time: userGoal.time,
+    target_pace: userGoal.pace,
+    weekly_km: document.getElementById('weeklyKm').value,
+    train_days: document.getElementById('trainDays').value,
+    level: document.querySelector('.level-opt.sel .lo-name')?.textContent || '중급자',
+  };
+
+  const telegramId = document.getElementById('telegramId').value;
+  await sb.from('goals').insert(goalData);
+  if (telegramId) await sb.from('profiles').update({ telegram_chat_id: telegramId }).eq('id', currentUser.id);
+
+  await loadUserData();
+  showScreen('dashboard');
+  toast('🎉 설정 완료! AI 코치가 준비됐어요.');
+}
+
+// ── LOAD USER DATA ──
+async function loadUserData() {
+  if (!currentUser) return;
+
+  // Profile
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  const name = profile?.name || currentUser.email?.split('@')[0] || 'Runner';
+  document.getElementById('userInitial').textContent = name[0].toUpperCase();
+  document.getElementById('userName').textContent = name;
+  document.getElementById('settingName').value = name;
+  document.getElementById('settingEmail').value = currentUser.email || '';
+  if (profile?.telegram_chat_id) document.getElementById('settingTelegram').value = profile.telegram_chat_id;
+
+  // Latest goal
+  const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (goals && goals.length > 0) {
+    const g = goals[0];
+    document.getElementById('gh-race').textContent = '🎯 ' + (g.race_name || '마라톤') + ' 풀코스';
+    document.getElementById('gh-target').textContent = '목표: ' + g.target_time + ' 이내 완주';
+    document.getElementById('gh-pace').textContent = '⚡ 목표 페이스 ' + g.target_pace + '/km';
+    document.getElementById('settingGoal').value = g.target_time;
+    document.getElementById('settingRaceDate').value = g.race_date;
+    document.getElementById('settingRaceName').value = g.race_name;
+    // Days left
+    if (g.race_date) {
+      const days = Math.ceil((new Date(g.race_date) - new Date()) / 86400000);
+      document.getElementById('gh-days').textContent = days;
+    }
+  }
+
+  // Activities
+  const { data: acts } = await sb.from('activities').select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(5);
+  if (acts && acts.length > 0) renderActivities(acts);
+}
+
+function renderActivities(acts) {
+  const list = document.getElementById('activitiesList');
+  if (acts.length === 0) return;
+  list.innerHTML = acts.map(a => {
+    const km = (a.distance / 1000).toFixed(1);
+    const mins = Math.floor(a.moving_time / 60);
+    const secs = a.moving_time % 60;
+    const timeStr = `${Math.floor(mins/60)}:${String(mins%60).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    const paceSecPerKm = a.moving_time / (a.distance / 1000);
+    const paceMins = Math.floor(paceSecPerKm / 60);
+    const paceSecs = Math.round(paceSecPerKm % 60);
+    const paceStr = `${paceMins}:${String(paceSecs).padStart(2,'0')}`;
+    const date = new Date(a.start_date).toLocaleDateString('ko-KR');
+    return `
+      <div class="act-card">
+        <div>
+          <div class="act-date">${date}</div>
+          <div class="act-name">${a.name || '달리기'}</div>
+          <div class="act-stats">
+            <div><div class="as-val">${km}km</div><div class="as-lbl">거리</div></div>
+            <div><div class="as-val">${timeStr}</div><div class="as-lbl">시간</div></div>
+            <div><div class="as-val">${paceStr}/km</div><div class="as-lbl">페이스</div></div>
+            <div><div class="as-val">${a.calories || '-'}</div><div class="as-lbl">칼로리</div></div>
+          </div>
+        </div>
+        <div class="act-analysis">
+          <div class="aa-hd">🤖 Claude AI 분석</div>
+          <div class="aa-txt">${a.analysis || '분석 데이터를 불러오는 중...'}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── DASHBOARD ──
+function switchPanel(btn, panelId) {
+  document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+}
+
+// ── SETTINGS SAVE ──
+async function saveProfile() {
+  const name = document.getElementById('settingName').value;
+  await sb.from('profiles').update({ name }).eq('id', currentUser.id);
+  document.getElementById('userInitial').textContent = name[0].toUpperCase();
+  document.getElementById('userName').textContent = name;
+  toast('✅ 프로필이 업데이트됐습니다!');
+}
+
+async function saveGoal() {
+  const target_time = document.getElementById('settingGoal').value;
+  const race_date = document.getElementById('settingRaceDate').value;
+  const race_name = document.getElementById('settingRaceName').value;
+  await sb.from('goals').insert({ user_id: currentUser.id, target_time, race_date, race_name, target_pace: userGoal.pace });
+  document.getElementById('gh-race').textContent = '🎯 ' + race_name + ' 풀코스';
+  document.getElementById('gh-target').textContent = '목표: ' + target_time + ' 이내 완주';
+  const days = Math.ceil((new Date(race_date) - new Date()) / 86400000);
+  document.getElementById('gh-days').textContent = days;
+  toast('✅ 목표가 업데이트됐습니다!');
+}
+
+async function saveTelegram() {
+  const telegram_chat_id = document.getElementById('settingTelegram').value;
+  await sb.from('profiles').update({ telegram_chat_id }).eq('id', currentUser.id);
+  toast('✅ 텔레그램 알림이 설정됐습니다!');
+}
+
+// ── AI COACH ──
+const answers = {
+  '이번 주 훈련 강도 평가해줘': '현재 주간 52km는 서브 3:50에 <strong>적절한 볼륨</strong>입니다. 인터벌 비율을 20%(약 10km)로 늘리면 더 효과적이에요!',
+  '레이스 당일 페이스 전략 알려줘': '<strong>네거티브 스플릿</strong> 추천! 전반 21km → 5:35/km, 후반 21km → 5:20/km. 에너지젤은 25km·32km에서 섭취하세요.',
+  '부상 예방 팁 알려줘': '<strong>10% 법칙</strong>: 주간 볼륨을 매주 10% 이상 늘리지 마세요. 달리기 후 폼롤러 15분, 신발은 500km마다 교체!',
+  '탄수화물 로딩 방법 알려줘': '레이스 3일 전부터 탄수화물 70%로 높이세요. 쌀밥·파스타·바나나 중심으로, 레이스 전날 저녁은 <strong>파스타 or 쌀밥</strong> 추천!'
+};
+
+function askCoach(q) {
+  const input = document.getElementById('coachQ');
+  const question = q || input.value.trim();
+  if (!question) return;
+  input.value = '';
+  const ansDiv = document.getElementById('coachAns');
+  const ansTxt = document.getElementById('coachAnsTxt');
+  ansDiv.style.display = 'block';
+  ansTxt.innerHTML = '';
+  const answer = answers[question] || `"<strong>${question}</strong>"에 대해: 현재 훈련 데이터 분석 결과, 꾸준한 훈련을 이어가시면 됩니다. 주간 볼륨을 점진적으로 늘리고 인터벌을 병행하세요!`;
+  let i = 0;
+  const words = answer.split(' ');
+  const iv = setInterval(() => {
+    if (i < words.length) { ansTxt.innerHTML = words.slice(0, i + 1).join(' '); i++; }
+    else clearInterval(iv);
+  }, 40);
+}
+
+// ── TOAST ──
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ESC to close modal
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
+</script>
+</body>
+</html>
