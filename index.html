@@ -441,8 +441,8 @@ select.input-field option { background:var(--dark3); }
       </div>
 
       <p class="hero-sub">
-        Strava 기록을 claude가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
-        당신의 마라톤 목표, 함께 달성합니다. AI는 틀릴수 있습니다.
+        Strava 기록을 AI가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
+        당신의 마라톤 목표, 함께 달성합니다.
       </p>
 
       <div class="hero-btns">
@@ -482,7 +482,7 @@ select.input-field option { background:var(--dark3); }
   <div class="modal">
     <button class="modal-close" onclick="closeAuth()">✕</button>
     <div class="modal-logo" style="font-family:'DM Mono',monospace;font-size:20px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
-    <div class="modal-sub">AI 코치와 함께 시작하세요</div>
+    <div class="modal-sub">AI 마라톤 코치와 함께 시작하세요</div>
     <div class="tab-sw">
       <button class="tab-sw-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
       <button class="tab-sw-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">회원가입</button>
@@ -896,6 +896,29 @@ select.input-field option { background:var(--dark3); }
           <select class="input-field" style="margin-bottom:10px"><option selected>월요일 오전 8시</option><option>일요일 저녁 8시</option></select>
           <button class="save-btn" onclick="saveTelegram()">저장</button>
         </div>
+        <div class="settings-card settings-full">
+          <div class="sc-title">🏆 개인 최고 기록 (PR)</div>
+          <div class="sc-sub-text">기록 갱신 시 업데이트하세요. AI 코치가 이 기록을 기반으로 분석합니다.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <label class="input-label">풀코스 (42.195km)</label>
+              <input class="input-field" type="text" id="settingPrFull" placeholder="예: 3:52:00">
+            </div>
+            <div>
+              <label class="input-label">하프코스 (21.0975km)</label>
+              <input class="input-field" type="text" id="settingPrHalf" placeholder="예: 1:48:00">
+            </div>
+            <div>
+              <label class="input-label">10K</label>
+              <input class="input-field" type="text" id="settingPrTenK" placeholder="예: 48:30">
+            </div>
+            <div>
+              <label class="input-label">5K</label>
+              <input class="input-field" type="text" id="settingPrFiveK" placeholder="예: 23:00">
+            </div>
+          </div>
+          <button class="save-btn" onclick="savePR()">기록 업데이트</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1115,6 +1138,11 @@ async function loadUserData() {
     document.getElementById('settingGoal').value = g.target_time;
     document.getElementById('settingRaceDate').value = g.race_date;
     document.getElementById('settingRaceName').value = g.race_name;
+    // PR 기록 불러오기
+    if (g.pr_full) document.getElementById('settingPrFull').value = g.pr_full;
+    if (g.pr_half) document.getElementById('settingPrHalf').value = g.pr_half;
+    if (g.pr_10k) document.getElementById('settingPrTenK').value = g.pr_10k;
+    if (g.pr_5k) document.getElementById('settingPrFiveK').value = g.pr_5k;
     // Days left
     if (g.race_date) {
       const days = Math.ceil((new Date(g.race_date) - new Date()) / 86400000);
@@ -1195,7 +1223,19 @@ async function saveGoal() {
   toast('✅ 목표가 업데이트됐습니다!');
 }
 
-async function saveTelegram() {
+async function savePR() {
+  const pr_full = document.getElementById('settingPrFull').value;
+  const pr_half = document.getElementById('settingPrHalf').value;
+  const pr_10k = document.getElementById('settingPrTenK').value;
+  const pr_5k = document.getElementById('settingPrFiveK').value;
+
+  // 최신 goal 업데이트
+  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (goals && goals.length > 0) {
+    await sb.from('goals').update({ pr_full, pr_half, pr_10k, pr_5k }).eq('id', goals[0].id);
+  }
+  toast('✅ 개인 기록이 업데이트됐습니다!');
+}
   const telegram_chat_id = document.getElementById('settingTelegram').value;
   await sb.from('profiles').update({ telegram_chat_id }).eq('id', currentUser.id);
   toast('✅ 텔레그램 알림이 설정됐습니다!');
