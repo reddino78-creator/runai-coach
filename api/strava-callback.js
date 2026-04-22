@@ -1,9 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+async function updateProfile(userId, data) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  return res;
+}
 
 export default async function handler(req, res) {
   const { code, state } = req.query;
@@ -13,10 +23,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // state = user_id (Supabase)
     const userId = state;
 
-    // Strava 토큰 교환
     const tokenRes = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -30,26 +38,26 @@ export default async function handler(req, res) {
 
     const tokenData = await tokenRes.json();
 
-    if (tokenData.errors) {
+    if (tokenData.errors || !tokenData.access_token) {
       return res.redirect('/?error=strava_auth_failed');
     }
 
     const { access_token, refresh_token, athlete } = tokenData;
 
-    // Supabase에 토큰 저장
-    await supabase.from('profiles').upsert({
-      id: userId,
+    await updateProfile(userId, {
       strava_access_token: access_token,
       strava_refresh_token: refresh_token,
       strava_athlete_id: String(athlete.id),
     });
 
-    // 최근 활동 즉시 가져오기
-    await fetch(`${process.env.VERCEL_URL || 'https://runai-coach.vercel.app'}/api/strava-sync?user_id=${userId}`, {
-      method: 'POST'
-    });
+    try {
+      await fetch(`https://runai-coach.vercel.app/api/strava-sync?user_id=${userId}`, {
+        method: 'POST'
+      });
+    } catch (e) {
+      console.log('Sync failed:', e.message);
+    }
 
-    // 대시보드로 리다이렉트
     res.redirect('/?strava=connected');
 
   } catch (error) {
