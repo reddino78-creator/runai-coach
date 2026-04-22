@@ -959,15 +959,21 @@ let obStep = 1;
 
 // ── INIT ──
 window.addEventListener('load', async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await loadUserData();
-    showScreen('dashboard');
-  } else {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadUserData();
+      showScreen('dashboard');
+    } else {
+      showScreen('landing');
+    }
+  } catch (error) {
+    console.error('Init error:', error);
     showScreen('landing');
+  } finally {
+    document.getElementById('loadingScreen').style.display = 'none';
   }
-  document.getElementById('loadingScreen').style.display = 'none';
 });
 
 sb.auth.onAuthStateChange(async (event, session) => {
