@@ -624,6 +624,11 @@ select.input-field option { background:var(--dark3); }
         <div class="notif-opt sel" onclick="toggleNotif(this)"><div class="notif-chk">✓</div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📱 텔레그램</div><div style="font-size:12px;color:var(--gray)">운동 완료 즉시 분석 알림</div></div></div>
         <div class="notif-opt" onclick="toggleNotif(this)"><div class="notif-chk"></div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📧 이메일</div><div style="font-size:12px;color:var(--gray)">주간·월간 리포트 이메일 발송</div></div></div>
       </div>
+      <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;color:var(--gray-light);line-height:1.7">
+        💡 <strong style="color:var(--orange)">Chat ID 찾는 방법</strong><br>
+        텔레그램에서 <strong>@reddino_strava_bot</strong> 검색<br>
+        → <strong>/start</strong> 입력하면 Chat ID가 자동으로 나와요!
+      </div>
       <div style="margin-bottom:20px">
         <label class="input-label">텔레그램 Chat ID</label>
         <input class="input-field" type="text" id="telegramId" placeholder="Chat ID 입력" style="max-width:260px">
@@ -951,8 +956,13 @@ select.input-field option { background:var(--dark3); }
         <div class="settings-card">
           <div class="sc-title">텔레그램 알림</div>
           <div class="sc-sub-text">분석 결과 수신 설정</div>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 <strong style="color:var(--orange)">Chat ID 찾는 방법</strong><br>
+            텔레그램에서 <strong>@reddino_strava_bot</strong> 검색<br>
+            → <strong>/start</strong> 입력하면 Chat ID가 자동으로 나와요!
+          </div>
           <label class="input-label">텔레그램 Chat ID</label>
-          <input class="input-field" type="text" id="settingTelegram" placeholder="Chat ID" style="margin-bottom:10px">
+          <input class="input-field" type="text" id="settingTelegram" placeholder="Chat ID 입력" style="margin-bottom:10px">
           <label class="input-label">주간 리포트 요일</label>
           <select class="input-field" style="margin-bottom:10px"><option selected>월요일 오전 8시</option><option>일요일 저녁 8시</option></select>
           <button class="save-btn" onclick="saveTelegram()">저장</button>
