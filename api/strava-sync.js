@@ -1,11 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+async function sbGet(table, filter) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  return res.json();
+}
 
-// Strava 토큰 갱신
+async function sbPost(table, data) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  return res;
+}
+
+async function sbPatch(table, filter, data) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  return res;
+}
+
 async function refreshStravaToken(refreshToken) {
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
@@ -20,7 +53,6 @@ async function refreshStravaToken(refreshToken) {
   return res.json();
 }
 
-// Claude로 분석
 async function analyzeActivity(activity, goal) {
   const km = (activity.distance / 1000).toFixed(1);
   const paceSecPerKm = activity.moving_time / (activity.distance / 1000);
@@ -59,17 +91,12 @@ async function analyzeActivity(activity, goal) {
   return data.content?.[0]?.text || '분석을 불러올 수 없습니다.';
 }
 
-// 텔레그램 알림
 async function sendTelegram(chatId, message) {
-  if (!chatId) return;
+  if (!chatId || !process.env.TELEGRAM_BOT_TOKEN) return;
   await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'HTML'
-    })
+    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' })
   });
 }
 
@@ -81,39 +108,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 사용자 프로필 가져오기
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    // 프로필 가져오기
+    const profiles = await sbGet('profiles', `id=eq.${userId}`);
+    const profile = profiles[0];
 
     if (!profile?.strava_access_token) {
       return res.status(400).json({ error: 'Strava not connected' });
     }
 
-    // 사용자 목표 가져오기
-    const { data: goals } = await supabase
-      .from('goals')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    const goal = goals?.[0];
+    // 목표 가져오기
+    const goals = await sbGet('goals', `user_id=eq.${userId}&order=created_at.desc&limit=1`);
+    const goal = goals[0];
 
     // 토큰 갱신
     const newToken = await refreshStravaToken(profile.strava_refresh_token);
     const accessToken = newToken.access_token || profile.strava_access_token;
 
     if (newToken.access_token) {
-      await supabase.from('profiles').update({
+      await sbPatch('profiles', `id=eq.${userId}`, {
         strava_access_token: newToken.access_token,
         strava_refresh_token: newToken.refresh_token
-      }).eq('id', userId);
+      });
     }
 
-    // 최근 활동 가져오기 (지난 7일)
+    // 최근 7일 활동 가져오기
     const after = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
     const activitiesRes = await fetch(
       `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=10`,
@@ -122,26 +140,20 @@ export default async function handler(req, res) {
     const activities = await activitiesRes.json();
 
     if (!Array.isArray(activities) || activities.length === 0) {
-      return res.json({ message: 'No new activities' });
+      return res.json({ message: 'No new activities', synced: 0 });
     }
 
-    // 각 활동 분석 및 저장
     let newCount = 0;
     for (const activity of activities) {
-      // 이미 저장된 활동 건너뛰기
-      const { data: existing } = await supabase
-        .from('activities')
-        .select('id')
-        .eq('strava_id', String(activity.id))
-        .single();
-
-      if (existing) continue;
+      // 이미 저장된 활동 확인
+      const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
+      if (existing.length > 0) continue;
 
       // Claude 분석
       const analysis = await analyzeActivity(activity, goal);
 
-      // Supabase 저장
-      await supabase.from('activities').insert({
+      // 저장
+      await sbPost('activities', {
         user_id: userId,
         strava_id: String(activity.id),
         name: activity.name,
@@ -154,7 +166,7 @@ export default async function handler(req, res) {
         analysis
       });
 
-      // 텔레그램 알림
+      // 텔레그램
       const km = (activity.distance / 1000).toFixed(1);
       const mins = Math.floor(activity.moving_time / 60);
       const paceSecPerKm = activity.moving_time / (activity.distance / 1000);
