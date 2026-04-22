@@ -1242,6 +1242,8 @@ async function savePR() {
   }
   toast('✅ 개인 기록이 업데이트됐습니다!');
 }
+
+async function saveTelegram() {
   const telegram_chat_id = document.getElementById('settingTelegram').value;
   await sb.from('profiles').update({ telegram_chat_id }).eq('id', currentUser.id);
   toast('✅ 텔레그램 알림이 설정됐습니다!');
