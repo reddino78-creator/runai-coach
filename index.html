@@ -25,8 +25,10 @@
 body { background:var(--black); color:var(--white); font-family:'Pretendard',-apple-system,sans-serif; min-height:100vh; }
 
 /* SCREENS */
-.screen { display:none; }
-.screen.active { display:block; min-height:100vh; }
+.screen { display:none !important; }
+.screen.active { display:block !important; min-height:100vh; }
+#screen-onboarding.active { display:flex !important; align-items:center; justify-content:center; }
+#screen-dashboard.active { display:block !important; }
 
 /* LANDING */
 .landing-wrap { min-height:100vh; position:relative; overflow:hidden; display:flex; flex-direction:column; }
@@ -206,8 +208,7 @@ body { background:var(--black); color:var(--white); font-family:'Pretendard',-ap
 .strava-btn:hover { background:rgba(252,76,2,.1); border-color:var(--orange); }
 
 /* ONBOARDING */
-#screen-onboarding { display:flex; align-items:center; justify-content:center; padding:40px 20px; min-height:100vh; background:var(--black); position:fixed; inset:0; z-index:500; overflow-y:auto; }
-#screen-onboarding.active { display:flex; }
+#screen-onboarding { padding:40px 20px; min-height:100vh; background:var(--black); }
 #screen-dashboard { position:relative; z-index:1; }
 .ob-card { background:var(--dark2); border:1px solid rgba(255,255,255,.07); border-radius:24px; padding:48px; width:100%; max-width:640px; }
 .step-dots { display:flex; gap:6px; margin-bottom:36px; }
@@ -870,8 +871,12 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 // ── SCREENS ──
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+  });
+  const target = document.getElementById('screen-' + id);
+  if (target) target.classList.add('active');
+  window.scrollTo(0, 0);
 }
 
 // ── AUTH ──
