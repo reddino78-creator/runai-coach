@@ -441,8 +441,8 @@ select.input-field option { background:var(--dark3); }
       </div>
 
       <p class="hero-sub">
-        Strava 기록을 AI가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
-        당신의 마라톤 목표, 함께 달성합니다.
+        Strava 기록을 claude가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
+        당신의 마라톤 목표, 함께 달성합니다. AI는 틀릴수 있습니다.
       </p>
 
       <div class="hero-btns">
@@ -482,7 +482,7 @@ select.input-field option { background:var(--dark3); }
   <div class="modal">
     <button class="modal-close" onclick="closeAuth()">✕</button>
     <div class="modal-logo" style="font-family:'DM Mono',monospace;font-size:20px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
-    <div class="modal-sub">AI 마라톤 코치와 함께 시작하세요</div>
+    <div class="modal-sub">AI 코치와 함께 시작하세요</div>
     <div class="tab-sw">
       <button class="tab-sw-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
       <button class="tab-sw-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">회원가입</button>
@@ -528,6 +528,8 @@ select.input-field option { background:var(--dark3); }
       <div class="step-dot" id="dot2"></div>
       <div class="step-dot" id="dot3"></div>
       <div class="step-dot" id="dot4"></div>
+      <div class="step-dot" id="dot5"></div>
+      <div class="step-dot" id="dot6"></div>
     </div>
 
     <!-- STEP 1 -->
@@ -554,8 +556,8 @@ select.input-field option { background:var(--dark3); }
       <div class="ob-title">레이스 정보를<br>알려주세요</div>
       <div class="ob-sub">훈련 기간 계산에 사용됩니다</div>
       <div class="form-grid">
-        <div><label class="input-label">레이스 이름</label><input class="input-field" type="text" id="raceName" placeholder="서울 마라톤" value="서울 마라톤"></div>
-        <div><label class="input-label">레이스 날짜</label><input class="input-field" type="date" id="raceDate" value="2026-09-20"></div>
+        <div><label class="input-label">레이스 이름</label><input class="input-field" type="text" id="raceName" placeholder="대회명을 입력하세요"></div>
+        <div><label class="input-label">레이스 날짜</label><input class="input-field" type="date" id="raceDate"></div>
         <div><label class="input-label">현재 주간 달리기 거리</label><select class="input-field" id="weeklyKm"><option>20km 미만</option><option>20~40km</option><option selected>40~60km</option><option>60~80km</option><option>80km 이상</option></select></div>
         <div><label class="input-label">주간 훈련 가능일</label><select class="input-field" id="trainDays"><option>주 3일</option><option>주 4일</option><option selected>주 5일</option><option>주 6일</option></select></div>
       </div>
@@ -568,8 +570,8 @@ select.input-field option { background:var(--dark3); }
       <div class="ob-sub">맞춤 훈련 강도 설정에 사용됩니다</div>
       <div class="level-opts">
         <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">🌱</div><div class="lo-info"><div class="lo-name">입문자</div><div class="lo-desc">달리기 시작 1년 미만, 5km 완주 가능</div></div><div class="lo-badge">Beginner</div></div>
-        <div class="level-opt sel" onclick="selectLevel(this)"><div class="lo-icon">🏃</div><div class="lo-info"><div class="lo-name">중급자</div><div class="lo-desc">하프마라톤 경험, 주 3~4회 달림</div></div><div class="lo-badge">Intermediate</div></div>
-        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">⚡</div><div class="lo-info"><div class="lo-name">고급자</div><div class="lo-desc">풀마라톤 완주 경험, 주 5회 이상</div></div><div class="lo-badge">Advanced</div></div>
+        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">🏃</div><div class="lo-info"><div class="lo-name">중급자</div><div class="lo-desc">하프마라톤 경험, 주 3~4회 달림</div></div><div class="lo-badge">Intermediate</div></div>
+        <div class="level-opt sel" onclick="selectLevel(this)"><div class="lo-icon">⚡</div><div class="lo-info"><div class="lo-name">고급자</div><div class="lo-desc">풀마라톤 완주 경험, 주 5회 이상</div></div><div class="lo-badge">Advanced</div></div>
       </div>
       <div class="ob-btns"><button class="btn-back" onclick="goStep(2)">← 이전</button><button class="btn-next" onclick="goStep(4)">다음 →</button></div>
     </div>
@@ -586,7 +588,77 @@ select.input-field option { background:var(--dark3); }
         <label class="input-label">텔레그램 Chat ID</label>
         <input class="input-field" type="text" id="telegramId" placeholder="Chat ID 입력" style="max-width:260px">
       </div>
-      <div class="ob-btns"><button class="btn-back" onclick="goStep(3)">← 이전</button><button class="btn-next" onclick="finishOnboarding()">🚀 시작하기</button></div>
+      <div class="ob-btns"><button class="btn-back" onclick="goStep(3)">← 이전</button><button class="btn-next" onclick="goStep(5)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 5: 개인 기록 -->
+    <div class="ob-step" id="step5">
+      <div class="ob-title">개인 최고 기록을<br>알려주세요</div>
+      <div class="ob-sub">기록 기반으로 더 정확한 AI 코칭을 제공합니다 · 없으면 비워두세요</div>
+
+      <div class="form-grid">
+        <div>
+          <label class="input-label">풀코스 (42.195km)</label>
+          <input class="input-field" type="text" id="prFull" placeholder="예: 3:52:00">
+        </div>
+        <div>
+          <label class="input-label">하프코스 (21.0975km)</label>
+          <input class="input-field" type="text" id="prHalf" placeholder="예: 1:48:00">
+        </div>
+        <div>
+          <label class="input-label">10K</label>
+          <input class="input-field" type="text" id="prTenK" placeholder="예: 48:30">
+        </div>
+        <div>
+          <label class="input-label">5K</label>
+          <input class="input-field" type="text" id="prFiveK" placeholder="예: 23:00">
+        </div>
+      </div>
+
+      <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:12px;padding:16px;margin-bottom:24px;font-size:13px;color:var(--gray-light);line-height:1.6">
+        💡 기록을 입력하면 AI 코치가 현재 실력을 정확히 파악해 <strong>목표 달성을 위한 맞춤 훈련 계획</strong>을 제공합니다.
+      </div>
+
+      <div class="ob-btns">
+        <button class="btn-back" onclick="goStep(4)">← 이전</button>
+        <button class="btn-next" onclick="goStep(6)">다음 →</button>
+      </div>
+    </div>
+
+    <!-- STEP 6: Strava 연동 -->
+    <div class="ob-step" id="step6">
+      <div class="ob-title">Strava를<br>연동해주세요</div>
+      <div class="ob-sub">운동 기록을 자동으로 가져와 AI가 분석합니다</div>
+
+      <div style="background:var(--dark3);border-radius:16px;padding:24px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+          <div style="width:48px;height:48px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px">Strava 연동</div>
+            <div style="font-size:12px;color:var(--gray)">운동 완료 후 자동으로 AI 분석 시작</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--gray-light);line-height:1.7;margin-bottom:16px">
+          ✓ 운동 기록 자동 동기화<br>
+          ✓ Claude AI 맞춤 분석<br>
+          ✓ 텔레그램으로 즉시 알림
+        </div>
+        <button onclick="connectStravaOnboarding()" style="width:100%;background:var(--orange);border:none;color:white;padding:14px;border-radius:10px;font-family:'Pretendard',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          Strava 연동하기
+        </button>
+      </div>
+
+      <div style="font-size:12px;color:var(--gray);text-align:center;margin-bottom:24px">
+        나중에 설정에서 연동할 수 있어요
+      </div>
+
+      <div class="ob-btns">
+        <button class="btn-back" onclick="goStep(5)">← 이전</button>
+        <button class="btn-next" onclick="finishOnboarding()">🚀 시작하기</button>
+      </div>
     </div>
   </div>
 </div>
@@ -950,9 +1022,22 @@ function goStep(n) {
   document.getElementById('step' + obStep).classList.remove('active');
   obStep = n;
   document.getElementById('step' + n).classList.add('active');
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 6; i++) {
     document.getElementById('dot' + i).classList.toggle('done', i <= n);
   }
+  if (n === 2) {
+    const today = new Date().toISOString().split('T')[0];
+    const raceDateEl = document.getElementById('raceDate');
+    if (!raceDateEl.value) raceDateEl.value = today;
+  }
+}
+
+function connectStravaOnboarding() {
+  if (!currentUser) return;
+  // 먼저 onboarding 데이터 저장
+  finishOnboarding(true).then(() => {
+    connectStrava();
+  });
 }
 
 function selectGoal(el, time, pace) {
@@ -971,10 +1056,16 @@ function toggleNotif(el) {
   el.querySelector('.notif-chk').textContent = el.classList.contains('sel') ? '✓' : '';
 }
 
-async function finishOnboarding() {
+async function finishOnboarding(skipRedirect = false) {
   const customTime = document.getElementById('customTime').value;
   if (customTime) userGoal.time = customTime;
-  
+
+  // PR 기록 수집
+  const prFull = document.getElementById('prFull').value;
+  const prHalf = document.getElementById('prHalf').value;
+  const prTenK = document.getElementById('prTenK').value;
+  const prFiveK = document.getElementById('prFiveK').value;
+
   const goalData = {
     user_id: currentUser.id,
     race_name: document.getElementById('raceName').value,
@@ -983,17 +1074,22 @@ async function finishOnboarding() {
     target_pace: userGoal.pace,
     weekly_km: document.getElementById('weeklyKm').value,
     train_days: document.getElementById('trainDays').value,
-    level: document.querySelector('.level-opt.sel .lo-name')?.textContent || '중급자',
+    level: document.querySelector('.level-opt.sel .lo-name')?.textContent || '고급자',
+    pr_full: prFull || null,
+    pr_half: prHalf || null,
+    pr_10k: prTenK || null,
+    pr_5k: prFiveK || null,
   };
 
   const telegramId = document.getElementById('telegramId').value;
   await sb.from('goals').insert(goalData);
   if (telegramId) await sb.from('profiles').update({ telegram_chat_id: telegramId }).eq('id', currentUser.id);
 
-  // 화면 전환 먼저 실행
-  showScreen('dashboard');
-  await loadUserData();
-  toast('🎉 설정 완료! AI 코치가 준비됐어요.');
+  if (!skipRedirect) {
+    showScreen('dashboard');
+    await loadUserData();
+    toast('🎉 설정 완료! AI 코치가 준비됐어요.');
+  }
 }
 
 // ── LOAD USER DATA ──
