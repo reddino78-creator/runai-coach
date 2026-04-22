@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RunAI Coach</title>
+<title>BaBa School</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -29,28 +29,156 @@ body { background:var(--black); color:var(--white); font-family:'Pretendard',-ap
 .screen.active { display:block; min-height:100vh; }
 
 /* LANDING */
-.landing-wrap { min-height:100vh; position:relative; overflow:hidden; }
-.bg-glow { position:absolute; width:700px; height:700px; background:radial-gradient(circle,rgba(252,76,2,0.13) 0%,transparent 65%); top:-250px; right:-150px; animation:breathe 6s ease-in-out infinite; pointer-events:none; }
-@keyframes breathe { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.15);opacity:1} }
-.landing-nav { display:flex; justify-content:space-between; align-items:center; padding:28px 48px; position:relative; z-index:10; }
-.logo { font-family:'DM Serif Display',serif; font-size:22px; }
+.landing-wrap { min-height:100vh; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+
+/* 미니멀 라인 배경 */
+.bg-lines {
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+.bg-accent {
+  position:absolute; width:1px; height:100%;
+  background:linear-gradient(to bottom, transparent, rgba(252,76,2,0.4), transparent);
+  left:50%; top:0; pointer-events:none;
+  animation: lineGlow 4s ease-in-out infinite;
+}
+@keyframes lineGlow { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+.landing-nav {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:32px 56px; position:relative; z-index:10;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.logo { font-family:'DM Mono',monospace; font-size:16px; letter-spacing:3px; text-transform:uppercase; }
 .logo em { font-style:normal; color:var(--orange); }
 .nav-btns { display:flex; gap:10px; }
-.btn-ghost { background:none; border:1px solid rgba(255,255,255,0.15); color:var(--gray-light); padding:10px 22px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; }
+.btn-ghost {
+  background:none; border:1px solid rgba(255,255,255,0.1);
+  color:var(--gray); padding:9px 20px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:12px; letter-spacing:1px;
+  cursor:pointer; transition:all .2s; text-transform:uppercase;
+}
 .btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
-.btn-orange { background:var(--orange); border:none; color:white; padding:10px 22px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .25s; }
-.btn-orange:hover { background:var(--orange-light); transform:translateY(-1px); }
-.hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:80px 24px 60px; position:relative; z-index:10; }
-.hero-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(252,76,2,0.1); border:1px solid rgba(252,76,2,0.25); color:var(--orange); padding:7px 18px; border-radius:100px; font-size:12px; font-family:'DM Mono',monospace; margin-bottom:32px; animation:fadeUp .5s ease both; }
-.hero h1 { font-family:'DM Serif Display',serif; font-size:clamp(52px,9vw,96px); line-height:.95; letter-spacing:-2px; margin-bottom:24px; animation:fadeUp .5s ease .1s both; }
-.hero h1 i { font-style:italic; color:var(--orange); }
-.hero p { font-size:17px; color:var(--gray-light); max-width:500px; line-height:1.65; font-weight:300; margin-bottom:48px; animation:fadeUp .5s ease .2s both; }
-.hero-btns { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; animation:fadeUp .5s ease .3s both; }
-.btn-hero { background:var(--orange); border:none; color:white; padding:18px 44px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:all .3s; }
-.btn-hero:hover { background:var(--orange-light); transform:translateY(-3px); box-shadow:0 20px 50px rgba(252,76,2,.35); }
-.btn-hero-ghost { background:none; border:1px solid rgba(255,255,255,.18); color:var(--white); padding:18px 44px; border-radius:100px; font-family:'Pretendard',sans-serif; font-size:16px; cursor:pointer; transition:all .3s; }
-.btn-hero-ghost:hover { border-color:rgba(252,76,2,.5); color:var(--orange); }
-@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+.btn-orange {
+  background:var(--orange); border:none; color:white;
+  padding:9px 20px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:12px; letter-spacing:1px;
+  font-weight:600; cursor:pointer; transition:all .25s; text-transform:uppercase;
+}
+.btn-orange:hover { background:var(--orange-light); }
+
+/* HERO */
+.hero {
+  flex:1; display:flex; flex-direction:column;
+  align-items:flex-start; justify-content:center;
+  padding:0 56px 80px; position:relative; z-index:10;
+  max-width:900px;
+}
+
+.hero-eyebrow {
+  font-family:'DM Mono',monospace; font-size:11px;
+  letter-spacing:4px; text-transform:uppercase;
+  color:var(--orange); margin-bottom:32px;
+  animation:fadeUp .6s ease both;
+  display:flex; align-items:center; gap:12px;
+}
+.hero-eyebrow::before {
+  content:''; width:32px; height:1px; background:var(--orange);
+}
+
+.hero-title {
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(56px,8vw,110px);
+  line-height:1.0; letter-spacing:-3px;
+  margin-bottom:16px;
+  animation:fadeUp .6s ease .1s both;
+}
+.hero-title .brand { display:block; color:var(--white); }
+.hero-title .for-line {
+  display:flex; align-items:baseline; gap:16px;
+  font-size:clamp(28px,4vw,52px);
+  color:rgba(255,255,255,0.2);
+  letter-spacing:-1px;
+}
+.hero-title .rotating-word {
+  color:var(--orange);
+  font-style:italic;
+  min-width:200px;
+  display:inline-block;
+  transition:opacity .3s ease, transform .3s ease;
+}
+.hero-title .rotating-word.fade-out {
+  opacity:0; transform:translateY(-8px);
+}
+.hero-title .rotating-word.fade-in {
+  opacity:1; transform:translateY(0);
+}
+
+.hero-sub {
+  font-size:15px; color:var(--gray);
+  max-width:440px; line-height:1.7; font-weight:300;
+  margin-bottom:48px; margin-top:24px;
+  animation:fadeUp .6s ease .2s both;
+  border-left:2px solid rgba(252,76,2,0.3);
+  padding-left:16px;
+}
+
+.hero-btns {
+  display:flex; gap:12px; flex-wrap:wrap;
+  animation:fadeUp .6s ease .3s both;
+}
+.btn-hero {
+  background:var(--orange); border:none; color:white;
+  padding:16px 40px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:13px;
+  letter-spacing:2px; font-weight:500;
+  cursor:pointer; transition:all .3s; text-transform:uppercase;
+}
+.btn-hero:hover { background:var(--orange-light); transform:translateY(-2px); box-shadow:0 12px 32px rgba(252,76,2,.3); }
+.btn-hero-ghost {
+  background:none; border:1px solid rgba(255,255,255,.1); color:var(--gray);
+  padding:16px 40px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:13px;
+  letter-spacing:2px; cursor:pointer; transition:all .3s; text-transform:uppercase;
+}
+.btn-hero-ghost:hover { border-color:rgba(252,76,2,.4); color:var(--orange); }
+
+/* 우측 스탯 */
+.hero-stats {
+  position:absolute; right:56px; top:50%;
+  transform:translateY(-50%);
+  display:flex; flex-direction:column; gap:32px;
+  animation:fadeUp .6s ease .4s both;
+}
+@media(max-width:900px) { .hero-stats{display:none} }
+.hs-item { text-align:right; }
+.hs-val {
+  font-family:'DM Mono',monospace; font-size:32px;
+  color:var(--white); line-height:1;
+}
+.hs-label { font-size:10px; color:var(--gray); letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+
+/* 하단 바 */
+.hero-bottom {
+  position:absolute; bottom:0; left:0; right:0;
+  border-top:1px solid rgba(255,255,255,0.05);
+  display:flex; z-index:10;
+}
+.hb-item {
+  flex:1; padding:20px 28px;
+  border-right:1px solid rgba(255,255,255,0.05);
+  font-size:11px; color:var(--gray);
+  font-family:'DM Mono',monospace; letter-spacing:1px;
+  display:flex; align-items:center; gap:8px;
+}
+.hb-item:last-child { border-right:none; }
+.hb-dot { width:6px; height:6px; border-radius:50%; background:var(--orange); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
 /* AUTH MODAL */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(12px); z-index:1000; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; padding:20px; }
@@ -288,22 +416,60 @@ select.input-field option { background:var(--dark3); }
 <!-- LANDING -->
 <div id="screen-landing" class="screen">
   <div class="landing-wrap">
-    <div class="bg-glow"></div>
+    <div class="bg-lines"></div>
+    <div class="bg-accent"></div>
+
     <nav class="landing-nav">
-      <div class="logo">Run<em>AI</em></div>
+      <div class="logo">Baba<em>.</em>School</div>
       <div class="nav-btns">
-        <button class="btn-ghost" onclick="openAuth('login')">로그인</button>
-        <button class="btn-orange" onclick="openAuth('signup')">무료 시작</button>
+        <button class="btn-ghost" onclick="openAuth('login')">Login</button>
+        <button class="btn-orange" onclick="openAuth('signup')">Start</button>
       </div>
     </nav>
+
     <div class="hero">
-      <div class="hero-pill">🏃 AI 기반 마라톤 퍼스널 코치</div>
-      <h1>달리기를<br><i>과학으로</i></h1>
-      <p>Strava 기록을 AI가 분석해 일일·주간·월간 리포트와<br>마라톤 완주를 위한 맞춤 훈련 계획을 제공합니다.</p>
-      <div class="hero-btns">
-        <button class="btn-hero" onclick="openAuth('signup')">🏃 Strava로 시작하기</button>
-        <button class="btn-hero-ghost" onclick="openAuth('login')">로그인</button>
+      <div class="hero-eyebrow">AI Marathon Coaching</div>
+
+      <div class="hero-title">
+        <span class="brand">BaBa School</span>
+        <div class="for-line">
+          For&nbsp;<span class="rotating-word fade-in" id="rotatingWord">Alpha</span>
+        </div>
       </div>
+
+      <p class="hero-sub">
+        Strava 기록을 AI가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
+        당신의 마라톤 목표, 함께 달성합니다.
+      </p>
+
+      <div class="hero-btns">
+        <button class="btn-hero" onclick="openAuth('signup')">START NOW</button>
+        <button class="btn-hero-ghost" onclick="openAuth('login')">SIGN IN</button>
+      </div>
+
+      <!-- 우측 스탯 -->
+      <div class="hero-stats">
+        <div class="hs-item">
+          <div class="hs-val">42.2</div>
+          <div class="hs-label">KM Full Course</div>
+        </div>
+        <div class="hs-item">
+          <div class="hs-val">AI</div>
+          <div class="hs-label">Personal Coach</div>
+        </div>
+        <div class="hs-item">
+          <div class="hs-val">24/7</div>
+          <div class="hs-label">Analysis</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 바 -->
+    <div class="hero-bottom">
+      <div class="hb-item"><div class="hb-dot"></div>Daily Analysis</div>
+      <div class="hb-item"><div class="hb-dot"></div>Weekly Report</div>
+      <div class="hb-item"><div class="hb-dot"></div>AI Coaching</div>
+      <div class="hb-item"><div class="hb-dot"></div>Telegram Alert</div>
     </div>
   </div>
 </div>
@@ -312,8 +478,8 @@ select.input-field option { background:var(--dark3); }
 <div class="modal-overlay" id="authModal">
   <div class="modal">
     <button class="modal-close" onclick="closeAuth()">✕</button>
-    <div class="modal-logo">Run<em>AI</em></div>
-    <div class="modal-sub">마라톤 AI 코치와 함께 시작하세요</div>
+    <div class="modal-logo" style="font-family:'DM Mono',monospace;font-size:20px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
+    <div class="modal-sub">AI 마라톤 코치와 함께 시작하세요</div>
     <div class="tab-sw">
       <button class="tab-sw-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
       <button class="tab-sw-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">회원가입</button>
@@ -425,7 +591,7 @@ select.input-field option { background:var(--dark3); }
 <!-- DASHBOARD -->
 <div id="screen-dashboard" class="screen">
   <nav class="dash-nav">
-    <div class="dash-logo">Run<em>AI</em></div>
+    <div class="dash-logo" style="font-family:'DM Mono',monospace;font-size:14px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
     <div class="dash-tabs">
       <button class="dash-tab active" onclick="switchPanel(this,'p-daily')">일일 분석</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-weekly')">주간 리포트</button>
@@ -651,10 +817,27 @@ select.input-field option { background:var(--dark3); }
 <div class="toast" id="toast"></div>
 
 <script>
+// ── ROTATING WORDS ──
+const words = ['Alpha', 'BaBa', 'Hero', 'One_Star', 'Reason'];
+let wordIdx = 0;
+function rotateWord() {
+  const el = document.getElementById('rotatingWord');
+  if (!el) return;
+  el.classList.remove('fade-in');
+  el.classList.add('fade-out');
+  setTimeout(() => {
+    wordIdx = (wordIdx + 1) % words.length;
+    el.textContent = words[wordIdx];
+    el.classList.remove('fade-out');
+    el.classList.add('fade-in');
+  }, 300);
+}
+setInterval(rotateWord, 2000);
+
 // ── SUPABASE CONFIG ──
 // 아래 두 줄을 본인의 Supabase 정보로 교체하세요!
-const SUPABASE_URL = 'https://lshfrgybvwcvrreqofcv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzaGZyZ3lidndjdnJyZXFvZmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODEwOTMsImV4cCI6MjA5MjM1NzA5M30.KKD6MMY9eUxowDNwT974L4CzgNnw7GwPs1jEGjr0x5Y';
+const SUPABASE_URL = 'https://lshfrgybvwcvrreqofcv.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzaGZyZ3lidndjdnJyZXFvZmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODEwOTMsImV4cCI6MjA5MjM1Nz.KKD6MMY9eUxowDNwT974L4CzgNnw7GwPs1jEGjr0x5Y'
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
