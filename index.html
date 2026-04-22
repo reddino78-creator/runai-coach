@@ -796,12 +796,24 @@ select.input-field option { background:var(--dark3); }
         </div>
         <div class="settings-card">
           <div class="sc-title">Strava 연동</div>
-          <div class="sc-sub-text">Strava 계정 연결 상태</div>
-          <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px">
-            <span style="color:var(--green);font-size:18px">✓</span>
-            <div><div style="font-size:13px;font-weight:600">연결됨</div><div style="font-size:11px;color:var(--gray)" id="stravaStatus">Strava 계정 연동 완료</div></div>
+          <div class="sc-sub-text">각자의 Strava 계정을 연결하세요</div>
+          <div id="stravaConnected" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px">
+              <span style="color:var(--green);font-size:18px">✓</span>
+              <div><div style="font-size:13px;font-weight:600">연결됨</div><div style="font-size:11px;color:var(--gray)" id="stravaStatus">Strava 계정 연동 완료</div></div>
+            </div>
+            <button class="save-btn" style="background:var(--dark3);border:1px solid rgba(255,255,255,.1);color:var(--gray-light);margin-bottom:8px" onclick="connectStrava()">재연결</button>
+            <button class="save-btn" onclick="syncStrava()">지금 동기화</button>
           </div>
-          <button class="save-btn" style="background:var(--dark3);border:1px solid rgba(255,255,255,.1);color:var(--gray-light)" onclick="toast('🔄 Strava 재연결 중...')">재연결</button>
+          <div id="stravaDisconnected">
+            <div style="padding:12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--gray-light)">
+              Strava 계정이 연결되지 않았어요. 연동하면 운동 기록이 자동으로 분석됩니다.
+            </div>
+            <button class="save-btn" onclick="connectStrava()" style="display:flex;align-items:center;gap:8px;justify-content:center;width:100%">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+              Strava 연동하기
+            </button>
+          </div>
         </div>
         <div class="settings-card">
           <div class="sc-title">텔레그램 알림</div>
@@ -843,7 +855,7 @@ const SUPABASE_URL = 'https://lshfrgybvwcvrreqofcv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzaGZyZ3lidndjdnJyZXFvZmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODEwOTMsImV4cCI6MjA5MjM1NzA5M30.KKD6MMY9eUxowDNwT974L4CzgNnw7GwPs1jEGjr0x5Y';
 
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);z
 
 // ── STATE ──
 let currentUser = null;
@@ -1014,8 +1026,11 @@ async function loadUserData() {
     }
   }
 
-  // Activities
-  const { data: acts } = await sb.from('activities').select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(5);
+  // Strava 연동 상태 확인
+  updateStravaUI(!!profile?.strava_access_token);
+  if (profile?.strava_athlete_id) {
+    document.getElementById('stravaStatus').textContent = `Strava ID: ${profile.strava_athlete_id}`;
+  }.select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(5);
   if (acts && acts.length > 0) renderActivities(acts);
 }
 
@@ -1113,7 +1128,49 @@ function askCoach(q) {
   }, 40);
 }
 
-// ── TOAST ──
+// ── STRAVA ──
+function connectStrava() {
+  if (!currentUser) return;
+  const clientId = '228283';
+  const redirectUri = encodeURIComponent('https://runai-coach.vercel.app/api/strava-callback');
+  const scope = 'activity:read_all';
+  const state = currentUser.id;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&approval_prompt=force`;
+  window.location.href = url;
+}
+
+async function syncStrava() {
+  if (!currentUser) return;
+  toast('🔄 Strava 동기화 중...');
+  try {
+    const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.synced > 0) {
+      toast(`✅ ${data.synced}개 활동 동기화 완료!`);
+      await loadUserData();
+    } else {
+      toast('✅ 최신 상태예요!');
+    }
+  } catch (e) {
+    toast('❌ 동기화 실패. 다시 시도해주세요.');
+  }
+}
+
+function updateStravaUI(isConnected) {
+  document.getElementById('stravaConnected').style.display = isConnected ? 'block' : 'none';
+  document.getElementById('stravaDisconnected').style.display = isConnected ? 'none' : 'block';
+}
+
+// URL 파라미터 확인 (Strava 연동 완료 후)
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('strava') === 'connected') {
+  toast('🎉 Strava 연동 완료! 활동을 불러오는 중...');
+  window.history.replaceState({}, '', '/');
+}
+if (urlParams.get('error')) {
+  toast('❌ Strava 연동 실패. 다시 시도해주세요.');
+  window.history.replaceState({}, '', '/');
+}
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
