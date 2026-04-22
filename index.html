@@ -206,7 +206,9 @@ body { background:var(--black); color:var(--white); font-family:'Pretendard',-ap
 .strava-btn:hover { background:rgba(252,76,2,.1); border-color:var(--orange); }
 
 /* ONBOARDING */
-#screen-onboarding { display:flex; align-items:center; justify-content:center; padding:40px 20px; min-height:100vh; background:var(--black); }
+#screen-onboarding { display:flex; align-items:center; justify-content:center; padding:40px 20px; min-height:100vh; background:var(--black); position:fixed; inset:0; z-index:500; overflow-y:auto; }
+#screen-onboarding.active { display:flex; }
+#screen-dashboard { position:relative; z-index:1; }
 .ob-card { background:var(--dark2); border:1px solid rgba(255,255,255,.07); border-radius:24px; padding:48px; width:100%; max-width:640px; }
 .step-dots { display:flex; gap:6px; margin-bottom:36px; }
 .step-dot { height:4px; flex:1; border-radius:100px; background:rgba(255,255,255,.1); transition:background .3s; }
