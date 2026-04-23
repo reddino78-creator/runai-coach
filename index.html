@@ -1977,18 +1977,25 @@ async function importHistory() {
   status.style.display = 'none';
 
   try {
-    const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`);
+    // JWT 토큰 가져오기
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+
+    const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     const data = await res.json();
 
     if (data.success) {
       status.style.display = 'block';
       status.textContent = `✅ ${data.newly_saved}개 활동 저장 완료! 주간/월간 분석 생성 중...`;
 
-      // 주간 분석 트리거
-      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=weekly`);
-
-      // 월간 분석 트리거
-      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=monthly`);
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=weekly`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=monthly`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
       status.textContent = `✅ 완료! ${data.newly_saved}개 활동 저장 + 주간/월간 분석이 텔레그램으로 발송됐어요.`;
       btn.textContent = '✅ 완료';
