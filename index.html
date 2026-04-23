@@ -437,6 +437,65 @@ select.input-field option { background:var(--dark3); }
 .save-btn { background:var(--orange); border:none; color:white; padding:11px 24px; border-radius:9px; font-family:'Pretendard',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; margin-top:10px; }
 .save-btn:hover { background:var(--orange-light); }
 
+/* NEW DASHBOARD */
+.db-section { margin-bottom:20px; }
+.db-section-title { font-size:11px; color:var(--gray); text-transform:uppercase; letter-spacing:2px; font-family:'DM Mono',monospace; margin-bottom:12px; }
+
+/* 1단: 목표 카드 */
+.db-goal-card {
+  background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));
+  border:1px solid rgba(252,76,2,.3); border-radius:20px; padding:22px 26px;
+}
+.db-goal-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+.db-goal-name { font-family:'DM Serif Display',serif; font-size:20px; margin-bottom:4px; }
+.db-goal-sub { font-size:12px; color:var(--gray-light); display:flex; gap:12px; flex-wrap:wrap; }
+.db-goal-sub span { font-family:'DM Mono',monospace; }
+.db-goal-metrics { display:flex; gap:20px; flex-wrap:wrap; }
+.db-metric { text-align:center; min-width:60px; }
+.db-metric-val { font-family:'DM Mono',monospace; font-size:22px; color:var(--orange); line-height:1; }
+.db-metric-lbl { font-size:9px; color:var(--gray); margin-top:3px; letter-spacing:1px; text-transform:uppercase; }
+
+/* 2단: 마일리지 */
+.db-mileage-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:480px){.db-mileage-grid{grid-template-columns:1fr}}
+.db-mile-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:14px; padding:18px; }
+.db-mile-label { font-size:10px; color:var(--gray); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-family:'DM Mono',monospace; }
+.db-mile-nums { display:flex; align-items:baseline; gap:5px; margin-bottom:8px; }
+.db-mile-done { font-family:'DM Serif Display',serif; font-size:28px; color:var(--orange); }
+.db-mile-total { font-size:12px; color:var(--gray); }
+.db-mile-bar { height:5px; background:rgba(255,255,255,.08); border-radius:100px; overflow:hidden; }
+.db-mile-fill { height:100%; background:var(--orange); border-radius:100px; transition:width 1s ease; }
+
+/* 3단: 주간 캘린더 */
+.db-week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.db-day-card {
+  background:var(--dark2); border:1px solid rgba(255,255,255,.05);
+  border-radius:10px; padding:8px 4px; text-align:center; opacity:0.35;
+}
+.db-day-card.future { opacity:0.8; }
+.db-day-card.today {
+  border-color:var(--orange); background:rgba(252,76,2,.12);
+  opacity:1;
+}
+.db-day-card.done { opacity:0.25; }
+.db-day-name { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; margin-bottom:5px; }
+.db-day-type { font-size:8px; font-weight:700; color:var(--orange); min-height:22px; display:flex; align-items:center; justify-content:center; line-height:1.2; padding:0 2px; }
+.db-day-card.today .db-day-type { color:var(--white); }
+.db-day-card.done .db-day-type { color:var(--gray); }
+
+/* 4단: 최근 활동 */
+.db-last-act { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:20px 22px; }
+.db-act-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+.db-act-name { font-family:'DM Serif Display',serif; font-size:17px; }
+.db-act-date { font-size:11px; color:var(--gray); font-family:'DM Mono',monospace; }
+.db-act-badge { display:inline-block; background:rgba(252,76,2,.15); color:var(--orange); padding:3px 10px; border-radius:100px; font-size:10px; font-family:'DM Mono',monospace; margin-bottom:10px; }
+.db-act-stats { display:flex; gap:16px; margin-bottom:12px; flex-wrap:wrap; }
+.db-act-analysis { font-size:12px; color:var(--gray-light); line-height:1.7; border-left:2px solid rgba(252,76,2,.3); padding-left:12px; }
+.db-act-analysis h2,.db-act-analysis h3 { font-size:12px; color:var(--orange); margin:8px 0 4px; font-family:'Pretendard',sans-serif; }
+.db-act-analysis strong { color:var(--white); }
+.db-act-analysis p { margin:3px 0; }
+.db-act-analysis ul { padding-left:14px; margin:4px 0; }
+
 /* CHAT */
 .chat-input-row { display:flex; gap:8px; }
 .chat-quick { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
@@ -724,7 +783,8 @@ select.input-field option { background:var(--dark3); }
   <nav class="dash-nav">
     <div class="dash-logo" style="font-family:'DM Mono',monospace;font-size:14px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
     <div class="dash-tabs">
-      <button class="dash-tab active" onclick="switchPanel(this,'p-daily')">일일 분석</button>
+      <button class="dash-tab active" onclick="switchPanel(this,'p-dashboard')">대시보드</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-daily')">일간 분석</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-weekly')">주간 리포트</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-monthly')">월간 리포트</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-coach')">AI 코치</button>
@@ -740,8 +800,11 @@ select.input-field option { background:var(--dark3); }
   <!-- 모바일 하단 탭바 -->
   <div class="mobile-nav">
     <div class="mobile-nav-tabs">
-      <button class="mobile-tab active" onclick="switchPanelMobile(this,'p-daily')">
-        <span class="mobile-tab-icon">📊</span>일일
+      <button class="mobile-tab active" onclick="switchPanelMobile(this,'p-dashboard')">
+        <span class="mobile-tab-icon">🏠</span>홈
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-daily')">
+        <span class="mobile-tab-icon">📊</span>일간
       </button>
       <button class="mobile-tab" onclick="switchPanelMobile(this,'p-weekly')">
         <span class="mobile-tab-icon">📅</span>주간
@@ -759,137 +822,109 @@ select.input-field option { background:var(--dark3); }
   </div>
 
   <div class="dash-body">
-    <!-- GOAL HERO -->
-    <div class="goal-hero">
-      <div class="gh-left">
-        <h2 id="gh-race">🎯 서울 마라톤 풀코스</h2>
-        <p id="gh-target">목표: 3시간 50분 이내 완주</p>
-        <div class="gh-pace" id="gh-pace">⚡ 목표 페이스 5:27/km</div>
+
+    <!-- ══════════ 대시보드 ══════════ -->
+    <div class="tab-panel active" id="p-dashboard">
+
+      <!-- 1단: 목표 카드 -->
+      <div class="db-section">
+        <div class="db-goal-card">
+          <div class="db-goal-top">
+            <div>
+              <div class="db-goal-name" id="db-race-name">🎯 서울 마라톤</div>
+              <div class="db-goal-sub">
+                <span>🏁 <span id="db-target-time">3:50:00</span></span>
+                <span>⚡ <span id="db-target-pace">5:27</span>/km</span>
+                <span>📅 D-<span id="db-days">--</span></span>
+              </div>
+            </div>
+            <div class="db-goal-metrics">
+              <div class="db-metric">
+                <div class="db-metric-val" id="db-achieve-rate">--%</div>
+                <div class="db-metric-lbl">훈련달성률</div>
+              </div>
+              <div class="db-metric">
+                <div class="db-metric-val" id="db-goal-prob">--%</div>
+                <div class="db-metric-lbl">목표가능성</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="gh-right">
-        <div><div class="gh-metric-val" id="gh-days">--</div><div class="gh-metric-lbl">일 남음</div></div>
-        <div class="prog-wrap">
-          <svg width="80" height="80" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r="33" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
-            <circle id="progCircle" cx="40" cy="40" r="33" fill="none" stroke="#FC4C02" stroke-width="7" stroke-dasharray="207.3" stroke-dashoffset="66.3" stroke-linecap="round" transform="rotate(-90 40 40)"/>
-          </svg>
-          <div class="prog-center"><div class="prog-pct" id="progPct">68%</div><div class="prog-lbl">달성률</div></div>
+
+      <!-- 2단: 마일리지 -->
+      <div class="db-section">
+        <div class="db-mileage-grid">
+          <div class="db-mile-card">
+            <div class="db-mile-label">📅 이번 주</div>
+            <div class="db-mile-nums">
+              <div class="db-mile-done" id="db-week-done">0</div>
+              <div class="db-mile-total">/ <span id="db-week-target">50</span>km</div>
+            </div>
+            <div class="db-mile-bar"><div class="db-mile-fill" id="db-week-bar" style="width:0%"></div></div>
+          </div>
+          <div class="db-mile-card">
+            <div class="db-mile-label">📈 이번 달</div>
+            <div class="db-mile-nums">
+              <div class="db-mile-done" id="db-month-done">0</div>
+              <div class="db-mile-total">/ <span id="db-month-target">200</span>km</div>
+            </div>
+            <div class="db-mile-bar"><div class="db-mile-fill" id="db-month-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3단: 주간 캘린더 -->
+      <div class="db-section">
+        <div class="db-section-title">이번 주 훈련 계획</div>
+        <div class="db-week-grid" id="db-week-calendar">
+          <div class="db-day-card"><div class="db-day-name">월</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">화</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">수</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">목</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">금</div><div class="db-day-type">휴식</div></div>
+          <div class="db-day-card"><div class="db-day-name">토</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">일</div><div class="db-day-type">-</div></div>
+        </div>
+      </div>
+
+      <!-- 4단: 최근 활동 1개 -->
+      <div class="db-section">
+        <div class="db-section-title">최근 활동</div>
+        <div class="db-last-act" id="db-last-activity">
+          <div style="text-align:center;color:var(--gray);padding:20px;font-size:13px">
+            Strava 연동 후 활동이 표시됩니다
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- DAILY -->
-    <div class="tab-panel active" id="p-daily">
-      <div class="stats-4">
-        <div class="stat-card"><div class="sc-label">이번 주 거리</div><div class="sc-val">52.3<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 60km</div><div class="sc-trend up">↑ +8.2km vs 지난주</div></div>
-        <div class="stat-card"><div class="sc-label">평균 페이스</div><div class="sc-val">5:32<span style="font-size:14px;color:var(--gray)">/km</span></div><div class="sc-sub">목표 5:27/km</div><div class="sc-trend warn">→ 목표까지 5초</div></div>
-        <div class="stat-card"><div class="sc-label">이번 달 누적</div><div class="sc-val">68<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 100km</div><div class="sc-trend up">↑ 순조로운 진행</div></div>
-        <div class="stat-card"><div class="sc-label">예상 완주 기록</div><div class="sc-val" style="font-size:22px">3:51:30</div><div class="sc-sub">현재 페이스 기준</div><div class="sc-trend warn">→ 목표까지 1:30</div></div>
-      </div>
-      <div class="section-hd">최근 활동 분석</div>
+    <!-- ══════════ 일간 분석 ══════════ -->
+    <div class="tab-panel" id="p-daily">
+      <div class="section-hd">최근 7일 활동 분석</div>
       <div id="activitiesList">
-        <div class="act-card">
-          <div>
-            <div class="act-date">2026.04.22 (수) · 오후 7:16</div>
-            <div class="act-name">스트라바 자동화 테스트 런</div>
-            <div class="act-stats">
-              <div><div class="as-val">8.0km</div><div class="as-lbl">거리</div></div>
-              <div><div class="as-val">1:00:00</div><div class="as-lbl">시간</div></div>
-              <div><div class="as-val">7:30/km</div><div class="as-lbl">페이스</div></div>
-              <div><div class="as-val">450</div><div class="as-lbl">칼로리</div></div>
-            </div>
-            <span class="pace-badge pb-slow">● 목표보다 2:03 느림</span>
-          </div>
-          <div class="act-analysis">
-            <div class="aa-hd">🤖 Claude AI 분석</div>
-            <div class="aa-txt">오늘 8km를 지구력 훈련 페이스로 완주했습니다. 유산소 기반 강화에 효과적이에요. 다음엔 5km를 5:30/km로 시도해보세요!</div>
-          </div>
-        </div>
-        <div class="act-card">
-          <div>
-            <div class="act-date">2026.04.20 (월) · 오전 6:30</div>
-            <div class="act-name">Morning Easy Run</div>
-            <div class="act-stats">
-              <div><div class="as-val">12.5km</div><div class="as-lbl">거리</div></div>
-              <div><div class="as-val">1:08:45</div><div class="as-lbl">시간</div></div>
-              <div><div class="as-val">5:30/km</div><div class="as-lbl">페이스</div></div>
-              <div><div class="as-val">680</div><div class="as-lbl">칼로리</div></div>
-            </div>
-            <span class="pace-badge pb-close">● 목표 페이스와 3초 차이</span>
-          </div>
-          <div class="act-analysis">
-            <div class="aa-hd">🤖 Claude AI 분석</div>
-            <div class="aa-txt"><strong>훌륭해요!</strong> 이 페이스 유지 시 3:51:30 완주 예상. 목표까지 1분 30초 차이입니다!</div>
-          </div>
+        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+          Strava 연동 후 활동이 표시됩니다
         </div>
       </div>
     </div>
 
-    <!-- WEEKLY -->
+    <!-- ══════════ 주간 리포트 ══════════ -->
     <div class="tab-panel" id="p-weekly">
-      <div class="two-col">
-        <div class="chart-box">
-          <div class="cb-title">이번 주 일별 달리기 (km)</div>
-          <div class="bar-row">
-            <div class="b-col"><div class="b-km">12.5</div><div class="b-bar fill" style="height:78%"></div><div class="b-day">월</div></div>
-            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">화</div></div>
-            <div class="b-col"><div class="b-km">8</div><div class="b-bar fill cur" style="height:50%"></div><div class="b-day">수</div></div>
-            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">목</div></div>
-            <div class="b-col"><div class="b-km">16</div><div class="b-bar fill" style="height:100%;opacity:.3"></div><div class="b-day">금</div></div>
-            <div class="b-col"><div class="b-km">0</div><div class="b-bar fill" style="height:2%;opacity:.2"></div><div class="b-day">토</div></div>
-            <div class="b-col"><div class="b-km">15.8</div><div class="b-bar fill" style="height:99%;opacity:.3"></div><div class="b-day">일</div></div>
-          </div>
+      <div class="section-hd">주간 리포트</div>
+      <div id="weeklyReport">
+        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+          매주 월요일 오전 8시에 자동으로 업데이트됩니다
         </div>
-        <div class="chart-box">
-          <div class="cb-title">주간 평균 페이스 트렌드</div>
-          <div class="trend-rows">
-            <div class="trend-row"><span class="tr-week">4주 전</span><span class="tr-pace">6:02/km</span></div>
-            <div class="trend-row"><span class="tr-week">3주 전</span><span class="tr-pace">5:51/km</span></div>
-            <div class="trend-row"><span class="tr-week">2주 전</span><span class="tr-pace">5:41/km</span></div>
-            <div class="trend-row"><span class="tr-week">지난 주</span><span class="tr-pace">5:35/km</span></div>
-            <div class="trend-row now"><span class="tr-week">이번 주 ↑</span><span class="tr-pace">5:32/km</span></div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);font-size:11px;color:var(--green)">✓ 4주 연속 향상 · 목표까지 5초!</div>
-          </div>
-        </div>
-      </div>
-      <div class="section-hd">주간 AI 분석</div>
-      <div class="coach-box">
-        <div class="cb-hd"><div class="cb-av">🤖</div><div><div class="cb-nm">Claude AI 주간 리포트</div><div class="cb-sb">2026년 4월 3주차 · 총 52.3km</div></div></div>
-        <div class="cb-msg">이번 주 52.3km, 평균 페이스 5:32/km. 4주 연속 향상으로 <strong>9월 서브 3:50 목표 달성 가능성이 높습니다!</strong></div>
-        <div class="tips-3">
-          <div class="tip"><div class="tip-icon">🏃</div><div class="tip-title">다음 주 계획</div><div class="tip-desc">인터벌 2회, 장거리 18km, LSD 22km</div></div>
-          <div class="tip"><div class="tip-icon">💪</div><div class="tip-title">강점</div><div class="tip-desc">꾸준한 페이스 향상, 볼륨 안정적 유지</div></div>
-          <div class="tip"><div class="tip-icon">⚡</div><div class="tip-title">개선점</div><div class="tip-desc">인터벌 강화, 목요일 회복런 추가</div></div>
-        </div>
-      </div>
-      <div class="section-hd">다음 주 훈련 계획</div>
-      <div class="plan-week">
-        <div class="plan-d rest"><div class="pd-name">MON</div><div class="pd-type" style="color:var(--gray)">휴식</div><div class="pd-km rest">Rest</div></div>
-        <div class="plan-d"><div class="pd-name">TUE</div><div class="pd-type" style="color:#9B59B6">인터벌</div><div class="pd-km">12</div></div>
-        <div class="plan-d today"><div class="pd-name">WED</div><div class="pd-type" style="color:var(--orange)">장거리</div><div class="pd-km">18</div></div>
-        <div class="plan-d"><div class="pd-name">THU</div><div class="pd-type" style="color:var(--green)">회복런</div><div class="pd-km">8</div></div>
-        <div class="plan-d rest"><div class="pd-name">FRI</div><div class="pd-type" style="color:var(--gray)">휴식</div><div class="pd-km rest">Rest</div></div>
-        <div class="plan-d"><div class="pd-name">SAT</div><div class="pd-type" style="color:#2D9CDB">템포런</div><div class="pd-km">14</div></div>
-        <div class="plan-d"><div class="pd-name">SUN</div><div class="pd-type" style="color:var(--orange)">LSD</div><div class="pd-km">22</div></div>
       </div>
     </div>
 
-    <!-- MONTHLY -->
+    <!-- ══════════ 월간 리포트 ══════════ -->
     <div class="tab-panel" id="p-monthly">
-      <div class="stats-4">
-        <div class="stat-card"><div class="sc-label">4월 누적 거리</div><div class="sc-val">68<span style="font-size:14px;color:var(--gray)">km</span></div><div class="sc-sub">목표 100km</div><div class="sc-trend up">↑ +15km vs 3월</div></div>
-        <div class="stat-card"><div class="sc-label">월 평균 페이스</div><div class="sc-val">5:38<span style="font-size:14px;color:var(--gray)">/km</span></div><div class="sc-sub">3월: 5:52/km</div><div class="sc-trend up">↑ 14초 향상</div></div>
-        <div class="stat-card"><div class="sc-label">목표 준비도</div><div class="sc-val">72<span style="font-size:14px;color:var(--gray)">%</span></div><div class="sc-sub">9월 레이스 기준</div><div class="sc-trend up">✓ 달성 가능</div></div>
-        <div class="stat-card"><div class="sc-label">이번 달 훈련</div><div class="sc-val">14<span style="font-size:14px;color:var(--gray)">회</span></div><div class="sc-sub">이번 달</div><div class="sc-trend up">↑ 꾸준함 유지</div></div>
-      </div>
-      <div class="section-hd">월간 AI 리포트</div>
-      <div class="coach-box">
-        <div class="cb-hd"><div class="cb-av">📊</div><div><div class="cb-nm">4월 월간 분석 · 서울 마라톤 로드맵</div><div class="cb-sb">Claude AI 생성 · 목표: 3:50:00</div></div></div>
-        <div class="cb-msg">4월 68km, 평균 페이스 5:38/km. <strong>9월 서브 3:50 달성 가능성 매우 높습니다.</strong> 5월부터 주간 70km로 늘리고 6월 하프마라톤으로 중간 점검을 권장합니다.</div>
-        <div class="tips-3">
-          <div class="tip"><div class="tip-icon">📅</div><div class="tip-title">5월 목표</div><div class="tip-desc">주간 70km, 페이스 5:25/km, 25km 장거리 1회</div></div>
-          <div class="tip"><div class="tip-icon">🎯</div><div class="tip-title">6월 점검</div><div class="tip-desc">하프마라톤 레이스 참가 목표 1:48:00</div></div>
-          <div class="tip"><div class="tip-icon">🏆</div><div class="tip-title">8-9월 전략</div><div class="tip-desc">8월 테이퍼링 → 레이스 2주 전 최종 조정</div></div>
+      <div class="section-hd">월간 리포트</div>
+      <div id="monthlyReport">
+        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+          매월 2일 오전 8시에 자동으로 업데이트됩니다
         </div>
       </div>
     </div>
@@ -1218,35 +1253,148 @@ async function loadUserData() {
 
   // Latest goal
   const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
-  if (goals && goals.length > 0) {
-    const g = goals[0];
-    document.getElementById('gh-race').textContent = '🎯 ' + (g.race_name || '마라톤') + ' 풀코스';
-    document.getElementById('gh-target').textContent = '목표: ' + g.target_time + ' 이내 완주';
-    document.getElementById('gh-pace').textContent = '⚡ 목표 페이스 ' + g.target_pace + '/km';
-    document.getElementById('settingGoal').value = g.target_time;
-    document.getElementById('settingRaceDate').value = g.race_date;
-    document.getElementById('settingRaceName').value = g.race_name;
-    // PR 기록 불러오기
+  const g = goals?.[0];
+
+  if (g) {
+    // 대시보드 1단: 목표 카드
+    document.getElementById('db-race-name').textContent = '🎯 ' + (g.race_name || '마라톤');
+    document.getElementById('db-target-time').textContent = g.target_time || '--:--:--';
+    document.getElementById('db-target-pace').textContent = g.target_pace || '--:--';
+
+    // D-day
+    const daysLeft = g.race_date ? Math.ceil((new Date(g.race_date) - new Date()) / 86400000) : '--';
+    document.getElementById('db-days').textContent = daysLeft;
+
+    // 설정 탭
+    document.getElementById('settingGoal').value = g.target_time || '';
+    document.getElementById('settingRaceDate').value = g.race_date || '';
+    document.getElementById('settingRaceName').value = g.race_name || '';
     if (g.pr_full) document.getElementById('settingPrFull').value = g.pr_full;
     if (g.pr_half) document.getElementById('settingPrHalf').value = g.pr_half;
     if (g.pr_10k) document.getElementById('settingPrTenK').value = g.pr_10k;
     if (g.pr_5k) document.getElementById('settingPrFiveK').value = g.pr_5k;
-    // Days left
-    if (g.race_date) {
-      const days = Math.ceil((new Date(g.race_date) - new Date()) / 86400000);
-      document.getElementById('gh-days').textContent = days;
-    }
+
+    // 훈련 단계 기반 주간/월간 목표 계산
+    const phase = getPhase(g.race_date);
+    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    const monthlyTarget = weeklyTarget * 4;
+    document.getElementById('db-week-target').textContent = weeklyTarget;
+    document.getElementById('db-month-target').textContent = monthlyTarget;
   }
 
-  // Strava 연동 상태 확인
+  // Strava 연동 상태
   updateStravaUI(!!profile?.strava_access_token);
   if (profile?.strava_athlete_id) {
     document.getElementById('stravaStatus').textContent = `Strava ID: ${profile.strava_athlete_id}`;
   }
 
-  // Activities
-  const { data: acts } = await sb.from('activities').select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(5);
-  if (acts && acts.length > 0) renderActivities(acts);
+  // Activities (최근 7개)
+  const { data: acts } = await sb.from('activities').select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(7);
+
+  if (acts && acts.length > 0) {
+    // 일간 탭 렌더링
+    renderActivities(acts);
+
+    // 대시보드 2단: 마일리지 계산
+    const now = new Date();
+    const weekStart = new Date(now);
+    const day = weekStart.getDay();
+    weekStart.setDate(weekStart.getDate() - (day === 0 ? 6 : day - 1));
+    weekStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const weekKm = acts.filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
+    const monthKm = acts.filter(a => new Date(a.start_date) >= monthStart).reduce((s, a) => s + a.distance, 0) / 1000;
+
+    const weekTarget = parseInt(document.getElementById('db-week-target').textContent) || 50;
+    const monthTarget = parseInt(document.getElementById('db-month-target').textContent) || 200;
+
+    document.getElementById('db-week-done').textContent = weekKm.toFixed(1);
+    document.getElementById('db-month-done').textContent = monthKm.toFixed(1);
+    document.getElementById('db-week-bar').style.width = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0) + '%';
+    document.getElementById('db-month-bar').style.width = Math.min(100, (monthKm / monthTarget * 100)).toFixed(0) + '%';
+
+    // 훈련 달성률
+    const achieveRate = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0);
+    document.getElementById('db-achieve-rate').textContent = achieveRate + '%';
+
+    // 대시보드 4단: 최근 활동 1개
+    renderLastActivity(acts[0]);
+  }
+
+  // 대시보드 3단: 주간 캘린더 (weekly_plans 테이블에서)
+  await loadWeeklyPlan();
+}
+
+function getPhase(raceDate) {
+  if (!raceDate) return '기초체력기';
+  const d = Math.ceil((new Date(raceDate) - new Date()) / 86400000);
+  if (d > 140) return '기초체력기';
+  if (d > 84) return '훈련강화기';
+  if (d > 42) return '피크훈련기';
+  if (d > 14) return '테이퍼링기';
+  return '레이스준비기';
+}
+
+async function loadWeeklyPlan() {
+  try {
+    const today = new Date();
+    const day = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const { data: plans } = await sb.from('weekly_plans')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('week_start', weekStartStr)
+      .limit(1);
+
+    const plan = plans?.[0];
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dayNames = ['월','화','수','목','금','토','일'];
+    const todayIdx = day === 0 ? 6 : day - 1; // 월=0, 일=6
+
+    const cal = document.getElementById('db-week-calendar');
+    cal.innerHTML = days.map((d, i) => {
+      const workout = plan?.[d] || (i === 4 ? '휴식' : '-');
+      const isToday = i === todayIdx;
+      const isPast = i < todayIdx;
+      const cls = isToday ? 'db-day-card today' : isPast ? 'db-day-card done' : 'db-day-card future';
+      return `<div class="${cls}">
+        <div class="db-day-name">${dayNames[i]}</div>
+        <div class="db-day-type">${workout}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    console.log('Weekly plan load error:', e);
+  }
+}
+
+function renderLastActivity(a) {
+  const km = (a.distance / 1000).toFixed(1);
+  const mins = Math.floor(a.moving_time / 60);
+  const secs = a.moving_time % 60;
+  const timeStr = `${Math.floor(mins/60)}:${String(mins%60).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  const paceSecPerKm = a.moving_time / (a.distance / 1000);
+  const paceStr = `${Math.floor(paceSecPerKm/60)}:${String(Math.round(paceSecPerKm%60)).padStart(2,'0')}`;
+  const date = new Date(a.start_date).toLocaleDateString('ko-KR');
+  const analysisHtml = a.analysis ? marked.parse(a.analysis) : '';
+
+  document.getElementById('db-last-activity').innerHTML = `
+    <div class="db-act-header">
+      <div class="db-act-name">${a.name || '달리기'}</div>
+      <div class="db-act-date">${date}</div>
+    </div>
+    <div class="db-act-badge">${a.workout_type || a.type}</div>
+    <div class="db-act-stats">
+      <div><div class="as-val">${km}km</div><div class="as-lbl">거리</div></div>
+      <div><div class="as-val">${timeStr}</div><div class="as-lbl">시간</div></div>
+      <div><div class="as-val">${paceStr}/km</div><div class="as-lbl">페이스</div></div>
+      <div><div class="as-val">${a.calories || '-'}</div><div class="as-lbl">칼로리</div></div>
+    </div>
+    ${analysisHtml ? `<div class="db-act-analysis">${analysisHtml}</div>` : ''}
+  `;
 }
 
 function renderActivities(acts) {
