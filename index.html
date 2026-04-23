@@ -1014,7 +1014,17 @@ select.input-field option { background:var(--dark3); }
           <button class="save-btn" onclick="saveTelegram()">저장</button>
         </div>
         <div class="settings-card settings-full">
-          <div class="sc-title">🏆 개인 최고 기록 (PR)</div>
+          <div class="sc-title">📥 과거 데이터 불러오기</div>
+          <div class="sc-sub-text">Strava의 과거 1년치 활동을 가져와 차트와 분석에 활용합니다</div>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 처음 한 번만 실행하면 돼요. 이미 저장된 활동은 중복 저장되지 않아요.<br>
+            데이터 불러오기 후 마일리지 차트와 훈련 분석이 더 정확해져요.
+          </div>
+          <div id="importStatus" style="display:none;padding:12px;background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px;font-size:13px;color:var(--green)"></div>
+          <button class="save-btn" onclick="importHistory()" id="importBtn">
+            📥 과거 1년 데이터 불러오기
+          </button>
+        </div>
           <div class="sc-sub-text">기록 갱신 시 업데이트하세요. AI 코치가 이 기록을 기반으로 분석합니다.</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             <div>
@@ -1466,6 +1476,38 @@ async function saveGoal() {
   const days = Math.ceil((new Date(race_date) - new Date()) / 86400000);
   document.getElementById('gh-days').textContent = days;
   toast('✅ 목표가 업데이트됐습니다!');
+}
+
+async function importHistory() {
+  if (!currentUser) return;
+  const btn = document.getElementById('importBtn');
+  const status = document.getElementById('importStatus');
+
+  btn.textContent = '⏳ 불러오는 중... (1~2분 소요)';
+  btn.disabled = true;
+  status.style.display = 'none';
+
+  try {
+    const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`);
+    const data = await res.json();
+
+    if (data.success) {
+      status.style.display = 'block';
+      status.textContent = `✅ 완료! 총 ${data.total_found}개 활동 중 ${data.newly_saved}개 새로 저장됐어요.`;
+      btn.textContent = '✅ 완료';
+      await loadUserData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (e) {
+    status.style.display = 'block';
+    status.style.background = 'rgba(231,76,60,.08)';
+    status.style.borderColor = 'rgba(231,76,60,.2)';
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ 오류가 발생했어요. 다시 시도해주세요.';
+    btn.textContent = '📥 과거 1년 데이터 불러오기';
+    btn.disabled = false;
+  }
 }
 
 async function savePR() {
