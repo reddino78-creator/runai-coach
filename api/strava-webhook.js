@@ -56,7 +56,10 @@ export default async function handler(req, res) {
       // 해당 사용자의 strava-sync 호출
       fetch(
         `https://runai-coach.vercel.app/api/strava-sync?user_id=${profile.id}&type=daily&activity_id=${activityId}`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
+        }
       ).catch(e => console.error('Sync error:', e));
 
       // Strava는 빠른 응답을 기대하므로 즉시 200 반환
