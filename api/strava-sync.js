@@ -409,6 +409,12 @@ export default async function handler(req, res) {
     // 주간 분석
     if (type === 'weekly') {
       const analysis = await analyzeWeekly(userId, goal, accessToken);
+      // Supabase에 저장
+      await sbPost('reports', {
+        user_id: userId,
+        type: 'weekly',
+        content: analysis
+      });
       await sendTelegram(profile.telegram_chat_id, '📅 <b>주간 훈련 리포트</b>', analysis);
       return res.json({ success: true, type: 'weekly' });
     }
@@ -416,6 +422,12 @@ export default async function handler(req, res) {
     // 월간 분석
     if (type === 'monthly') {
       const analysis = await analyzeMonthly(userId, goal, accessToken);
+      // Supabase에 저장
+      await sbPost('reports', {
+        user_id: userId,
+        type: 'monthly',
+        content: analysis
+      });
       await sendTelegram(profile.telegram_chat_id, '📊 <b>월간 훈련 리포트</b>', analysis);
       return res.json({ success: true, type: 'monthly' });
     }
