@@ -1291,6 +1291,12 @@ async function initSupabase() {
   const res = await fetch('/api/config');
   const config = await res.json();
   sb = createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+    }
+  });
 }
 
 // ── STATE ──
@@ -1321,11 +1327,7 @@ window.addEventListener('load', async () => {
   }
 });
 
-sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    currentUser = session.user;
-  }
-});
+
 
 // ── SCREENS ──
 function showScreen(id) {
@@ -2290,7 +2292,11 @@ async function saveCondition() {
 async function loadTodayCondition() {
   if (!currentUser) return;
   const today = new Date().toISOString().split('T')[0];
-  const { data } = await sb.from('conditions').select('*').eq('user_id', currentUser.id).eq('date', today).single();
+  const { data } = await sb.from('conditions')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .eq('date', today)
+    .maybeSingle();
   if (data) {
     selectCondition(data.condition || '보통');
     selectInjury(data.injury_part || '없음');
