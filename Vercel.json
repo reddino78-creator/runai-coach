@@ -1,10 +1,17 @@
 {
   "functions": {
     "api/*.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
+  "crons": [
+    {
+      "path": "/api/cron-weekly",
+      "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/cron-monthly",
+      "schedule": "0 23 1 * *"
+    }
   ]
 }
