@@ -166,7 +166,81 @@ function getWeekStart(date = new Date()) {
   return d.toISOString().split('T')[0];
 }
 
-// ── Strava 상세 데이터 가져오기 ──
+// ── 날씨 데이터 가져오기 ──
+async function fetchWeather(lat, lng, activityDate) {
+  try {
+    if (!lat || !lng || !process.env.OPENWEATHER_API_KEY) return null;
+
+    const date = new Date(activityDate);
+    const now = new Date();
+    const diffHours = (now - date) / (1000 * 60 * 60);
+
+    let url;
+    if (diffHours < 48) {
+      // 최근 48시간: 현재 날씨
+      url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=kr`;
+    } else {
+      return null; // 과거 날씨는 유료
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.main) {
+      return {
+        temp: Math.round(data.main.temp),
+        feels_like: Math.round(data.main.feels_like),
+        humidity: data.main.humidity,
+        weather: data.weather?.[0]?.description || '',
+        wind_speed: data.wind?.speed || 0,
+        is_rain: data.rain != null || (data.weather?.[0]?.main === 'Rain'),
+        is_snow: data.snow != null || (data.weather?.[0]?.main === 'Snow')
+      };
+    }
+    return null;
+  } catch(e) {
+    console.error('Weather fetch error:', e);
+    return null;
+  }
+}
+
+// ── 날씨 영향 분석 ──
+function analyzeWeatherImpact(weather) {
+  if (!weather) return null;
+  const impacts = [];
+
+  // 기온
+  if (weather.temp >= 30) impacts.push(`🌡️ 고온(${weather.temp}°C) - 페이스 5~10% 저하, 심박 상승 예상`);
+  else if (weather.temp >= 25) impacts.push(`🌡️ 고온(${weather.temp}°C) - 체감온도 ${weather.feels_like}°C, 수분 보충 필수`);
+  else if (weather.temp <= 0) impacts.push(`🥶 영하(${weather.temp}°C) - 준비운동 충분히, 근육 경직 주의`);
+  else if (weather.temp <= 5) impacts.push(`❄️ 한랭(${weather.temp}°C) - 워밍업 10분 이상 권장`);
+  else if (weather.temp >= 15 && weather.temp <= 22) impacts.push(`✅ 최적 기온(${weather.temp}°C) - 최상의 러닝 컨디션`);
+
+  // 습도
+  if (weather.humidity >= 80) impacts.push(`💧 고습도(${weather.humidity}%) - 체감온도 높음, 탈수 주의`);
+
+  // 강수
+  if (weather.is_rain) impacts.push(`🌧️ 강우 - 미끄럼 주의, 페이스 조절 필요`);
+  if (weather.is_snow) impacts.push(`❄️ 강설 - 안전 최우선, 강도 낮추기 권장`);
+
+  // 바람
+  if (weather.wind_speed >= 10) impacts.push(`💨 강풍(${weather.wind_speed}m/s) - 역풍 구간 페이스 손실 고려`);
+
+  return impacts.length > 0 ? impacts.join('\n') : `🌤️ ${weather.temp}°C, 날씨 양호`;
+}
+
+// ── 컨디션 가져오기 ──
+async function fetchUserCondition(userId, activityDate) {
+  try {
+    const date = activityDate.split('T')[0];
+    const conditions = await sbGet('conditions',
+      `user_id=eq.${userId}&date=eq.${date}&select=condition,injury_part,injury_level,memo`
+    );
+    return conditions?.[0] || null;
+  } catch(e) {
+    return null;
+  }
+}
 async function fetchActivityDetails(activityId, accessToken) {
   try {
     // 랩 데이터
@@ -257,7 +331,7 @@ async function refreshToken(profile, userId) {
 // ══════════════════════════════════════
 // 일일 분석 (1000자 이내)
 // ══════════════════════════════════════
-async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details) {
+async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition) {
   const km = (activity.distance / 1000).toFixed(1);
   const pace = calcPace(activity.moving_time, activity.distance);
   const targetPace = goal?.target_pace || '5:27';
@@ -287,6 +361,15 @@ async function analyzeDailyActivity(activity, goal, recentActivities, workoutTyp
 주훈련: ${phases.mainKm}km @ ${phases.mainPace}/km
 쿨다운: ${phases.cooldownKm}km` : '구간 데이터 없음';
 
+  // 날씨 영향 분석
+  const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
+
+  // 컨디션 정보
+  const conditionInfo = condition ? `
+컨디션: ${condition.condition || '보통'}
+부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}
+${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
+
   const prompt = `마라톤 코치로서 간결한 일일 분석을 작성하세요.
 
 선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
@@ -300,6 +383,8 @@ PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
 ${avgHR ? `- 평균 심박수: ${avgHR}bpm` : ''}
 ${avgCad ? `- 케이던스: ${avgCad}spm (권장: 170~180spm)` : ''}
 - 구간: ${phaseInfo}
+${weatherImpact ? `\n날씨 환경:\n${weatherImpact}` : ''}
+${conditionInfo ? `\n선수 컨디션:${conditionInfo}` : ''}
 
 이번 주: ${weekKm}km / ${weeklyTarget}km 목표
 최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`).join(', ') || '없음'}
@@ -312,12 +397,15 @@ ${avgCad ? `- 케이던스: ${avgCad}spm (권장: 170~180spm)` : ''}
 ${isCross ? '크로스트레이닝 관점에서 마라톤 훈련에 미치는 영향 평가' : isTrail ? '트레일런 강도를 고도 환산 페이스 기준으로 평가' : '목표 페이스 대비 평가, 웜업/주훈련/쿨다운 구성 평가'}
 ${avgHR ? '심박수 기반 강도 평가 포함' : ''}
 ${avgCad ? '케이던스 평가 및 개선 방향 포함' : ''}
+${weatherImpact ? '날씨가 페이스/심박에 미친 영향 분석 포함' : ''}
+${condition?.injury_part && condition.injury_part !== '없음' ? `⚠️ ${condition.injury_part} 부상(${condition.injury_level}) 고려한 조언 포함` : ''}
+${condition?.condition === '피로' ? '⚠️ 피로 컨디션 고려한 회복 조언 포함' : ''}
 
 **이번 주 영향**
 (주간 목표 달성에 미치는 영향 1문장)
 
 **남은 훈련 처방**
-(이번 주 남은 훈련 2-3개, 구체적 페이스/거리 포함)`;
+(이번 주 남은 훈련 2-3개, 구체적 페이스/거리 포함${condition?.injury_part && condition.injury_part !== '없음' ? ', 부상 고려' : ''})`;
 
   return callClaude(prompt, 800);
 }
@@ -832,9 +920,17 @@ export default async function handler(req, res) {
         const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
         const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
 
+        // 날씨 + 컨디션
+        const weather = await fetchWeather(
+          activity.start_latlng?.[0],
+          activity.start_latlng?.[1],
+          activity.start_date
+        );
+        const condition = await fetchUserCondition(userId, activity.start_date);
+
         const analysis = await analyzeDailyActivity(
           activity, goal, recentSaved.slice(0, 6),
-          workoutType, sportType, phases, details
+          workoutType, sportType, phases, details, weather, condition
         );
 
         const km = (activity.distance / 1000).toFixed(1);
