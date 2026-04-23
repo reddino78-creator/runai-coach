@@ -1615,10 +1615,14 @@ async function loadWeeklyCards() {
       const label = i === 0 ? '이번 주' : i === 1 ? '지난 주' : `${i}주 전`;
       weeks8.push({ label, km: parseFloat(wKm), isNow: i === 0 });
     }
+    const maxMonthKm = Math.max(...weeks8.map(w => w.km), 1);
     document.getElementById('wk-8weeks').innerHTML = weeks8.map(w => `
-      <div class="trend-row ${w.isNow ? 'now' : ''}">
-        <span class="tr-week">${w.label}</span>
-        <span class="tr-pace">${w.km}km</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:10px;color:${w.isNow ? 'var(--orange)' : 'var(--gray)'};width:44px;text-align:right;font-family:'DM Mono',monospace;flex-shrink:0">${w.label}</div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(w.km/maxMonthKm*100).toFixed(0)}%;background:${w.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px;transition:width 1s ease"></div>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${w.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${w.km}km</div>
       </div>
     `).join('');
 
