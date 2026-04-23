@@ -911,20 +911,126 @@ select.input-field option { background:var(--dark3); }
 
     <!-- ══════════ 주간 리포트 ══════════ -->
     <div class="tab-panel" id="p-weekly">
-      <div class="section-hd">주간 리포트</div>
-      <div id="weeklyReport">
-        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
-          매주 월요일 오전 8시에 자동으로 업데이트됩니다
+
+      <!-- 1섹션: 주간 목표 카드 -->
+      <div class="db-section">
+        <div class="db-goal-card">
+          <div class="db-goal-top">
+            <div>
+              <div class="db-goal-name" style="font-size:16px">📅 이번 주 목표</div>
+              <div class="db-goal-sub" style="margin-top:6px">
+                <span>🎯 목표 거리: <span id="wk-target-km" style="color:var(--orange);font-weight:700">--</span>km</span>
+                <span>⚡ 목표 페이스: <span id="wk-target-pace" style="color:var(--orange)">--:--</span>/km</span>
+                <span>📍 훈련 단계: <span id="wk-phase" style="color:var(--orange)">--</span></span>
+              </div>
+            </div>
+            <div class="db-goal-metrics">
+              <div class="db-metric">
+                <div class="db-metric-val" id="wk-done-km">0</div>
+                <div class="db-metric-lbl">이번주 km</div>
+              </div>
+              <div class="db-metric">
+                <div class="db-metric-val" id="wk-sessions">0</div>
+                <div class="db-metric-lbl">이번주 횟수</div>
+              </div>
+            </div>
+          </div>
+          <div class="db-mile-bar" style="margin-top:8px">
+            <div class="db-mile-fill" id="wk-progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2섹션: 마일리지 차트 -->
+      <div class="db-section">
+        <div class="two-col">
+          <!-- 이번 주 일별 막대그래프 -->
+          <div class="chart-box">
+            <div class="cb-title">이번 주 일별 거리 (km)</div>
+            <div class="bar-row" id="wk-daily-bars">
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">월</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">화</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">수</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">목</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">금</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">토</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">일</div></div>
+            </div>
+          </div>
+          <!-- 8주 마일리지 트렌드 -->
+          <div class="chart-box">
+            <div class="cb-title">최근 8주 마일리지 트렌드</div>
+            <div class="trend-rows" id="wk-8weeks">
+              <div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터 로딩 중...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3섹션: 훈련 종류 -->
+      <div class="db-section">
+        <div class="two-col">
+          <!-- 이번 주 -->
+          <div class="chart-box">
+            <div class="cb-title">이번 주 훈련 구성</div>
+            <div id="wk-this-week-types" style="margin-bottom:12px"></div>
+            <div id="wk-this-ratio" style="font-size:11px;color:var(--gray)"></div>
+          </div>
+          <!-- 지난 주 -->
+          <div class="chart-box">
+            <div class="cb-title">지난 주 훈련 구성</div>
+            <div id="wk-last-week-types" style="margin-bottom:12px"></div>
+            <div id="wk-last-ratio" style="font-size:11px;color:var(--gray)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4섹션: AI 주간 리포트 -->
+      <div class="db-section">
+        <div class="section-hd">AI 주간 리포트</div>
+        <div id="weeklyReport">
+          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+            매주 월요일 오전 8시에 자동으로 업데이트됩니다
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ══════════ 월간 리포트 ══════════ -->
     <div class="tab-panel" id="p-monthly">
-      <div class="section-hd">월간 리포트</div>
-      <div id="monthlyReport">
-        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
-          매월 2일 오전 8시에 자동으로 업데이트됩니다
+
+      <!-- 1섹션: 지난달 AI 평가 -->
+      <div class="db-section">
+        <div class="section-hd">AI 월간 리포트</div>
+        <div id="monthlyReport">
+          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+            매월 2일 오전 8시에 자동으로 업데이트됩니다
+          </div>
+        </div>
+      </div>
+
+      <!-- 2섹션: 훈련 종류별 현황 -->
+      <div class="db-section">
+        <div class="section-hd">이번 달 훈련 구성</div>
+        <div class="chart-box">
+          <div id="mn-workout-types" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
+          <div id="mn-ratio" style="padding-top:12px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:var(--gray-light)"></div>
+        </div>
+      </div>
+
+      <!-- 3섹션: 최근 6개월 마일리지 -->
+      <div class="db-section">
+        <div class="section-hd">최근 6개월 마일리지</div>
+        <div class="chart-box">
+          <div class="trend-rows" id="mn-6months"></div>
+        </div>
+      </div>
+
+      <!-- 4섹션: 월별 훈련 로드맵 -->
+      <div class="db-section">
+        <div class="section-hd">레이스까지 훈련 로드맵</div>
+        <div id="mn-roadmap" class="chart-box">
+          <div style="color:var(--gray);font-size:12px">목표 대회 날짜를 설정하면 로드맵이 생성됩니다</div>
         </div>
       </div>
     </div>
@@ -1284,8 +1390,12 @@ async function loadUserData() {
     if (g.pr_10k) document.getElementById('settingPrTenK').value = g.pr_10k;
     if (g.pr_5k) document.getElementById('settingPrFiveK').value = g.pr_5k;
 
-    // 훈련 단계 기반 주간/월간 목표 계산
+    // 주간 탭 목표 카드
     const phase = getPhase(g.race_date);
+    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    if (document.getElementById('wk-target-km')) document.getElementById('wk-target-km').textContent = weeklyTarget;
+    if (document.getElementById('wk-target-pace')) document.getElementById('wk-target-pace').textContent = g.target_pace || '--:--';
+    if (document.getElementById('wk-phase')) document.getElementById('wk-phase').textContent = phase;
     const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
     const monthlyTarget = weeklyTarget * 4;
     document.getElementById('db-week-target').textContent = weeklyTarget;
@@ -1337,6 +1447,8 @@ async function loadUserData() {
 
   // 주간/월간 리포트
   await loadReports();
+  await loadWeeklyCards();
+  await loadMonthlyCards();
 }
 
 function getPhase(raceDate) {
@@ -1427,6 +1539,255 @@ async function loadReports() {
     }
   } catch(e) {
     console.log('Reports load error:', e);
+  }
+
+  // 주간/월간 카드 데이터 로드
+  await loadWeeklyCards();
+  await loadMonthlyCards();
+}
+
+// ── 주간 카드 데이터 ──
+async function loadWeeklyCards() {
+  try {
+    // 최근 60일 활동 가져오기
+    const { data: acts } = await sb.from('activities')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('start_date', { ascending: false })
+      .limit(200);
+
+    if (!acts || acts.length === 0) return;
+
+    const now = new Date();
+    const todayDay = now.getDay(); // 0=일, 1=월
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (todayDay === 0 ? 6 : todayDay - 1));
+    weekStart.setHours(0, 0, 0, 0);
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    // 이번 주 활동
+    const thisWeekActs = acts.filter(a => new Date(a.start_date) >= weekStart);
+    const lastWeekActs = acts.filter(a => {
+      const d = new Date(a.start_date);
+      return d >= lastWeekStart && d < weekStart;
+    });
+
+    const thisWeekKm = (thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+    const weekTarget = parseInt(document.getElementById('db-week-target')?.textContent) || 50;
+
+    // 1섹션 업데이트
+    document.getElementById('wk-done-km').textContent = thisWeekKm;
+    document.getElementById('wk-sessions').textContent = thisWeekActs.length;
+    document.getElementById('wk-target-km').textContent = weekTarget;
+    document.getElementById('wk-progress-bar').style.width = Math.min(100, (thisWeekKm / weekTarget * 100)).toFixed(0) + '%';
+
+    // 이번 주 일별 막대그래프
+    const dayKm = [0, 0, 0, 0, 0, 0, 0]; // 월~일
+    thisWeekActs.forEach(a => {
+      const d = new Date(a.start_date).getDay();
+      const idx = d === 0 ? 6 : d - 1;
+      dayKm[idx] += a.distance / 1000;
+    });
+    const maxKm = Math.max(...dayKm, 1);
+    const todayIdx = todayDay === 0 ? 6 : todayDay - 1;
+    const dayNames = ['월','화','수','목','금','토','일'];
+    document.getElementById('wk-daily-bars').innerHTML = dayKm.map((km, i) => {
+      const isCur = i === todayIdx;
+      return `<div class="b-col">
+        <div class="b-km">${km > 0 ? km.toFixed(1) : '-'}</div>
+        <div class="b-bar fill ${isCur ? 'cur' : ''}" style="height:${Math.max(2, km/maxKm*100).toFixed(0)}%"></div>
+        <div class="b-day">${dayNames[i]}</div>
+      </div>`;
+    }).join('');
+
+    // 8주 트렌드
+    const weeks8 = [];
+    for (let i = 7; i >= 0; i--) {
+      const wStart = new Date(weekStart);
+      wStart.setDate(wStart.getDate() - i * 7);
+      const wEnd = new Date(wStart);
+      wEnd.setDate(wEnd.getDate() + 7);
+      const wActs = acts.filter(a => {
+        const d = new Date(a.start_date);
+        return d >= wStart && d < wEnd;
+      });
+      const wKm = (wActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const label = i === 0 ? '이번 주' : i === 1 ? '지난 주' : `${i}주 전`;
+      weeks8.push({ label, km: parseFloat(wKm), isNow: i === 0 });
+    }
+    document.getElementById('wk-8weeks').innerHTML = weeks8.map(w => `
+      <div class="trend-row ${w.isNow ? 'now' : ''}">
+        <span class="tr-week">${w.label}</span>
+        <span class="tr-pace">${w.km}km</span>
+      </div>
+    `).join('');
+
+    // 훈련 종류 분류
+    renderWorkoutTypes('wk-this-week-types', 'wk-this-ratio', thisWeekActs);
+    renderWorkoutTypes('wk-last-week-types', 'wk-last-ratio', lastWeekActs);
+
+  } catch(e) {
+    console.log('Weekly cards error:', e);
+  }
+}
+
+// ── 훈련 종류 렌더링 ──
+function renderWorkoutTypes(typesId, ratioId, acts) {
+  const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+  const typeColors = {
+    '인터벌': '#9B59B6', '템포런': '#2D9CDB', '페이스주': '#FC4C02',
+    '롱런': '#27AE60', 'LSD': '#F0B429', '이지런': '#777777'
+  };
+  acts.forEach(a => {
+    const wt = a.workout_type || '이지런';
+    if (types[wt] !== undefined) types[wt]++;
+  });
+
+  const total = Object.values(types).reduce((s, v) => s + v, 0);
+  if (total === 0) {
+    document.getElementById(typesId).innerHTML = '<div style="color:var(--gray);font-size:12px">활동 없음</div>';
+    document.getElementById(ratioId).textContent = '';
+    return;
+  }
+
+  document.getElementById(typesId).innerHTML = Object.entries(types)
+    .filter(([, v]) => v > 0)
+    .map(([name, count]) => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${typeColors[name]};flex-shrink:0"></div>
+        <span style="font-size:12px;flex:1">${name}</span>
+        <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--orange)">${count}회</span>
+      </div>
+    `).join('');
+
+  // 이지+LSD vs 포인트 비율
+  const easy = (types['이지런'] + types['LSD']);
+  const point = total - easy;
+  const easyPct = Math.round(easy / total * 100);
+  document.getElementById(ratioId).innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--gray)">이지+LSD <strong style="color:var(--white)">${easyPct}%</strong></span>
+      <span style="color:var(--gray)">포인트 <strong style="color:var(--orange)">${100-easyPct}%</strong></span>
+    </div>
+  `;
+}
+
+// ── 월간 카드 데이터 ──
+async function loadMonthlyCards(goal) {
+  try {
+    const { data: acts } = await sb.from('activities')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('start_date', { ascending: false })
+      .limit(300);
+
+    if (!acts || acts.length === 0) return;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 이번 달 활동
+    const thisMonthActs = acts.filter(a => new Date(a.start_date) >= monthStart);
+
+    // 2섹션: 훈련 종류별
+    const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeKm = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeColors = {
+      '인터벌': '#9B59B6', '템포런': '#2D9CDB', '페이스주': '#FC4C02',
+      '롱런': '#27AE60', 'LSD': '#F0B429', '이지런': '#777777'
+    };
+    thisMonthActs.forEach(a => {
+      const wt = a.workout_type || '이지런';
+      if (types[wt] !== undefined) {
+        types[wt]++;
+        typeKm[wt] += a.distance / 1000;
+      }
+    });
+
+    document.getElementById('mn-workout-types').innerHTML = Object.entries(types)
+      .map(([name, count]) => `
+        <div style="background:var(--dark3);border-radius:10px;padding:12px;text-align:center">
+          <div style="width:10px;height:10px;border-radius:50%;background:${typeColors[name]};margin:0 auto 6px"></div>
+          <div style="font-size:10px;color:var(--gray);margin-bottom:4px">${name}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--white)">${count}회</div>
+          <div style="font-size:10px;color:var(--orange)">${typeKm[name].toFixed(1)}km</div>
+        </div>
+      `).join('');
+
+    const total = Object.values(types).reduce((s, v) => s + v, 0);
+    if (total > 0) {
+      const easy = types['이지런'] + types['LSD'];
+      const easyPct = Math.round(easy / total * 100);
+      document.getElementById('mn-ratio').innerHTML = `
+        이지+LSD <strong style="color:var(--white)">${easyPct}%</strong> &nbsp;|&nbsp;
+        포인트 훈련 <strong style="color:var(--orange)">${100-easyPct}%</strong>
+        &nbsp;(권장 비율: 이지 60~70% : 포인트 30~40%)
+      `;
+    }
+
+    // 3섹션: 최근 6개월
+    const months6 = [];
+    for (let i = 5; i >= 0; i--) {
+      const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const mActs = acts.filter(a => {
+        const d = new Date(a.start_date);
+        return d >= mStart && d < mEnd;
+      });
+      const mKm = (mActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const label = mStart.toLocaleDateString('ko-KR', { month: 'long' });
+      months6.push({ label, km: parseFloat(mKm), isNow: i === 0 });
+    }
+
+    const maxMonthKm = Math.max(...months6.map(m => m.km), 1);
+    document.getElementById('mn-6months').innerHTML = months6.map(m => `
+      <div class="trend-row ${m.isNow ? 'now' : ''}" style="margin-bottom:8px">
+        <span class="tr-week" style="min-width:60px">${m.label}</span>
+        <div style="flex:1;margin:0 12px;height:6px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden">
+          <div style="height:100%;width:${(m.km/maxMonthKm*100).toFixed(0)}%;background:${m.isNow ? 'var(--orange)' : 'rgba(252,76,2,.4)'};border-radius:100px"></div>
+        </div>
+        <span class="tr-pace">${m.km}km</span>
+      </div>
+    `).join('');
+
+    // 4섹션: 로드맵 (goal에서 가져오기)
+    const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+    if (g?.race_date) {
+      const raceDate = new Date(g.race_date);
+      const roadmap = [];
+      const monthsLeft = Math.ceil((raceDate - now) / (30 * 24 * 60 * 60 * 1000));
+      const phases = [
+        { name: '기초체력 강화', desc: '유산소 기반 구축, 주간 거리 점진적 증가', icon: '🌱' },
+        { name: '롱런 강화', desc: '장거리 훈련 확대, LSD 22km+ 도전', icon: '🏃' },
+        { name: '스피드 강화', desc: '인터벌/템포런 집중, 목표 페이스 적응', icon: '⚡' },
+        { name: '마라톤 특화', desc: '레이스 페이스 훈련, 30km 장거리', icon: '🎯' },
+        { name: '최종 마무리', desc: '훈련량 유지, 레이스 시뮬레이션', icon: '🏁' },
+        { name: '테이퍼링', desc: '훈련량 감소, 컨디션 최상화', icon: '💎' },
+      ];
+
+      for (let i = 0; i < Math.min(monthsLeft, 6); i++) {
+        const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const isNow = i === 0;
+        const phase = phases[Math.min(i, phases.length - 1)];
+        roadmap.push({ month: m.toLocaleDateString('ko-KR', { month: 'long' }), phase, isNow });
+      }
+
+      document.getElementById('mn-roadmap').innerHTML = roadmap.map(r => `
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;${r.isNow ? 'padding:10px;background:rgba(252,76,2,.08);border-radius:10px;border-left:3px solid var(--orange)' : ''}">
+          <div style="font-size:20px;flex-shrink:0">${r.phase.icon}</div>
+          <div>
+            <div style="font-size:12px;color:${r.isNow ? 'var(--orange)' : 'var(--gray-light)'};font-weight:700">${r.month} ${r.isNow ? '← 현재' : ''}</div>
+            <div style="font-size:13px;font-weight:700;margin:2px 0">${r.phase.name}</div>
+            <div style="font-size:11px;color:var(--gray)">${r.phase.desc}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+  } catch(e) {
+    console.log('Monthly cards error:', e);
   }
 }
 
