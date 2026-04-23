@@ -1493,7 +1493,15 @@ async function importHistory() {
 
     if (data.success) {
       status.style.display = 'block';
-      status.textContent = `✅ 완료! 총 ${data.total_found}개 활동 중 ${data.newly_saved}개 새로 저장됐어요.`;
+      status.textContent = `✅ ${data.newly_saved}개 활동 저장 완료! 주간/월간 분석 생성 중...`;
+
+      // 주간 분석 트리거
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=weekly`, { method: 'POST' });
+
+      // 월간 분석 트리거
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=monthly`, { method: 'POST' });
+
+      status.textContent = `✅ 완료! ${data.newly_saved}개 활동 저장 + 주간/월간 분석이 텔레그램으로 발송됐어요.`;
       btn.textContent = '✅ 완료';
       await loadUserData();
     } else {
