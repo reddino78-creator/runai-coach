@@ -1591,6 +1591,9 @@ async function loadUserData() {
   await loadReports();
   await loadWeeklyCards();
   await loadMonthlyCards();
+
+  // 푸시 알림 상태 + 컨디션
+  await loadUserDataExtra();
 }
 
 function getPhase(raceDate) {
@@ -1601,6 +1604,9 @@ function getPhase(raceDate) {
   if (d > 42) return '피크훈련기';
   if (d > 14) return '테이퍼링기';
   return '레이스준비기';
+}
+
+async function loadUserDataExtra() {
   // 푸시 알림 상태 확인
   checkPushStatus();
 
