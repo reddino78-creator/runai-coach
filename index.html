@@ -1429,6 +1429,8 @@ async function loadReports() {
     console.log('Reports load error:', e);
   }
 }
+
+function renderLastActivity(a) {
   const km = (a.distance / 1000).toFixed(1);
   const mins = Math.floor(a.moving_time / 60);
   const secs = a.moving_time % 60;
