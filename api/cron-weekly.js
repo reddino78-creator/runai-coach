@@ -34,7 +34,10 @@ export default async function handler(req, res) {
       try {
         const syncRes = await fetch(
           `https://runai-coach.vercel.app/api/strava-sync?user_id=${profile.id}&type=weekly`,
-          { method: 'POST' }
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
+          }
         );
         const data = await syncRes.json();
         results.push({ userId: profile.id, status: 'success', data });
