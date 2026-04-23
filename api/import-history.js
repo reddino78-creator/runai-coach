@@ -139,9 +139,31 @@ async function refreshToken(profile, userId) {
 export default async function handler(req, res) {
   const userId = req.query.user_id;
   const months = parseInt(req.query.months) || 12;
-  const detailMonths = 2; // 상세 데이터는 최근 2개월만
+  const detailMonths = 2;
 
   if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+  // ── 인증 체크: Supabase JWT 검증 ──
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const verifyRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'apikey': process.env.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const userData = await verifyRes.json();
+
+    if (!userData?.id || userData.id !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 
   try {
     const profiles = await sbGet('profiles', `id=eq.${userId}`);
