@@ -498,8 +498,154 @@ ${sportSummary}
 }
 
 // ══════════════════════════════════════
-// 메인 핸들러
+// 트라이애슬론 일일 분석
 // ══════════════════════════════════════
+async function analyzeTriathlonDaily(activities, goal, recentActivities) {
+  const targetPace = goal?.target_pace || '5:27';
+  const triType = goal?.tri_type || 'full';
+  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+
+  // 오늘 운동들 요약
+  const todaySummary = activities.map(a => {
+    const st = getSportType(a);
+    const km = (a.distance / 1000).toFixed(1);
+    const pace = calcPace(a.moving_time, a.distance);
+    const hrs = Math.floor(a.moving_time / 3600);
+    const mins = Math.floor((a.moving_time % 3600) / 60);
+    const timeStr = hrs > 0 ? `${hrs}시간 ${mins}분` : `${mins}분`;
+
+    if (st === '수영') return `🏊 수영 ${km}km (${timeStr})`;
+    if (st === '자전거') return `🚴 자전거 ${km}km @ ${pace}/km (${timeStr})`;
+    return `🏃 러닝 ${km}km @ ${pace}/km (${timeStr})`;
+  }).join('\n');
+
+  // 총 훈련 시간
+  const totalMins = Math.floor(activities.reduce((s, a) => s + a.moving_time, 0) / 60);
+  const runActs = activities.filter(a => getSportType(a) === '러닝' || getSportType(a) === '트레일런');
+  const swimActs = activities.filter(a => getSportType(a) === '수영');
+  const bikeActs = activities.filter(a => getSportType(a) === '자전거');
+
+  // 벽돌훈련 감지 (자전거 + 러닝 같은 날)
+  const isBrick = bikeActs.length > 0 && runActs.length > 0;
+
+  const prompt = `트라이애슬론 전문 코치로서 오늘 훈련을 분석하세요.
+
+선수 목표:
+- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
+- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'}
+- D-${daysLeft || '?'}
+- PR: 풀마라톤 ${goal?.pr_full || '-'} / 트라이애슬론 ${goal?.pr_10k || '-'}
+
+오늘 훈련 (총 ${totalMins}분):
+${todaySummary}
+${isBrick ? '⚡ 벽돌훈련 감지 (자전거→러닝)' : ''}
+
+최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km`).join(', ') || '없음'}
+
+트라이애슬론 목표 기준:
+- 수영 목표: ${goal?.tri_swim_target || '-'}
+- 자전거 목표: ${goal?.tri_bike_target || '-'}
+- 러닝 목표: ${goal?.tri_run_target || '-'}
+
+1000자 이내로 작성:
+
+**오늘 훈련 평가**
+${isBrick ? '벽돌훈련 효과와 자전거→러닝 전환 품질 평가' : '각 종목별 강도와 품질 평가'}
+수영/자전거가 마라톤 러닝 능력에 미치는 긍정적 영향 언급
+
+**종목별 피드백**
+(오늘 한 종목들에 대한 구체적 피드백)
+
+**내일/이번 주 권장 훈련**
+(종목 균형과 회복을 고려한 처방)`;
+
+  return callClaude(prompt, 800);
+}
+
+// ══════════════════════════════════════
+// 트라이애슬론 주간 분석
+// ══════════════════════════════════════
+async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
+  const targetPace = goal?.target_pace || '5:27';
+  const triType = goal?.tri_type || 'full';
+  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+
+  const lastWeekStart = Math.floor(Date.now() / 1000) - 14 * 24 * 60 * 60;
+  const lastWeekEnd = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+  const lastWeekRes = await fetch(
+    `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=30`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  ).then(r => r.json());
+
+  const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
+
+  // 종목별 집계
+  const swimKm = (lastWeekActs.filter(a => getSportType(a) === '수영').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const bikeKm = (lastWeekActs.filter(a => getSportType(a) === '자전거').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const runKm = (lastWeekActs.filter(a => ['러닝','트레일런'].includes(getSportType(a))).reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const totalMins = Math.floor(lastWeekActs.reduce((s, a) => s + a.moving_time, 0) / 60);
+  const brickSessions = lastWeekActs.filter(a => getSportType(a) === '자전거').length;
+
+  const lastWeekSummary = lastWeekActs.map(a => {
+    const st = getSportType(a);
+    return `- [${st}] ${(a.distance/1000).toFixed(1)}km / ${Math.floor(a.moving_time/60)}분`;
+  }).join('\n') || '기록 없음';
+
+  const prompt = `트라이애슬론 전문 코치로서 주간 리포트를 작성하세요.
+
+선수 목표:
+- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
+- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'} | D-${daysLeft || '?'}
+- 수영목표 ${goal?.tri_swim_target || '-'} / 자전거목표 ${goal?.tri_bike_target || '-'} / 러닝목표 ${goal?.tri_run_target || '-'}
+
+지난 주 훈련:
+- 수영: ${swimKm}km | 자전거: ${bikeKm}km | 러닝: ${runKm}km
+- 총 훈련시간: ${Math.floor(totalMins/60)}시간 ${totalMins%60}분
+- 벽돌훈련: ${brickSessions}회
+${lastWeekSummary}
+
+2000자 이내로 작성:
+
+**지난 주 평가**
+(종목별 볼륨 평가, 균형 분석, 수영/자전거의 마라톤 기여도 3-4문장)
+
+**다음 주 훈련 계획**
+
+| 요일 | 훈련 | 거리/시간 | 강도 |
+|------|------|---------|------|
+| 월 | | | |
+| 화 | | | |
+| 수 | | | |
+| 목 | | | |
+| 금 | 휴식 | - | - |
+| 토 | 벽돌훈련(자전거+러닝) | | |
+| 일 | | | |
+
+**핵심 훈련 상세**
+1. [벽돌훈련 - 자전거 거리/강도 → 러닝 거리/페이스]
+2. [장거리 수영 or 자전거]
+3. [마라톤 페이스런]
+
+**이번 주 핵심 포인트**
+(트라이애슬론과 마라톤 병행 관련 2-3가지)`;
+
+  const analysis = await callClaude(prompt, 1800);
+  await saveWeeklyPlan(userId, analysis, goal);
+  return analysis;
+}
+
+// ── 오늘 같은 날 활동 묶기 ──
+function groupActivitiesByDay(activities) {
+  const groups = {};
+  activities.forEach(a => {
+    const day = a.start_date.split('T')[0];
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(a);
+  });
+  return groups;
+}
 export default async function handler(req, res) {
   const userId = req.query.user_id || req.body?.user_id;
   const type = req.query.type || 'daily';
@@ -515,11 +661,15 @@ export default async function handler(req, res) {
     const goal = goals[0];
     const accessToken = await refreshToken(profile, userId);
 
-    // 주간 분석
+    // 주간 분석 (목표 타입에 따라 분기)
     if (type === 'weekly') {
-      const analysis = await analyzeWeekly(userId, goal, accessToken);
+      const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
+      const analysis = isTri
+        ? await analyzeWeeklyTriathlon(userId, goal, accessToken)
+        : await analyzeWeekly(userId, goal, accessToken);
       await sbPost('reports', { user_id: userId, type: 'weekly', content: analysis });
-      await sendTelegram(profile.telegram_chat_id, '📅 <b>주간 훈련 리포트</b>', analysis);
+      const title = isTri ? '🏊🚴🏃 <b>트라이애슬론 주간 리포트</b>' : '📅 <b>주간 훈련 리포트</b>';
+      await sendTelegram(profile.telegram_chat_id, title, analysis);
       return res.json({ success: true, type: 'weekly' });
     }
 
@@ -557,66 +707,139 @@ export default async function handler(req, res) {
 
     const recentSaved = await sbGet('activities', `user_id=eq.${userId}&order=start_date.desc&limit=7`);
     const targetPace = goal?.target_pace || '5:27';
+    const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
 
     let newCount = 0;
-    for (const activity of activities) {
-      const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
-      if (existing.length > 0) continue;
 
-      const sportType = getSportType(activity);
-      const workoutType = classifyWorkout(activity, targetPace, sportType);
-      const weekStart = getWeekStart(activity.start_date);
-      const adjustedPace = sportType === '트레일런'
-        ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
-        : null;
+    if (isTri) {
+      // 트라이애슬론: 같은 날 활동 묶어서 분석
+      const todayGroups = groupActivitiesByDay(activities);
 
-      // 상세 데이터 가져오기 (랩 + 스트림)
-      const details = await fetchActivityDetails(activity.id, accessToken);
-      const phases = analyzePhases(details.laps, targetPace);
+      for (const [day, dayActs] of Object.entries(todayGroups)) {
+        // 이미 저장된 활동 필터
+        const newDayActs = [];
+        for (const activity of dayActs) {
+          const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
+          if (existing.length > 0) continue;
+          newDayActs.push(activity);
+        }
+        if (newDayActs.length === 0) continue;
 
-      // 심박수/케이던스 평균 계산
-      const hrData = details.streams?.heartrate?.data || [];
-      const cadData = details.streams?.cadence?.data || [];
-      const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
-      const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
+        // 각 활동 저장
+        for (const activity of newDayActs) {
+          const sportType = getSportType(activity);
+          const workoutType = classifyWorkout(activity, targetPace, sportType);
+          const weekStart = getWeekStart(activity.start_date);
+          const adjustedPace = sportType === '트레일런'
+            ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
+            : null;
+          const details = await fetchActivityDetails(activity.id, accessToken);
+          const hrData = details.streams?.heartrate?.data || [];
+          const cadData = details.streams?.cadence?.data || [];
+          const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
+          const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
 
-      const analysis = await analyzeDailyActivity(
-        activity, goal, recentSaved.slice(0, 6),
-        workoutType, sportType, phases, details
-      );
+          await sbPost('activities', {
+            user_id: userId,
+            strava_id: String(activity.id),
+            name: activity.name,
+            type: activity.type,
+            sport_type: sportType,
+            workout_type: workoutType,
+            week_start: weekStart,
+            distance: activity.distance,
+            moving_time: activity.moving_time,
+            average_speed: activity.average_speed,
+            calories: activity.calories || null,
+            start_date: activity.start_date,
+            total_elevation_gain: activity.total_elevation_gain || 0,
+            avg_heartrate: avgHR,
+            max_heartrate: activity.max_heartrate || null,
+            avg_cadence: avgCad,
+            adjusted_pace: adjustedPace,
+            analysis: null // 묶음 분석으로 대체
+          });
+        }
 
-      const km = (activity.distance / 1000).toFixed(1);
-      const pace = calcPace(activity.moving_time, activity.distance);
+        // 당일 전체 활동 묶어서 분석
+        const allDayActs = [...newDayActs]; // 새 활동들
+        const analysis = await analyzeTriathlonDaily(allDayActs, goal, recentSaved.slice(0, 6));
 
-      await sbPost('activities', {
-        user_id: userId,
-        strava_id: String(activity.id),
-        name: activity.name,
-        type: activity.type,
-        sport_type: sportType,
-        workout_type: workoutType,
-        week_start: weekStart,
-        distance: activity.distance,
-        moving_time: activity.moving_time,
-        average_speed: activity.average_speed,
-        calories: activity.calories || null,
-        start_date: activity.start_date,
-        total_elevation_gain: activity.total_elevation_gain || 0,
-        avg_heartrate: avgHR,
-        max_heartrate: activity.max_heartrate || null,
-        avg_cadence: avgCad,
-        adjusted_pace: adjustedPace,
-        laps: details.laps.length > 0 ? JSON.stringify(details.laps) : null,
-        warmup_km: phases ? parseFloat(phases.warmupKm) : null,
-        main_km: phases ? parseFloat(phases.mainKm) : null,
-        cooldown_km: phases ? parseFloat(phases.cooldownKm) : null,
-        analysis
-      });
+        // 분석 결과를 첫 번째 활동에만 저장
+        const firstAct = newDayActs[0];
+        await sbPatch('activities', `strava_id=eq.${firstAct.id}&user_id=eq.${userId}`, { analysis });
 
-      const sportIcon = sportType === '트레일런' ? '🏔️' : sportType === '자전거' ? '🚴' : sportType === '수영' ? '🏊' : '🏃';
-      const title = `${sportIcon} <b>${activity.name}</b> [${workoutType}]\n📏 ${km}km | ⚡ ${pace}/km${adjustedPace ? ` (환산 ${adjustedPace}/km)` : ''}${avgHR ? ` | ❤️ ${avgHR}bpm` : ''}`;
-      await sendTelegram(profile.telegram_chat_id, title, analysis);
-      newCount++;
+        // 텔레그램 발송
+        const sports = [...new Set(allDayActs.map(a => getSportType(a)))];
+        const sportIcons = sports.map(s => s === '수영' ? '🏊' : s === '자전거' ? '🚴' : '🏃').join('');
+        const totalKm = (allDayActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+        const totalMins = Math.floor(allDayActs.reduce((s, a) => s + a.moving_time, 0) / 60);
+        const isBrick = sports.includes('자전거') && sports.includes('러닝');
+
+        const title = `${sportIcons} <b>${isBrick ? '벽돌훈련' : '복합훈련'}</b>\n📏 총 ${totalKm}km | ⏱ ${Math.floor(totalMins/60)}시간 ${totalMins%60}분`;
+        await sendTelegram(profile.telegram_chat_id, title, analysis);
+        newCount += newDayActs.length;
+      }
+
+    } else {
+      // 마라톤: 개별 활동 분석
+      for (const activity of activities) {
+        const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
+        if (existing.length > 0) continue;
+
+        const sportType = getSportType(activity);
+        const workoutType = classifyWorkout(activity, targetPace, sportType);
+        const weekStart = getWeekStart(activity.start_date);
+        const adjustedPace = sportType === '트레일런'
+          ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
+          : null;
+
+        const details = await fetchActivityDetails(activity.id, accessToken);
+        const phases = analyzePhases(details.laps, targetPace);
+
+        const hrData = details.streams?.heartrate?.data || [];
+        const cadData = details.streams?.cadence?.data || [];
+        const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
+        const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
+
+        const analysis = await analyzeDailyActivity(
+          activity, goal, recentSaved.slice(0, 6),
+          workoutType, sportType, phases, details
+        );
+
+        const km = (activity.distance / 1000).toFixed(1);
+        const pace = calcPace(activity.moving_time, activity.distance);
+
+        await sbPost('activities', {
+          user_id: userId,
+          strava_id: String(activity.id),
+          name: activity.name,
+          type: activity.type,
+          sport_type: sportType,
+          workout_type: workoutType,
+          week_start: weekStart,
+          distance: activity.distance,
+          moving_time: activity.moving_time,
+          average_speed: activity.average_speed,
+          calories: activity.calories || null,
+          start_date: activity.start_date,
+          total_elevation_gain: activity.total_elevation_gain || 0,
+          avg_heartrate: avgHR,
+          max_heartrate: activity.max_heartrate || null,
+          avg_cadence: avgCad,
+          adjusted_pace: adjustedPace,
+          laps: details.laps.length > 0 ? JSON.stringify(details.laps) : null,
+          warmup_km: phases ? parseFloat(phases.warmupKm) : null,
+          main_km: phases ? parseFloat(phases.mainKm) : null,
+          cooldown_km: phases ? parseFloat(phases.cooldownKm) : null,
+          analysis
+        });
+
+        const sportIcon = sportType === '트레일런' ? '🏔️' : sportType === '자전거' ? '🚴' : sportType === '수영' ? '🏊' : '🏃';
+        const title = `${sportIcon} <b>${activity.name}</b> [${workoutType}]\n📏 ${km}km | ⚡ ${pace}/km${adjustedPace ? ` (환산 ${adjustedPace}/km)` : ''}${avgHR ? ` | ❤️ ${avgHR}bpm` : ''}`;
+        await sendTelegram(profile.telegram_chat_id, title, analysis);
+        newCount++;
+      }
     }
 
     res.json({ success: true, synced: newCount });
