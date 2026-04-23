@@ -2061,8 +2061,8 @@ async function importHistory() {
 
   try {
     // JWT 토큰 가져오기
-    const { data } = await sb.auth.getSession();
-    const token = data?.session?.access_token;
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
     const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`, {
       headers: { 'Authorization': `Bearer ${token}` }
