@@ -1449,8 +1449,15 @@ async function loadUserData() {
     document.getElementById('stravaStatus').textContent = `Strava ID: ${profile.strava_athlete_id}`;
   }
 
-  // Activities (최근 7개)
-  const { data: acts } = await sb.from('activities').select('*').eq('user_id', currentUser.id).order('start_date', { ascending: false }).limit(7);
+  // Activities (최근 7일)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const { data: acts } = await sb.from('activities')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .gte('start_date', sevenDaysAgo.toISOString())
+    .order('start_date', { ascending: false })
+    .limit(50);
 
   if (acts && acts.length > 0) {
     // 일간 탭 렌더링
@@ -1875,7 +1882,12 @@ function renderActivities(acts) {
     const paceSecs = Math.round(paceSecPerKm % 60);
     const paceStr = `${paceMins}:${String(paceSecs).padStart(2,'0')}`;
     const date = new Date(a.start_date).toLocaleDateString('ko-KR');
-    const analysisHtml = a.analysis ? marked.parse(a.analysis) : '분석 데이터를 불러오는 중...';
+    const analysisHtml = a.analysis
+      ? marked.parse(a.analysis)
+      : `<div style="color:var(--gray);font-size:12px;font-style:italic">
+          📋 과거 데이터 불러오기로 저장된 기록이에요.<br>
+          다음 운동부터 AI 분석이 자동으로 추가돼요.
+         </div>`;
     return `
       <div class="act-card">
         <div>
