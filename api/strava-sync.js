@@ -652,6 +652,36 @@ export default async function handler(req, res) {
 
   if (!userId) return res.status(400).json({ error: 'user_id required' });
 
+  // ── 인증 체크 ──
+  // 1. Cron/내부 호출: CRON_SECRET 또는 webhook 헤더
+  // 2. 브라우저 직접 호출: Supabase JWT 검증
+  const authHeader = req.headers.authorization || '';
+  const isInternalCall = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  const isWebhookCall = req.headers['x-strava-webhook'] === process.env.STRAVA_VERIFY_TOKEN;
+
+  if (!isInternalCall && !isWebhookCall) {
+    // JWT 검증
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const verifyRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          'apikey': process.env.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const userData = await verifyRes.json();
+
+      // JWT의 user_id와 요청 user_id 일치 여부 확인
+      if (!userData?.id || userData.id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+  }
+
   try {
     const profiles = await sbGet('profiles', `id=eq.${userId}`);
     const profile = profiles[0];
