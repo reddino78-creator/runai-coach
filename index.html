@@ -1297,6 +1297,9 @@ async function initSupabase() {
 let currentUser = null;
 let userGoal = { time: '3:50:00', pace: '5:27' };
 let obStep = 1;
+let selectedCondition = '보통';
+let selectedInjury = '없음';
+let selectedInjuryLevel = '경미';
 
 // ── INIT ──
 window.addEventListener('load', async () => {
@@ -2235,10 +2238,6 @@ async function togglePushNotification() {
 }
 
 // ── 컨디션/부상 ──
-let selectedCondition = '보통';
-let selectedInjury = '없음';
-let selectedInjuryLevel = '경미';
-
 function selectCondition(val) {
   selectedCondition = val;
   ['condGood','condNormal','condTired'].forEach(id => document.getElementById(id)?.classList.remove('sel'));
