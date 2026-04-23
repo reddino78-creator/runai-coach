@@ -1332,8 +1332,11 @@ async function loadUserData() {
     renderLastActivity(acts[0]);
   }
 
-  // 대시보드 3단: 주간 캘린더 (weekly_plans 테이블에서)
+  // 대시보드 3단: 주간 캘린더
   await loadWeeklyPlan();
+
+  // 주간/월간 리포트
+  await loadReports();
 }
 
 function getPhase(raceDate) {
@@ -1381,7 +1384,51 @@ async function loadWeeklyPlan() {
   }
 }
 
-function renderLastActivity(a) {
+async function loadReports() {
+  try {
+    // 주간 리포트 최신 1개
+    const { data: weeklyReports } = await sb.from('reports')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'weekly')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const weeklyEl = document.getElementById('weeklyReport');
+    if (weeklyReports && weeklyReports.length > 0) {
+      const r = weeklyReports[0];
+      const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      weeklyEl.innerHTML = `
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:16px">
+          📅 ${date} 생성
+        </div>
+        <div class="aa-txt">${marked.parse(r.content)}</div>
+      `;
+    }
+
+    // 월간 리포트 최신 1개
+    const { data: monthlyReports } = await sb.from('reports')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'monthly')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const monthlyEl = document.getElementById('monthlyReport');
+    if (monthlyReports && monthlyReports.length > 0) {
+      const r = monthlyReports[0];
+      const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      monthlyEl.innerHTML = `
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:16px">
+          📊 ${date} 생성
+        </div>
+        <div class="aa-txt">${marked.parse(r.content)}</div>
+      `;
+    }
+  } catch(e) {
+    console.log('Reports load error:', e);
+  }
+}
   const km = (a.distance / 1000).toFixed(1);
   const mins = Math.floor(a.moving_time / 60);
   const secs = a.moving_time % 60;
