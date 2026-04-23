@@ -638,13 +638,11 @@ select.input-field option { background:var(--dark3); }
       <div class="step-dot" id="dot2"></div>
       <div class="step-dot" id="dot3"></div>
       <div class="step-dot" id="dot4"></div>
-      <div class="step-dot" id="dot5"></div>
-      <div class="step-dot" id="dot6"></div>
     </div>
 
-    <!-- STEP 1 -->
+    <!-- STEP 1: 마라톤 목표 -->
     <div class="ob-step active" id="step1">
-      <div class="ob-title">목표 기록을<br>선택해주세요</div>
+      <div class="ob-title">마라톤 목표 기록을<br>선택해주세요</div>
       <div class="ob-sub">풀코스 마라톤(42.195km) 기준입니다</div>
       <div class="goal-grid">
         <div class="goal-card" onclick="selectGoal(this,'3:00:00','4:16')"><div class="gc-icon">⚡</div><div class="gc-title">서브 3</div><div class="gc-time">3:00:00</div><div class="gc-desc">페이스 4:16/km · 상위 2%</div><div class="gc-check">✓</div></div>
@@ -661,7 +659,7 @@ select.input-field option { background:var(--dark3); }
       <div class="ob-btns"><button class="btn-next" onclick="goStep(2)">다음 →</button></div>
     </div>
 
-    <!-- STEP 2 -->
+    <!-- STEP 2: 레이스 정보 -->
     <div class="ob-step" id="step2">
       <div class="ob-title">레이스 정보를<br>알려주세요</div>
       <div class="ob-sub">훈련 기간 계산에 사용됩니다</div>
@@ -674,104 +672,90 @@ select.input-field option { background:var(--dark3); }
       <div class="ob-btns"><button class="btn-back" onclick="goStep(1)">← 이전</button><button class="btn-next" onclick="goStep(3)">다음 →</button></div>
     </div>
 
-    <!-- STEP 3 -->
+    <!-- STEP 3: 트라이애슬론 목표 (선택) -->
     <div class="ob-step" id="step3">
-      <div class="ob-title">러닝 수준을<br>알려주세요</div>
-      <div class="ob-sub">맞춤 훈련 강도 설정에 사용됩니다</div>
-      <div class="level-opts">
-        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">🌱</div><div class="lo-info"><div class="lo-name">입문자</div><div class="lo-desc">달리기 시작 1년 미만, 5km 완주 가능</div></div><div class="lo-badge">Beginner</div></div>
-        <div class="level-opt" onclick="selectLevel(this)"><div class="lo-icon">🏃</div><div class="lo-info"><div class="lo-name">중급자</div><div class="lo-desc">하프마라톤 경험, 주 3~4회 달림</div></div><div class="lo-badge">Intermediate</div></div>
-        <div class="level-opt sel" onclick="selectLevel(this)"><div class="lo-icon">⚡</div><div class="lo-info"><div class="lo-name">고급자</div><div class="lo-desc">풀마라톤 완주 경험, 주 5회 이상</div></div><div class="lo-badge">Advanced</div></div>
+      <div class="ob-title">트라이애슬론<br>목표가 있나요?</div>
+      <div class="ob-sub">없으면 건너뛰어도 돼요 · 나중에 설정에서 추가 가능해요</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div id="triNo" class="goal-card sel" onclick="selectTriOption(false)" style="text-align:center;padding:20px">
+          <div style="font-size:28px;margin-bottom:8px">🏃</div>
+          <div style="font-weight:700;font-size:14px">마라톤만</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px">트라이애슬론 없음</div>
+          <div class="gc-check">✓</div>
+        </div>
+        <div id="triYes" class="goal-card" onclick="selectTriOption(true)" style="text-align:center;padding:20px">
+          <div style="font-size:28px;margin-bottom:8px">🏊🚴🏃</div>
+          <div style="font-weight:700;font-size:14px">트라이애슬론 포함</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px">수영+자전거+러닝</div>
+          <div class="gc-check">✓</div>
+        </div>
       </div>
-      <div class="ob-btns"><button class="btn-back" onclick="goStep(2)">← 이전</button><button class="btn-next" onclick="goStep(4)">다음 →</button></div>
+
+      <div id="triDetails" style="display:none">
+        <div style="background:var(--dark3);border-radius:14px;padding:20px;margin-bottom:20px">
+          <div style="margin-bottom:16px">
+            <label class="input-label">대회 종류</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+              <div id="triOlympic" class="goal-card" onclick="selectTriType('olympic')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">올림픽</div>
+                <div style="font-size:10px;color:var(--gray)">수1.5+자40+런10</div>
+              </div>
+              <div id="triHalf" class="goal-card" onclick="selectTriType('half')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">하프</div>
+                <div style="font-size:10px;color:var(--gray)">수1.9+자90+런21</div>
+              </div>
+              <div id="triFull" class="goal-card sel" onclick="selectTriType('full')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">풀 아이언맨</div>
+                <div style="font-size:10px;color:var(--gray)">수3.8+자180+런42</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div><label class="input-label">🏊 수영 목표</label><input class="input-field" type="text" id="triSwimTarget" placeholder="예: 1:10:00"></div>
+            <div><label class="input-label">🚴 자전거 목표</label><input class="input-field" type="text" id="triBikeTarget" placeholder="예: 6:00:00"></div>
+            <div><label class="input-label">🏃 러닝 목표</label><input class="input-field" type="text" id="triRunTarget" placeholder="예: 4:30:00"></div>
+            <div><label class="input-label">🏁 전체 목표</label><input class="input-field" type="text" id="triTotalTarget" placeholder="예: 12:00:00"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-btns">
+        <button class="btn-back" onclick="goStep(2)">← 이전</button>
+        <button class="btn-next" onclick="goStep(4)">다음 →</button>
+      </div>
     </div>
 
-    <!-- STEP 4 -->
+    <!-- STEP 4: 개인 기록 PR -->
     <div class="ob-step" id="step4">
-      <div class="ob-title">알림 채널을<br>선택해주세요</div>
-      <div class="ob-sub">운동 완료 후 분석 결과를 어디서 받을지 선택하세요</div>
-      <div class="notif-opts">
-        <div class="notif-opt sel" onclick="toggleNotif(this)"><div class="notif-chk">✓</div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📱 텔레그램</div><div style="font-size:12px;color:var(--gray)">운동 완료 즉시 분석 알림</div></div></div>
-        <div class="notif-opt" onclick="toggleNotif(this)"><div class="notif-chk"></div><div><div style="font-weight:600;font-size:14px;margin-bottom:2px">📧 이메일</div><div style="font-size:12px;color:var(--gray)">주간·월간 리포트 이메일 발송</div></div></div>
-      </div>
-      <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;color:var(--gray-light);line-height:1.7">
-        💡 <strong style="color:var(--orange)">Chat ID 찾는 방법</strong><br>
-        텔레그램에서 <strong>@reddino_strava_bot</strong> 검색<br>
-        → <strong>/start</strong> 입력하면 Chat ID가 자동으로 나와요!
-      </div>
-      <div style="margin-bottom:20px">
-        <label class="input-label">텔레그램 Chat ID</label>
-        <input class="input-field" type="text" id="telegramId" placeholder="Chat ID 입력" style="max-width:260px">
-      </div>
-      <div class="ob-btns"><button class="btn-back" onclick="goStep(3)">← 이전</button><button class="btn-next" onclick="goStep(5)">다음 →</button></div>
-    </div>
-
-    <!-- STEP 5: 개인 기록 -->
-    <div class="ob-step" id="step5">
       <div class="ob-title">개인 최고 기록을<br>알려주세요</div>
       <div class="ob-sub">기록 기반으로 더 정확한 AI 코칭을 제공합니다 · 없으면 비워두세요</div>
 
       <div class="form-grid">
-        <div>
-          <label class="input-label">풀코스 (42.195km)</label>
-          <input class="input-field" type="text" id="prFull" placeholder="예: 3:52:00">
-        </div>
-        <div>
-          <label class="input-label">하프코스 (21.0975km)</label>
-          <input class="input-field" type="text" id="prHalf" placeholder="예: 1:48:00">
-        </div>
-        <div>
-          <label class="input-label">10K</label>
-          <input class="input-field" type="text" id="prTenK" placeholder="예: 48:30">
-        </div>
-        <div>
-          <label class="input-label">5K</label>
-          <input class="input-field" type="text" id="prFiveK" placeholder="예: 23:00">
+        <div><label class="input-label">풀코스 (42.195km)</label><input class="input-field" type="text" id="prFull" placeholder="예: 3:52:00"></div>
+        <div><label class="input-label">하프코스 (21.0975km)</label><input class="input-field" type="text" id="prHalf" placeholder="예: 1:48:00"></div>
+        <div><label class="input-label">10K</label><input class="input-field" type="text" id="prTenK" placeholder="예: 48:30"></div>
+        <div><label class="input-label">5K</label><input class="input-field" type="text" id="prFiveK" placeholder="예: 23:00"></div>
+      </div>
+
+      <div id="triPrSection" style="display:none">
+        <div style="border-top:1px solid rgba(255,255,255,.06);margin:16px 0;padding-top:16px">
+          <div style="font-size:12px;color:var(--orange);font-weight:600;margin-bottom:12px">🏊🚴🏃 트라이애슬론 기록</div>
+          <div class="form-grid">
+            <div><label class="input-label">수영 PR</label><input class="input-field" type="text" id="prSwim" placeholder="예: 1:05:00"></div>
+            <div><label class="input-label">자전거 PR</label><input class="input-field" type="text" id="prBike" placeholder="예: 5:45:00"></div>
+            <div><label class="input-label">트라이애슬론 PR</label><input class="input-field" type="text" id="prTri" placeholder="예: 11:30:00"></div>
+          </div>
         </div>
       </div>
 
       <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:12px;padding:16px;margin-bottom:24px;font-size:13px;color:var(--gray-light);line-height:1.6">
-        💡 기록을 입력하면 AI 코치가 현재 실력을 정확히 파악해 <strong>목표 달성을 위한 맞춤 훈련 계획</strong>을 제공합니다.
+        💡 기록을 입력하면 AI 코치가 현재 실력을 정확히 파악해 <strong>목표 달성을 위한 맞춤 훈련 계획</strong>을 제공합니다.<br>
+        <span style="color:var(--gray);font-size:11px;margin-top:4px;display:block">텔레그램 알림 설정과 Strava 연동은 대시보드 → 설정에서 할 수 있어요</span>
       </div>
 
       <div class="ob-btns">
-        <button class="btn-back" onclick="goStep(4)">← 이전</button>
-        <button class="btn-next" onclick="goStep(6)">다음 →</button>
-      </div>
-    </div>
-
-    <!-- STEP 6: Strava 연동 -->
-    <div class="ob-step" id="step6">
-      <div class="ob-title">Strava를<br>연동해주세요</div>
-      <div class="ob-sub">운동 기록을 자동으로 가져와 AI가 분석합니다</div>
-
-      <div style="background:var(--dark3);border-radius:16px;padding:24px;margin-bottom:24px">
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-          <div style="width:48px;height:48px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          </div>
-          <div>
-            <div style="font-weight:700;font-size:15px">Strava 연동</div>
-            <div style="font-size:12px;color:var(--gray)">운동 완료 후 자동으로 AI 분석 시작</div>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--gray-light);line-height:1.7;margin-bottom:16px">
-          ✓ 운동 기록 자동 동기화<br>
-          ✓ Claude AI 맞춤 분석<br>
-          ✓ 텔레그램으로 즉시 알림
-        </div>
-        <button onclick="connectStravaOnboarding()" style="width:100%;background:var(--orange);border:none;color:white;padding:14px;border-radius:10px;font-family:'Pretendard',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          Strava 연동하기
-        </button>
-      </div>
-
-      <div style="font-size:12px;color:var(--gray);text-align:center;margin-bottom:24px">
-        나중에 설정에서 연동할 수 있어요
-      </div>
-
-      <div class="ob-btns">
-        <button class="btn-back" onclick="goStep(5)">← 이전</button>
+        <button class="btn-back" onclick="goStep(3)">← 이전</button>
         <button class="btn-next" onclick="finishOnboarding()">🚀 시작하기</button>
       </div>
     </div>
@@ -1120,7 +1104,38 @@ select.input-field option { background:var(--dark3); }
           <button class="save-btn" onclick="saveTelegram()">저장</button>
         </div>
         <div class="settings-card settings-full">
-          <div class="sc-title">📥 과거 데이터 불러오기</div>
+          <div class="sc-title">🏊🚴🏃 트라이애슬론 목표</div>
+          <div class="sc-sub-text">트라이애슬론 목표가 있으면 입력하세요 · AI 코치가 종목별 맞춤 분석을 제공합니다</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="input-label">대회 종류</label>
+              <select class="input-field" id="settingTriType">
+                <option value="">없음 (마라톤만)</option>
+                <option value="olympic">올림픽 (수1.5+자40+런10)</option>
+                <option value="half">하프 아이언맨 (수1.9+자90+런21)</option>
+                <option value="full">풀 아이언맨 (수3.8+자180+런42)</option>
+              </select>
+            </div>
+            <div>
+              <label class="input-label">🏁 전체 목표 시간</label>
+              <input class="input-field" type="text" id="settingTriTotal" placeholder="예: 12:00:00">
+            </div>
+            <div>
+              <label class="input-label">🏊 수영 목표</label>
+              <input class="input-field" type="text" id="settingTriSwim" placeholder="예: 1:10:00">
+            </div>
+            <div>
+              <label class="input-label">🚴 자전거 목표</label>
+              <input class="input-field" type="text" id="settingTriBike" placeholder="예: 6:00:00">
+            </div>
+            <div>
+              <label class="input-label">🏃 러닝 목표</label>
+              <input class="input-field" type="text" id="settingTriRun" placeholder="예: 4:30:00">
+            </div>
+          </div>
+          <button class="save-btn" onclick="saveTriathlon()">트라이애슬론 목표 저장</button>
+        </div>
           <div class="sc-sub-text">Strava의 과거 1년치 활동을 가져와 차트와 분석에 활용합니다</div>
           <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
             💡 처음 한 번만 실행하면 돼요. 이미 저장된 활동은 중복 저장되지 않아요.<br>
@@ -1284,7 +1299,7 @@ function goStep(n) {
   document.getElementById('step' + obStep).classList.remove('active');
   obStep = n;
   document.getElementById('step' + n).classList.add('active');
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 1; i <= 4; i++) {
     document.getElementById('dot' + i).classList.toggle('done', i <= n);
   }
   if (n === 2) {
@@ -1292,6 +1307,28 @@ function goStep(n) {
     const raceDateEl = document.getElementById('raceDate');
     if (!raceDateEl.value) raceDateEl.value = today;
   }
+  // 트라이애슬론 선택 시 PR 섹션 표시
+  if (n === 4) {
+    document.getElementById('triPrSection').style.display = triSelected ? 'block' : 'none';
+  }
+}
+
+// 트라이애슬론 선택
+let triSelected = false;
+let triType = 'full';
+
+function selectTriOption(hasTri) {
+  triSelected = hasTri;
+  document.getElementById('triYes').classList.toggle('sel', hasTri);
+  document.getElementById('triNo').classList.toggle('sel', !hasTri);
+  document.getElementById('triDetails').style.display = hasTri ? 'block' : 'none';
+}
+
+function selectTriType(type) {
+  triType = type;
+  ['triOlympic','triHalf','triFull'].forEach(id => document.getElementById(id).classList.remove('sel'));
+  const map = { olympic: 'triOlympic', half: 'triHalf', full: 'triFull' };
+  document.getElementById(map[type]).classList.add('sel');
 }
 
 function connectStravaOnboarding() {
@@ -1322,12 +1359,6 @@ async function finishOnboarding(skipRedirect = false) {
   const customTime = document.getElementById('customTime').value;
   if (customTime) userGoal.time = customTime;
 
-  // PR 기록 수집
-  const prFull = document.getElementById('prFull').value;
-  const prHalf = document.getElementById('prHalf').value;
-  const prTenK = document.getElementById('prTenK').value;
-  const prFiveK = document.getElementById('prFiveK').value;
-
   const goalData = {
     user_id: currentUser.id,
     race_name: document.getElementById('raceName').value,
@@ -1336,21 +1367,25 @@ async function finishOnboarding(skipRedirect = false) {
     target_pace: userGoal.pace,
     weekly_km: document.getElementById('weeklyKm').value,
     train_days: document.getElementById('trainDays').value,
-    level: document.querySelector('.level-opt.sel .lo-name')?.textContent || '고급자',
-    pr_full: prFull || null,
-    pr_half: prHalf || null,
-    pr_10k: prTenK || null,
-    pr_5k: prFiveK || null,
+    level: '고급자',
+    pr_full: document.getElementById('prFull').value || null,
+    pr_half: document.getElementById('prHalf').value || null,
+    pr_10k: document.getElementById('prTenK').value || null,
+    pr_5k: document.getElementById('prFiveK').value || null,
+    goal_type: triSelected ? 'both' : 'marathon',
+    tri_type: triSelected ? triType : null,
+    tri_swim_target: triSelected ? document.getElementById('triSwimTarget').value || null : null,
+    tri_bike_target: triSelected ? document.getElementById('triBikeTarget').value || null : null,
+    tri_run_target: triSelected ? document.getElementById('triRunTarget').value || null : null,
+    tri_total_target: triSelected ? document.getElementById('triTotalTarget').value || null : null,
   };
 
-  const telegramId = document.getElementById('telegramId').value;
   await sb.from('goals').insert(goalData);
-  if (telegramId) await sb.from('profiles').update({ telegram_chat_id: telegramId }).eq('id', currentUser.id);
 
   if (!skipRedirect) {
     showScreen('dashboard');
     await loadUserData();
-    toast('🎉 설정 완료! AI 코치가 준비됐어요.');
+    toast('🎉 설정 완료! 설정에서 Strava 연동과 텔레그램을 연결해주세요.');
   }
 }
 
@@ -1389,6 +1424,13 @@ async function loadUserData() {
     if (g.pr_half) document.getElementById('settingPrHalf').value = g.pr_half;
     if (g.pr_10k) document.getElementById('settingPrTenK').value = g.pr_10k;
     if (g.pr_5k) document.getElementById('settingPrFiveK').value = g.pr_5k;
+
+    // 트라이애슬론 설정 로드
+    if (g.tri_type) document.getElementById('settingTriType').value = g.tri_type;
+    if (g.tri_swim_target) document.getElementById('settingTriSwim').value = g.tri_swim_target;
+    if (g.tri_bike_target) document.getElementById('settingTriBike').value = g.tri_bike_target;
+    if (g.tri_run_target) document.getElementById('settingTriRun').value = g.tri_run_target;
+    if (g.tri_total_target) document.getElementById('settingTriTotal').value = g.tri_total_target;
 
     // 주간 탭 목표 카드
     const phase = getPhase(g.race_date);
@@ -1931,7 +1973,21 @@ async function importHistory() {
   }
 }
 
-async function savePR() {
+async function saveTriathlon() {
+  const triType = document.getElementById('settingTriType').value;
+  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (goals && goals.length > 0) {
+    await sb.from('goals').update({
+      goal_type: triType ? 'both' : 'marathon',
+      tri_type: triType || null,
+      tri_swim_target: document.getElementById('settingTriSwim').value || null,
+      tri_bike_target: document.getElementById('settingTriBike').value || null,
+      tri_run_target: document.getElementById('settingTriRun').value || null,
+      tri_total_target: document.getElementById('settingTriTotal').value || null,
+    }).eq('id', goals[0].id);
+  }
+  toast('✅ 트라이애슬론 목표가 저장됐습니다!');
+}
   const pr_full = document.getElementById('settingPrFull').value;
   const pr_half = document.getElementById('settingPrHalf').value;
   const pr_10k = document.getElementById('settingPrTenK').value;
