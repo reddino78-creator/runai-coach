@@ -1992,8 +1992,8 @@ async function importHistory() {
 
   try {
     // JWT 토큰 가져오기
-    const { data: { session } } = await sb.auth.getSession();
-    const token = session?.access_token;
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
 
     const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -2115,21 +2115,25 @@ async function togglePushNotification() {
     const reg = await navigator.serviceWorker.ready;
     const existing = await reg.pushManager.getSubscription();
 
+    // JWT 토큰 가져오기
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) { toast('❌ 로그인 상태를 확인해주세요'); return; }
+
     if (existing) {
       // 알림 끄기
       await existing.unsubscribe();
-      const { data: { session } } = await sb.auth.getSession();
       await fetch('/api/push-unsubscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ user_id: currentUser.id })
       });
       toast('🔕 알림이 꺼졌습니다');
     } else {
-      // 알림 켜기 - 권한 요청
+      // 알림 켜기
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         toast('❌ 알림 권한이 거부됐습니다');
@@ -2141,12 +2145,11 @@ async function togglePushNotification() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
 
-      const { data: { session } } = await sb.auth.getSession();
       await fetch('/api/push-subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           user_id: currentUser.id,
