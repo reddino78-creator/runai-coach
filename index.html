@@ -1158,6 +1158,61 @@ select.input-field option { background:var(--dark3); }
           </div>
           <button class="save-btn" onclick="saveTriathlon()">트라이애슬론 목표 저장</button>
         </div>
+
+        <!-- 컨디션/부상 입력 -->
+        <div class="settings-card settings-full">
+          <div class="sc-title">💪 오늘 컨디션 & 부상 현황</div>
+          <div class="sc-sub-text">AI 코치가 분석 시 반영합니다 · 매일 업데이트 권장</div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">오늘 컨디션</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+              <div id="condGood" class="goal-card" onclick="selectCondition('좋음')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">⚡</div>
+                <div style="font-size:12px;font-weight:700">좋음</div>
+              </div>
+              <div id="condNormal" class="goal-card sel" onclick="selectCondition('보통')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">😊</div>
+                <div style="font-size:12px;font-weight:700">보통</div>
+              </div>
+              <div id="condTired" class="goal-card" onclick="selectCondition('피로')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">😴</div>
+                <div style="font-size:12px;font-weight:700">피로</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">부상 부위</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <button id="inj-없음" class="cq-btn sel" onclick="selectInjury('없음')">없음</button>
+              <button id="inj-무릎" class="cq-btn" onclick="selectInjury('무릎')">무릎</button>
+              <button id="inj-발목" class="cq-btn" onclick="selectInjury('발목')">발목</button>
+              <button id="inj-종아리" class="cq-btn" onclick="selectInjury('종아리')">종아리</button>
+              <button id="inj-허벅지" class="cq-btn" onclick="selectInjury('허벅지')">허벅지</button>
+              <button id="inj-허리" class="cq-btn" onclick="selectInjury('허리')">허리</button>
+              <button id="inj-기타" class="cq-btn" onclick="selectInjury('기타')">기타</button>
+            </div>
+          </div>
+
+          <div id="injuryLevelSection" style="display:none;margin-bottom:16px">
+            <label class="input-label">부상 정도</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="injlv-경미" class="cq-btn sel" onclick="selectInjuryLevel('경미')">경미 (훈련 가능)</button>
+              <button id="injlv-중간" class="cq-btn" onclick="selectInjuryLevel('중간')">중간 (주의 필요)</button>
+              <button id="injlv-심각" class="cq-btn" onclick="selectInjuryLevel('심각')">심각 (휴식 권장)</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">메모 (선택)</label>
+            <input class="input-field" type="text" id="conditionMemo" placeholder="예: 어제 무리했음, 수면 부족 등" style="margin-top:6px">
+          </div>
+
+          <div id="conditionSaveStatus" style="display:none;font-size:12px;color:var(--green);margin-bottom:8px"></div>
+          <button class="save-btn" onclick="saveCondition()">💾 컨디션 저장</button>
+        </div>
+
           <div class="sc-sub-text">Strava의 과거 1년치 활동을 가져와 차트와 분석에 활용합니다</div>
           <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
             💡 처음 한 번만 실행하면 돼요. 이미 저장된 활동은 중복 저장되지 않아요.<br>
@@ -1543,6 +1598,9 @@ function getPhase(raceDate) {
   return '레이스준비기';
   // 푸시 알림 상태 확인
   checkPushStatus();
+
+  // 오늘 컨디션 불러오기
+  await loadTodayCondition();
 }
 
 async function loadWeeklyPlan() {
@@ -2162,6 +2220,72 @@ async function togglePushNotification() {
   } catch(e) {
     console.error('Push error:', e);
     toast('❌ 알림 설정 중 오류가 발생했어요');
+  }
+}
+
+// ── 컨디션/부상 ──
+let selectedCondition = '보통';
+let selectedInjury = '없음';
+let selectedInjuryLevel = '경미';
+
+function selectCondition(val) {
+  selectedCondition = val;
+  ['condGood','condNormal','condTired'].forEach(id => document.getElementById(id)?.classList.remove('sel'));
+  const map = { '좋음': 'condGood', '보통': 'condNormal', '피로': 'condTired' };
+  document.getElementById(map[val])?.classList.add('sel');
+}
+
+function selectInjury(val) {
+  selectedInjury = val;
+  ['없음','무릎','발목','종아리','허벅지','허리','기타'].forEach(v => {
+    document.getElementById(`inj-${v}`)?.classList.remove('sel');
+  });
+  document.getElementById(`inj-${val}`)?.classList.add('sel');
+  document.getElementById('injuryLevelSection').style.display = val === '없음' ? 'none' : 'block';
+}
+
+function selectInjuryLevel(val) {
+  selectedInjuryLevel = val;
+  ['경미','중간','심각'].forEach(v => {
+    document.getElementById(`injlv-${v}`)?.classList.remove('sel');
+  });
+  document.getElementById(`injlv-${val}`)?.classList.add('sel');
+}
+
+async function saveCondition() {
+  if (!currentUser) return;
+  const memo = document.getElementById('conditionMemo').value;
+  const today = new Date().toISOString().split('T')[0];
+
+  const { error } = await sb.from('conditions').upsert({
+    user_id: currentUser.id,
+    date: today,
+    condition: selectedCondition,
+    injury_part: selectedInjury,
+    injury_level: selectedInjury === '없음' ? '없음' : selectedInjuryLevel,
+    memo: memo || null
+  }, { onConflict: 'user_id,date' });
+
+  const statusEl = document.getElementById('conditionSaveStatus');
+  if (!error) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = `✅ ${today} 컨디션이 저장됐어요!`;
+    setTimeout(() => statusEl.style.display = 'none', 3000);
+    toast('💪 컨디션 저장 완료!');
+  } else {
+    toast('❌ 저장 중 오류가 발생했어요');
+  }
+}
+
+async function loadTodayCondition() {
+  if (!currentUser) return;
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await sb.from('conditions').select('*').eq('user_id', currentUser.id).eq('date', today).single();
+  if (data) {
+    selectCondition(data.condition || '보통');
+    selectInjury(data.injury_part || '없음');
+    if (data.injury_level && data.injury_level !== '없음') selectInjuryLevel(data.injury_level);
+    if (data.memo) document.getElementById('conditionMemo').value = data.memo;
   }
 }
 
