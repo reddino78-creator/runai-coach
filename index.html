@@ -1393,11 +1393,10 @@ async function loadUserData() {
     // 주간 탭 목표 카드
     const phase = getPhase(g.race_date);
     const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    const monthlyTarget = weeklyTarget * 4;
     if (document.getElementById('wk-target-km')) document.getElementById('wk-target-km').textContent = weeklyTarget;
     if (document.getElementById('wk-target-pace')) document.getElementById('wk-target-pace').textContent = g.target_pace || '--:--';
     if (document.getElementById('wk-phase')) document.getElementById('wk-phase').textContent = phase;
-    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
-    const monthlyTarget = weeklyTarget * 4;
     document.getElementById('db-week-target').textContent = weeklyTarget;
     document.getElementById('db-month-target').textContent = monthlyTarget;
   }
