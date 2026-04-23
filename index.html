@@ -326,7 +326,7 @@ select.input-field option { background:var(--dark3); }
   .dash-tabs { display:none; }
   .dash-user .user-nm { display:none; }
   .mobile-nav { display:block; }
-  .dash-body { padding:20px 14px 90px; }
+  .dash-body { padding:20px 14px 100px; }
 }
 
 .dash-body { max-width:1080px; margin:0 auto; padding:36px 28px; }
@@ -436,7 +436,10 @@ select.input-field option { background:var(--dark3); }
 
 /* SETTINGS */
 .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-@media(max-width:600px){.settings-grid{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .settings-grid{grid-template-columns:1fr}
+  #p-settings { padding-bottom:40px; }
+}
 .settings-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:24px; }
 .sc-title { font-size:15px; font-weight:700; margin-bottom:3px; }
 .sc-sub-text { font-size:12px; color:var(--gray); margin-bottom:18px; }
