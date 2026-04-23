@@ -1211,13 +1211,15 @@ function rotateWord() {
 }
 setInterval(rotateWord, 2000);
 
-// ── SUPABASE CONFIG ──
-// 아래 두 줄을 본인의 Supabase 정보로 교체하세요!
-const SUPABASE_URL = 'https://lshfrgybvwcvrreqofcv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzaGZyZ3lidndjdnJyZXFvZmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3ODEwOTMsImV4cCI6MjA5MjM1NzA5M30.KKD6MMY9eUxowDNwT974L4CzgNnw7GwPs1jEGjr0x5Y';
-
+// ── SUPABASE CONFIG (서버에서 가져오기) ──
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let sb;
+
+async function initSupabase() {
+  const res = await fetch('/api/config');
+  const config = await res.json();
+  sb = createClient(config.supabaseUrl, config.supabaseAnonKey);
+}
 
 // ── STATE ──
 let currentUser = null;
@@ -1227,6 +1229,7 @@ let obStep = 1;
 // ── INIT ──
 window.addEventListener('load', async () => {
   try {
+    await initSupabase();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       currentUser = session.user;
