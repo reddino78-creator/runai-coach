@@ -1,4 +1,4 @@
-const CACHE_NAME = 'babaschool-v1';
+const CACHE_NAME = 'babaschool-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -33,7 +33,6 @@ self.addEventListener('activate', event => {
 
 // 네트워크 요청 처리
 self.addEventListener('fetch', event => {
-  // API 요청은 캐시 안 함
   if (event.request.url.includes('/api/') ||
       event.request.url.includes('supabase.co') ||
       event.request.url.includes('strava.com') ||
@@ -55,11 +54,63 @@ self.addEventListener('fetch', event => {
         });
         return response;
       }).catch(() => {
-        // 오프라인 시 index.html 반환
         if (event.request.destination === 'document') {
           return caches.match('/index.html');
         }
       });
     })
+  );
+});
+
+// ── 푸시 알림 수신 ──
+self.addEventListener('push', event => {
+  if (!event.data) return;
+
+  let data;
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: 'BaBa School', body: event.data.text() };
+  }
+
+  const options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    silent: true,
+    vibrate: [],
+    tag: data.tag || 'babaschool',
+    renotify: false,
+    data: {
+      url: data.url || '/',
+      timestamp: Date.now()
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'BaBa School', options)
+  );
+});
+
+// ── 알림 클릭 처리 ──
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes('runai-coach.vercel.app') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
+
+// ── 구독 갱신 ──
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(
+    self.registration.pushManager.subscribe(event.oldSubscription.options)
   );
 });
