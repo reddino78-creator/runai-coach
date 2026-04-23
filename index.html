@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BaBa School</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -371,6 +372,16 @@ select.input-field option { background:var(--dark3); }
 .act-analysis { max-width:320px; background:rgba(252,76,2,.05); border:1px solid rgba(252,76,2,.12); border-radius:12px; padding:16px; }
 .aa-hd { font-size:11px; color:var(--orange); font-weight:600; margin-bottom:6px; }
 .aa-txt { font-size:12px; color:var(--gray-light); line-height:1.65; }
+.aa-txt h2 { font-size:13px; color:var(--orange); margin:10px 0 6px; font-family:'Pretendard',sans-serif; }
+.aa-txt h3 { font-size:12px; color:var(--white); margin:8px 0 4px; font-family:'Pretendard',sans-serif; }
+.aa-txt strong { color:var(--white); }
+.aa-txt ul, .aa-txt ol { padding-left:16px; margin:4px 0; }
+.aa-txt li { margin:3px 0; }
+.aa-txt hr { border:none; border-top:1px solid rgba(255,255,255,0.06); margin:8px 0; }
+.aa-txt table { width:100%; border-collapse:collapse; font-size:11px; margin:8px 0; }
+.aa-txt th { background:rgba(252,76,2,0.15); color:var(--orange); padding:6px; text-align:left; }
+.aa-txt td { padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.aa-txt p { margin:4px 0; }
 
 /* WEEKLY */
 .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
@@ -1251,6 +1262,7 @@ function renderActivities(acts) {
     const paceSecs = Math.round(paceSecPerKm % 60);
     const paceStr = `${paceMins}:${String(paceSecs).padStart(2,'0')}`;
     const date = new Date(a.start_date).toLocaleDateString('ko-KR');
+    const analysisHtml = a.analysis ? marked.parse(a.analysis) : '분석 데이터를 불러오는 중...';
     return `
       <div class="act-card">
         <div>
@@ -1265,7 +1277,7 @@ function renderActivities(acts) {
         </div>
         <div class="act-analysis">
           <div class="aa-hd">🤖 Claude AI 분석</div>
-          <div class="aa-txt">${a.analysis || '분석 데이터를 불러오는 중...'}</div>
+          <div class="aa-txt">${analysisHtml}</div>
         </div>
       </div>`;
   }).join('');
