@@ -912,7 +912,57 @@ select.input-field option { background:var(--dark3); }
 
     <!-- ══════════ 일간 분석 ══════════ -->
     <div class="tab-panel" id="p-daily">
-      <div class="section-hd">최근 7일 활동 분석</div>
+
+      <!-- 상단 3카드 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px" id="daily-top-cards">
+
+        <!-- 카드1: 최근 훈련 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">최근 훈련</div>
+          <div id="daily-card1-plan" style="font-size:11px;color:var(--gray);margin-bottom:6px">계획</div>
+          <div id="daily-card1-type" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card1-actual" style="font-size:11px;color:var(--orange)">-</div>
+        </div>
+
+        <!-- 카드2: 훈련 평가 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">훈련 강도</div>
+          <div id="daily-card2-stars" style="font-size:18px;margin-bottom:6px">-</div>
+          <div id="daily-card2-label" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card2-detail" style="font-size:11px;color:var(--gray)">-</div>
+        </div>
+
+        <!-- 카드3: 다음 훈련 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">다음 훈련</div>
+          <div id="daily-card3-day" style="font-size:11px;color:var(--gray);margin-bottom:6px">-</div>
+          <div id="daily-card3-type" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card3-detail" style="font-size:11px;color:var(--orange)">-</div>
+        </div>
+      </div>
+
+      <!-- 이번 주 요약 -->
+      <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="daily-week-summary">
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--orange)" id="daily-sum-km">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">이번 주 km</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-count">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">운동 횟수</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-pace">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">평균 페이스</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-time">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">총 시간</div>
+        </div>
+      </div>
+
+      <!-- 활동 목록 -->
+      <div class="section-hd">최근 7일 활동</div>
       <div id="activitiesList">
         <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
           Strava 연동 후 활동이 표시됩니다
@@ -1609,6 +1659,15 @@ async function loadUserData() {
   // 대시보드 3단: 주간 캘린더
   await loadWeeklyPlan();
 
+  // 데일리 상단 3카드
+  const { data: dailyPlans } = await sb.from('weekly_plans')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('week_start', { ascending: false })
+    .limit(1);
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  if (acts && acts.length > 0) renderDailyTopCards(acts, dailyPlans?.[0], todayIdx);
+
   // 주간/월간 리포트
   await loadReports();
   await loadWeeklyCards();
@@ -2078,7 +2137,107 @@ async function loadMonthlyCards(goal) {
   }
 }
 
-function renderLastActivity(a) {
+function renderDailyTopCards(acts, plan, todayIdx) {
+  if (!acts || acts.length === 0) return;
+
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
+  const dayNames = ['월','화','수','목','금','토','일'];
+
+  // ── 카드1: 최근 훈련 계획 vs 실제 ──
+  const lastAct = acts[0];
+  const lastDate = new Date(lastAct.start_date);
+  const lastDayIdx = lastDate.getDay() === 0 ? 6 : lastDate.getDay() - 1;
+  const plannedWorkout = plan?.[days[lastDayIdx]] || '-';
+  const actualWorkout = lastAct.workout_type || lastAct.sport_type || '러닝';
+
+  document.getElementById('daily-card1-plan').textContent = `계획 · ${plannedWorkout}`;
+  document.getElementById('daily-card1-type').textContent = actualWorkout;
+  document.getElementById('daily-card1-actual').textContent =
+    plannedWorkout === actualWorkout ? '✅ 계획대로 완료' :
+    plannedWorkout === '-' ? '📝 자유 훈련' :
+    `⚡ ${plannedWorkout} → ${actualWorkout}`;
+
+  // ── 카드2: 훈련 강도 평가 ──
+  const km = lastAct.distance / 1000;
+  const paceSecPerKm = lastAct.moving_time / km;
+  const avgHR = lastAct.avg_heartrate;
+
+  let intensity = 2;
+  let intensityLabel = '중간';
+  let intensityDetail = '';
+
+  // 페이스 + 심박수로 강도 계산
+  if (avgHR) {
+    if (avgHR >= 170) { intensity = 5; intensityLabel = '매우 높음'; }
+    else if (avgHR >= 160) { intensity = 4; intensityLabel = '높음'; }
+    else if (avgHR >= 145) { intensity = 3; intensityLabel = '중상'; }
+    else if (avgHR >= 130) { intensity = 2; intensityLabel = '중간'; }
+    else { intensity = 1; intensityLabel = '낮음'; }
+    intensityDetail = `평균 심박 ${Math.round(avgHR)}bpm`;
+  } else {
+    if (paceSecPerKm < 300) { intensity = 5; intensityLabel = '매우 높음'; }
+    else if (paceSecPerKm < 330) { intensity = 4; intensityLabel = '높음'; }
+    else if (paceSecPerKm < 360) { intensity = 3; intensityLabel = '중상'; }
+    else if (paceSecPerKm < 420) { intensity = 2; intensityLabel = '중간'; }
+    else { intensity = 1; intensityLabel = '낮음'; }
+    intensityDetail = `${(km).toFixed(1)}km · ${Math.floor(paceSecPerKm/60)}:${String(Math.round(paceSecPerKm%60)).padStart(2,'0')}/km`;
+  }
+
+  const stars = '★'.repeat(intensity) + '☆'.repeat(5 - intensity);
+  const starColors = ['#4ADE80','#84CC16','#F59E0B','#FB923C','#EF4444'];
+  document.getElementById('daily-card2-stars').innerHTML =
+    `<span style="color:${starColors[intensity-1]}">${stars}</span>`;
+  document.getElementById('daily-card2-label').textContent = intensityLabel;
+  document.getElementById('daily-card2-detail').textContent = intensityDetail;
+
+  // ── 카드3: 다음 훈련 ──
+  const now = new Date();
+  const currentDayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  let nextWorkout = null;
+  let nextDayName = null;
+
+  for (let i = currentDayIdx + 1; i < 7; i++) {
+    const w = plan?.[days[i]];
+    if (w && w !== '휴식' && w !== '-') {
+      nextWorkout = w;
+      nextDayName = dayNames[i];
+      break;
+    }
+  }
+
+  if (nextWorkout) {
+    const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+    document.getElementById('daily-card3-day').textContent = `${nextDayName}요일 예정`;
+    document.getElementById('daily-card3-type').textContent = nextWorkout;
+    document.getElementById('daily-card3-detail').textContent = getWorkoutDetail(nextWorkout, targetPace).replace(/<br>/g, ' · ').replace(/<[^>]*>/g, '');
+  } else {
+    document.getElementById('daily-card3-day').textContent = '이번 주';
+    document.getElementById('daily-card3-type').textContent = '훈련 완료! 🎉';
+    document.getElementById('daily-card3-detail').textContent = '다음 주 계획을 기다려요';
+  }
+
+  // ── 이번 주 요약 ──
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - currentDayIdx);
+  weekStart.setHours(0,0,0,0);
+  const weekActs = acts.filter(a => new Date(a.start_date) >= weekStart);
+
+  const totalKm = weekActs.reduce((s, a) => s + a.distance, 0) / 1000;
+  const totalSecs = weekActs.reduce((s, a) => s + a.moving_time, 0);
+  const runActs = weekActs.filter(a => a.distance > 1000);
+  const avgPaceSec = runActs.length > 0
+    ? runActs.reduce((s, a) => s + a.moving_time / (a.distance / 1000), 0) / runActs.length
+    : 0;
+
+  document.getElementById('daily-sum-km').textContent = totalKm.toFixed(1);
+  document.getElementById('daily-sum-count').textContent = weekActs.length;
+  document.getElementById('daily-sum-pace').textContent = avgPaceSec > 0
+    ? `${Math.floor(avgPaceSec/60)}:${String(Math.round(avgPaceSec%60)).padStart(2,'0')}`
+    : '-';
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  document.getElementById('daily-sum-time').textContent = hrs > 0 ? `${hrs}h${mins}m` : `${mins}m`;
+}
   const km = (a.distance / 1000).toFixed(1);
   const mins = Math.floor(a.moving_time / 60);
   const secs = a.moving_time % 60;
