@@ -1958,14 +1958,16 @@ async function loadReports() {
 // ── 주간 카드 데이터 ──
 async function loadWeeklyCards() {
   try {
-    // 최근 60일 활동 가져오기
-    const { data: acts } = await sb.from('activities')
+    // 최근 활동 가져오기 (8주 = 56일, 하루 최대 5개 기준 280개)
+    const { data: acts, error } = await sb.from('activities')
       .select('*')
       .eq('user_id', currentUser.id)
       .order('start_date', { ascending: false })
       .limit(300);
 
-    if (!acts || acts.length === 0) return;
+    if (error) { console.error('Weekly acts error:', error); return; }
+    if (!acts || acts.length === 0) { console.log('No activities for weekly cards'); return; }
+    console.log('Weekly cards acts count:', acts.length);
 
     const now = new Date();
     const todayDay = now.getDay();
@@ -2074,22 +2076,30 @@ async function loadWeeklyCards() {
       document.getElementById('wk-pace-lsd').textContent = secToPace(targetSec + 60) + '/km';
     }
 
-    // 다음 주 훈련 계획 (민트 테마)
+    // ── 다음 주 훈련 계획 (민트 테마) ──
     const nextPlanEl = document.getElementById('wk-next-plan');
-    if (nextPlanEl && plan) {
-      const days3 = ['mon','tue','wed','thu','fri','sat','sun'];
-      const dayNames3 = ['월','화','수','목','금','토','일'];
-      nextPlanEl.innerHTML = days3.map((d, i) => {
-        const workout = plan[d] || (i === 4 ? '휴식' : '-');
-        const isRest = workout === '휴식' || workout === '-';
-        const bg = isRest ? '#0D1117' : '#111827';
-        const border = isRest ? 'rgba(255,255,255,.04)' : 'rgba(0,212,170,.2)';
-        const typeColor = isRest ? '#374151' : '#00D4AA';
-        return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center">
-          <div style="font-size:9px;color:#4B5563;font-family:'DM Mono',monospace;margin-bottom:4px">${dayNames3[i]}</div>
-          <div style="font-size:8px;color:${typeColor};font-weight:600;min-height:18px;line-height:1.3">${workout}</div>
-        </div>`;
-      }).join('');
+    if (nextPlanEl) {
+      if (plan) {
+        const days3 = ['mon','tue','wed','thu','fri','sat','sun'];
+        const dayNames3 = ['월','화','수','목','금','토','일'];
+        nextPlanEl.innerHTML = days3.map((d, i) => {
+          const workout = plan[d] || (i === 4 ? '휴식' : '-');
+          const isRest = workout === '휴식' || workout === '-';
+          const bg = isRest ? '#0D1117' : '#111827';
+          const border = isRest ? 'rgba(255,255,255,.04)' : 'rgba(0,212,170,.2)';
+          const typeColor = isRest ? '#374151' : '#00D4AA';
+          return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center">
+            <div style="font-size:9px;color:#4B5563;font-family:'DM Mono',monospace;margin-bottom:4px">${dayNames3[i]}</div>
+            <div style="font-size:8px;color:${typeColor};font-weight:600;min-height:18px;line-height:1.3">${workout}</div>
+          </div>`;
+        }).join('');
+      } else {
+        nextPlanEl.innerHTML = `
+          <div style="grid-column:1/-1;text-align:center;padding:20px;color:#4B5563;font-size:12px">
+            📅 주간 리포트 생성 후 다음 주 계획이 표시됩니다<br>
+            <span style="font-size:11px;color:#374151">매주 월요일 오전 8시 자동 생성</span>
+          </div>`;
+      }
     }
     const weeks8 = [];
     for (let i = 7; i >= 0; i--) {
@@ -2121,7 +2131,7 @@ async function loadWeeklyCards() {
     renderWorkoutTypes('wk-last-week-types', 'wk-last-ratio', lastWeekActs);
 
   } catch(e) {
-    console.log('Weekly cards error:', e);
+    console.error('Weekly cards error:', e);
   }
 }
 
