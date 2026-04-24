@@ -783,7 +783,7 @@ select.input-field option { background:var(--dark3); }
       <button class="dash-tab" onclick="switchPanel(this,'p-daily')">일간 분석</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-weekly')">주간 리포트</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-monthly')">월간 리포트</button>
-      <button class="dash-tab" onclick="switchPanel(this,'p-coach')">AI 코치</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-coach')">🏁 레이싱 전략</button>
       <button class="dash-tab" onclick="switchPanel(this,'p-settings')">설정</button>
     </div>
     <div class="dash-user">
@@ -809,7 +809,7 @@ select.input-field option { background:var(--dark3); }
         <span class="mobile-tab-icon">📈</span>월간
       </button>
       <button class="mobile-tab" onclick="switchPanelMobile(this,'p-coach')">
-        <span class="mobile-tab-icon">🤖</span>코치
+        <span class="mobile-tab-icon">🏁</span>레이싱
       </button>
       <button class="mobile-tab" onclick="switchPanelMobile(this,'p-settings')">
         <span class="mobile-tab-icon">⚙️</span>설정
@@ -1169,27 +1169,126 @@ select.input-field option { background:var(--dark3); }
       </div>
     </div>
 
-    <!-- AI COACH -->
+    <!-- ══════════ 레이싱 전략 ══════════ -->
     <div class="tab-panel" id="p-coach">
-      <div class="coach-box">
-        <div class="cb-hd"><div class="cb-av">🤖</div><div><div class="cb-nm">Claude AI 코치</div><div class="cb-sb">Strava 데이터 기반 맞춤 코칭</div></div></div>
-        <div style="background:var(--dark3);border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;color:var(--gray-light);line-height:1.7">
-          <span style="color:var(--orange);font-weight:600">오늘의 코칭</span><br><br>
-          현재 주간 52km를 유지하고 있어요! 서브 3:50을 위해 <strong>장거리런(20km+)을 격주로 추가</strong>하고 경사 훈련으로 후반부 버티는 힘을 키우세요.
+
+      <!-- 헤더 -->
+      <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:16px;padding:20px;margin-bottom:20px">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:8px">🏁 레이스 전략</div>
+        <div id="race-strategy-title" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px">--</div>
+        <div id="race-strategy-date" style="font-size:12px;color:var(--gray)">매월 1일 자동 업데이트 · 레이스 1주일 전 최종 갱신</div>
+        <button onclick="refreshRaceStrategy()" id="strategy-refresh-btn"
+          style="margin-top:12px;background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          🔄 지금 생성하기
+        </button>
+      </div>
+
+      <!-- 전략 A / B 탭 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="tab-strat-a" onclick="switchStrategy('A')"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--orange);background:rgba(252,76,2,.12);color:var(--orange);font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          전략 A · 80%
+        </button>
+        <button id="tab-strat-b" onclick="switchStrategy('B')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          전략 B · 90%
+        </button>
+      </div>
+
+      <!-- 전략 A -->
+      <div id="strategy-A">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--dark2);border:1px solid rgba(252,76,2,.2);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">목표 기록</div>
+            <div id="a-target-time" style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--white)">--:--:--</div>
+            <div id="a-target-pace" style="font-size:12px;color:var(--orange);margin-top:4px">--:--/km</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">달성 가능성</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--orange)">80%</div>
+            <div id="a-key-point" style="font-size:11px;color:var(--gray-light);margin-top:4px;line-height:1.5">--</div>
+          </div>
         </div>
-        <div class="chat-quick">
-          <button class="cq-btn" onclick="askCoach('이번 주 훈련 강도 평가해줘')">이번 주 훈련 강도?</button>
-          <button class="cq-btn" onclick="askCoach('레이스 당일 페이스 전략 알려줘')">레이스 당일 전략</button>
-          <button class="cq-btn" onclick="askCoach('부상 예방 팁 알려줘')">부상 예방 팁</button>
-          <button class="cq-btn" onclick="askCoach('탄수화물 로딩 방법 알려줘')">탄수화물 로딩</button>
+
+        <!-- 페이스 전략 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:10px">⚡ 레이스 페이스 전략</div>
+          <div id="a-description" style="font-size:12px;color:var(--gray-light);line-height:1.8;margin-bottom:10px">--</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;text-align:center">
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">전반 (0~21K)</div>
+              <div id="a-pace-first" style="color:var(--orange);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">중반 (21~32K)</div>
+              <div id="a-pace-mid" style="color:var(--white);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">후반 (32~42K)</div>
+              <div id="a-pace-last" style="color:var(--green,#22C55E);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+          </div>
         </div>
-        <div class="chat-input-row">
-          <input class="chat-field" id="coachQ" type="text" placeholder="코치에게 무엇이든 질문하세요...">
-          <button class="chat-send" onclick="askCoach()">전송</button>
+
+        <!-- 5K 구간 차트 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">📊 5K 구간별 목표</div>
+          <div id="a-splits" style="overflow-x:auto">
+            <div style="color:var(--gray);font-size:12px">전략 생성 후 표시됩니다</div>
+          </div>
         </div>
-        <div class="chat-ans" id="coachAns">
-          <div class="ca-hd">🤖 Claude AI</div>
-          <div class="ca-txt" id="coachAnsTxt"></div>
+
+        <!-- 에너지젤 전략 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">🧃 에너지젤 보급 전략</div>
+          <div id="a-gels" style="font-size:12px;color:var(--gray)">전략 생성 후 표시됩니다</div>
+        </div>
+      </div>
+
+      <!-- 전략 B -->
+      <div id="strategy-B" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--dark2);border:1px solid rgba(0,212,170,.2);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:#00D4AA;text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">목표 기록</div>
+            <div id="b-target-time" style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--white)">--:--:--</div>
+            <div id="b-target-pace" style="font-size:12px;color:#00D4AA;margin-top:4px">--:--/km</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">달성 가능성</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:28px;color:#00D4AA">90%</div>
+            <div id="b-key-point" style="font-size:11px;color:var(--gray-light);margin-top:4px;line-height:1.5">--</div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:10px">⚡ 레이스 페이스 전략</div>
+          <div id="b-description" style="font-size:12px;color:var(--gray-light);line-height:1.8;margin-bottom:10px">--</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;text-align:center">
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">전반 (0~21K)</div>
+              <div id="b-pace-first" style="color:#00D4AA;font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">중반 (21~32K)</div>
+              <div id="b-pace-mid" style="color:var(--white);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">후반 (32~42K)</div>
+              <div id="b-pace-last" style="color:#00D4AA;font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">📊 5K 구간별 목표</div>
+          <div id="b-splits">
+            <div style="color:var(--gray);font-size:12px">전략 생성 후 표시됩니다</div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">🧃 에너지젤 보급 전략</div>
+          <div id="b-gels" style="font-size:12px;color:var(--gray)">전략 생성 후 표시됩니다</div>
         </div>
       </div>
     </div>
@@ -1763,9 +1862,10 @@ function getPhase(raceDate) {
 async function loadUserDataExtra() {
   // 푸시 알림 상태 확인
   checkPushStatus();
-
   // 오늘 컨디션 불러오기
   await loadTodayCondition();
+  // 레이스 전략 불러오기
+  await loadRaceStrategy();
 }
 
 async function loadWeeklyPlan() {
@@ -2907,6 +3007,163 @@ async function loadTodayCondition() {
     selectInjury(data.injury_part || '없음');
     if (data.injury_level && data.injury_level !== '없음') selectInjuryLevel(data.injury_level);
     if (data.memo) document.getElementById('conditionMemo').value = data.memo;
+  }
+}
+
+// ── 레이스 전략 ──
+let currentStrategy = 'A';
+
+function switchStrategy(type) {
+  currentStrategy = type;
+  document.getElementById('strategy-A').style.display = type === 'A' ? 'block' : 'none';
+  document.getElementById('strategy-B').style.display = type === 'B' ? 'block' : 'none';
+
+  const btnA = document.getElementById('tab-strat-a');
+  const btnB = document.getElementById('tab-strat-b');
+
+  if (type === 'A') {
+    btnA.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--orange);background:rgba(252,76,2,.12);color:var(--orange);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+    btnB.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+  } else {
+    btnA.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+    btnB.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid #00D4AA;background:rgba(0,212,170,.1);color:#00D4AA;font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+  }
+}
+
+function secToPaceDisplay(sec) {
+  if (!sec) return '--:--';
+  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+}
+
+function renderSplits(elId, splits, color) {
+  if (!splits || splits.length === 0) return;
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tr style="color:var(--gray);border-bottom:1px solid rgba(255,255,255,.06)">
+        <td style="padding:6px 4px">구간</td>
+        <td style="padding:6px 4px;text-align:center">페이스</td>
+        <td style="padding:6px 4px;text-align:center">구간 시간</td>
+        <td style="padding:6px 4px;text-align:right">누적 시간</td>
+      </tr>
+      ${splits.map((s, i) => `
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);${i === splits.length - 1 ? 'font-weight:700' : ''}">
+          <td style="padding:7px 4px;color:var(--gray-light)">${s.segment}</td>
+          <td style="padding:7px 4px;text-align:center;color:${color};font-family:'DM Mono',monospace">${s.pace}</td>
+          <td style="padding:7px 4px;text-align:center;color:var(--gray);font-family:'DM Mono',monospace">${s.segTime}</td>
+          <td style="padding:7px 4px;text-align:right;color:var(--white);font-family:'DM Mono',monospace">${s.cumTime}</td>
+        </tr>
+      `).join('')}
+    </table>`;
+}
+
+function renderGels(elId, gels) {
+  if (!gels || gels.length === 0) return;
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = gels.map(g => `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+      <div style="background:rgba(252,76,2,.15);color:var(--orange);border-radius:100px;padding:2px 8px;font-size:10px;font-family:'DM Mono',monospace;flex-shrink:0">
+        #${g.num} · ${g.time}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--white)">${g.km}km 지점</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${g.note}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadRaceStrategy() {
+  if (!currentUser) return;
+  try {
+    const { data: strategies } = await sb.from('race_strategies')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!strategies || strategies.length === 0) return;
+    const s = strategies[0];
+
+    // 헤더
+    const { data: goals } = await sb.from('goals').select('race_name,race_date').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+    if (g) {
+      document.getElementById('race-strategy-title').textContent = `🏁 ${g.race_name || '레이스'} 전략`;
+      const created = new Date(s.created_at).toLocaleDateString('ko-KR');
+      document.getElementById('race-strategy-date').textContent = `${created} 생성 · 레이스 1주일 전 최종 갱신`;
+    }
+
+    // 전략 A
+    const a = s.strategy_a;
+    if (a) {
+      document.getElementById('a-target-time').textContent = a.targetTime || '--:--:--';
+      document.getElementById('a-target-pace').textContent = secToPaceDisplay(a.paceSec) + '/km';
+      document.getElementById('a-key-point').textContent = a.keyPoint || '';
+      document.getElementById('a-description').textContent = a.description || '';
+
+      // 전/중/후반 페이스
+      if (a.splits && a.splits.length > 0) {
+        const firstSplit = a.splits[0];
+        const midSplit = a.splits[Math.floor(a.splits.length / 2)];
+        const lastSplit = a.splits[a.splits.length - 1];
+        document.getElementById('a-pace-first').textContent = firstSplit.pace + '/km';
+        document.getElementById('a-pace-mid').textContent = midSplit.pace + '/km';
+        document.getElementById('a-pace-last').textContent = lastSplit.pace + '/km';
+        renderSplits('a-splits', a.splits, 'var(--orange)');
+      }
+      renderGels('a-gels', a.gels);
+    }
+
+    // 전략 B
+    const b = s.strategy_b;
+    if (b) {
+      document.getElementById('b-target-time').textContent = b.targetTime || '--:--:--';
+      document.getElementById('b-target-pace').textContent = secToPaceDisplay(b.paceSec) + '/km';
+      document.getElementById('b-key-point').textContent = b.keyPoint || '';
+      document.getElementById('b-description').textContent = b.description || '';
+
+      if (b.splits && b.splits.length > 0) {
+        const firstSplit = b.splits[0];
+        const midSplit = b.splits[Math.floor(b.splits.length / 2)];
+        const lastSplit = b.splits[b.splits.length - 1];
+        document.getElementById('b-pace-first').textContent = firstSplit.pace + '/km';
+        document.getElementById('b-pace-mid').textContent = midSplit.pace + '/km';
+        document.getElementById('b-pace-last').textContent = lastSplit.pace + '/km';
+        renderSplits('b-splits', b.splits, '#00D4AA');
+      }
+      renderGels('b-gels', b.gels);
+    }
+
+  } catch(e) {
+    console.error('Race strategy load error:', e);
+  }
+}
+
+async function refreshRaceStrategy() {
+  if (!currentUser) return;
+  const btn = document.getElementById('strategy-refresh-btn');
+  btn.textContent = '⏳ 생성 중...';
+  btn.disabled = true;
+
+  try {
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    const res = await fetch(`/api/cron-race-strategy?user_id=${currentUser.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (result.success) {
+      await loadRaceStrategy();
+      toast('🏁 레이스 전략이 생성됐어요!');
+    }
+  } catch(e) {
+    toast('❌ 전략 생성 중 오류가 발생했어요');
+  } finally {
+    btn.textContent = '🔄 지금 생성하기';
+    btn.disabled = false;
   }
 }
 
