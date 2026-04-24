@@ -1081,38 +1081,90 @@ select.input-field option { background:var(--dark3); }
     <!-- ══════════ 월간 리포트 ══════════ -->
     <div class="tab-panel" id="p-monthly">
 
-      <!-- 1섹션: 지난달 AI 평가 -->
+      <!-- 1단: 이달의 코칭 3카드 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+
+        <!-- 이번 달 km -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 달</div>
+          <div class="db-metric-val" id="mn-done-km" style="font-size:24px">0</div>
+          <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="mn-target-km">--</span>km 목표</div>
+          <div class="db-mile-bar" style="margin-top:8px">
+            <div class="db-mile-fill" id="mn-progress-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="mn-sessions">0</span>회 훈련</div>
+        </div>
+
+        <!-- 목표 달성 가능성 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">목표 가능성</div>
+          <div id="mn-prob-val" style="font-family:'DM Serif Display',serif;font-size:32px;color:var(--orange);line-height:1">--%</div>
+          <div id="mn-prob-label" style="font-size:11px;color:var(--gray-light);margin-top:6px">월간 리포트 생성 후 표시</div>
+        </div>
+
+        <!-- D-day -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">레이스까지</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:32px;color:var(--white);line-height:1">D-<span id="mn-dday">--</span></div>
+          <div id="mn-phase" style="font-size:11px;color:var(--gray);margin-top:6px">--</div>
+          <div id="mn-race-name" style="font-size:10px;color:var(--orange);margin-top:4px">--</div>
+        </div>
+      </div>
+
+      <!-- 2단: 이달의 미션 -->
       <div class="db-section">
-        <div class="section-hd">AI 월간 리포트</div>
-        <div id="monthlyReport">
-          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
-            매월 2일 오전 8시에 자동으로 업데이트됩니다
+        <div class="db-section-title">이달의 핵심 미션</div>
+        <div id="mn-missions" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">🎯</div>
+            <div style="font-size:11px;color:var(--gray)">월간 리포트</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">생성 후 표시</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">💪</div>
+            <div style="font-size:11px;color:var(--gray)">매월 2일</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">오전 8시 업데이트</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">🏆</div>
+            <div style="font-size:11px;color:var(--gray)">훈련 완료 시</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">가능성 % 상승</div>
           </div>
         </div>
       </div>
 
-      <!-- 2섹션: 훈련 종류별 현황 -->
+      <!-- 3단: 훈련 종류별 현황 -->
       <div class="db-section">
-        <div class="section-hd">이번 달 훈련 구성</div>
+        <div class="db-section-title">이번 달 훈련 구성</div>
         <div class="chart-box">
           <div id="mn-workout-types" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
           <div id="mn-ratio" style="padding-top:12px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:var(--gray-light)"></div>
         </div>
       </div>
 
-      <!-- 3섹션: 최근 6개월 마일리지 -->
+      <!-- 4단: 6개월 마일리지 -->
       <div class="db-section">
-        <div class="section-hd">최근 6개월 마일리지</div>
+        <div class="db-section-title">최근 6개월 마일리지</div>
         <div class="chart-box">
           <div class="trend-rows" id="mn-6months"></div>
         </div>
       </div>
 
-      <!-- 4섹션: 월별 훈련 로드맵 -->
+      <!-- 5단: 레이스 로드맵 -->
       <div class="db-section">
-        <div class="section-hd">레이스까지 훈련 로드맵</div>
+        <div class="db-section-title">레이스까지 훈련 로드맵</div>
         <div id="mn-roadmap" class="chart-box">
           <div style="color:var(--gray);font-size:12px">목표 대회 날짜를 설정하면 로드맵이 생성됩니다</div>
+        </div>
+      </div>
+
+      <!-- 6단: AI 월간 리포트 -->
+      <div class="db-section">
+        <div class="section-hd">AI 월간 리포트</div>
+        <div id="monthlyReport">
+          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+            매월 2일 오전 8시에 자동으로 업데이트됩니다
+          </div>
         </div>
       </div>
     </div>
@@ -2195,10 +2247,149 @@ async function loadMonthlyCards(goal) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 이번 달 활동
-    const thisMonthActs = acts.filter(a => new Date(a.start_date) >= monthStart);
+    // 목표 정보
+    const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
 
-    // 2섹션: 훈련 종류별
+    // 1단: 이달 카드
+    const thisMonthActs = acts.filter(a => new Date(a.start_date) >= monthStart);
+    const thisMonthKm = (thisMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+    const phase = g?.race_date ? getPhase(g.race_date) : '--';
+    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    const monthTarget = weeklyTarget * 4;
+    const daysLeft = g?.race_date ? Math.ceil((new Date(g.race_date) - now) / 86400000) : '--';
+
+    document.getElementById('mn-done-km').textContent = thisMonthKm;
+    document.getElementById('mn-target-km').textContent = monthTarget;
+    document.getElementById('mn-sessions').textContent = thisMonthActs.length;
+    document.getElementById('mn-progress-bar').style.width = Math.min(100, (thisMonthKm / monthTarget * 100)).toFixed(0) + '%';
+    document.getElementById('mn-dday').textContent = daysLeft;
+    document.getElementById('mn-phase').textContent = phase;
+    document.getElementById('mn-race-name').textContent = g?.race_name || '--';
+
+    // 목표 가능성 % (월간 km 달성률 기반 추정)
+    const achievePct = Math.min(100, (thisMonthKm / monthTarget * 100));
+    const probPct = Math.round(40 + achievePct * 0.5); // 기본 40% + 달성률 반영
+    document.getElementById('mn-prob-val').textContent = probPct + '%';
+    document.getElementById('mn-prob-label').textContent =
+      probPct >= 80 ? '🔥 달성 가능성 높음' :
+      probPct >= 60 ? '💪 꾸준히 하면 가능' :
+      '⚠️ 훈련량 늘려야 해요';
+
+    // 2단: 이달의 미션 (월간 리포트에서 추출 - 없으면 기본값)
+    const { data: reports } = await sb.from('reports')
+      .select('content')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'monthly')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (reports?.[0]) {
+      const content = reports[0].content;
+      // 핵심 목표 추출 (첫 3문장)
+      const sentences = content.replace(/#{1,3} .+/g, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\n+/g, ' ').split(/[.!?]/).filter(s => s.trim().length > 10).slice(0, 3);
+      const icons = ['🎯', '💪', '🏆'];
+      const colors = ['var(--orange)', '#00D4AA', '#F59E0B'];
+      document.getElementById('mn-missions').innerHTML = sentences.map((s, i) => `
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px">
+          <div style="font-size:20px;margin-bottom:8px">${icons[i]}</div>
+          <div style="font-size:11px;color:${colors[i]};line-height:1.6">${s.trim()}</div>
+        </div>
+      `).join('');
+    }
+
+    // 3단: 훈련 종류별
+    const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeKm = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeColors = {
+      '인터벌': '#9B59B6', '템포런': '#2D9CDB', '페이스주': '#FC4C02',
+      '롱런': '#27AE60', 'LSD': '#F0B429', '이지런': '#777777'
+    };
+    thisMonthActs.forEach(a => {
+      const wt = a.workout_type || '이지런';
+      if (types[wt] !== undefined) { types[wt]++; typeKm[wt] += a.distance / 1000; }
+    });
+
+    document.getElementById('mn-workout-types').innerHTML = Object.entries(types)
+      .map(([name, count]) => `
+        <div style="background:var(--dark3);border-radius:10px;padding:12px;text-align:center">
+          <div style="width:10px;height:10px;border-radius:50%;background:${typeColors[name]};margin:0 auto 6px"></div>
+          <div style="font-size:10px;color:var(--gray);margin-bottom:4px">${name}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--white)">${count}회</div>
+          <div style="font-size:10px;color:var(--orange)">${typeKm[name].toFixed(1)}km</div>
+        </div>
+      `).join('');
+
+    const total = Object.values(types).reduce((s, v) => s + v, 0);
+    if (total > 0) {
+      const easy = types['이지런'] + types['LSD'];
+      const easyPct = Math.round(easy / total * 100);
+      document.getElementById('mn-ratio').innerHTML = `
+        이지+LSD <strong style="color:var(--white)">${easyPct}%</strong> &nbsp;|&nbsp;
+        포인트 훈련 <strong style="color:var(--orange)">${100-easyPct}%</strong>
+        &nbsp;(권장: 이지 70~80% : 포인트 20~30%)
+      `;
+    }
+
+    // 4단: 6개월 마일리지
+    const months6 = [];
+    for (let i = 5; i >= 0; i--) {
+      const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const mActs = acts.filter(a => { const d = new Date(a.start_date); return d >= mStart && d < mEnd; });
+      const mKm = (mActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const label = mStart.toLocaleDateString('ko-KR', { month: 'long' });
+      months6.push({ label, km: parseFloat(mKm), isNow: i === 0 });
+    }
+    const maxMonthKm = Math.max(...months6.map(m => m.km), 1);
+    document.getElementById('mn-6months').innerHTML = months6.map(m => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:10px;color:${m.isNow ? 'var(--orange)' : 'var(--gray)'};width:50px;font-family:'DM Mono',monospace;flex-shrink:0">${m.label}</div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(m.km/maxMonthKm*100).toFixed(0)}%;background:${m.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px"></div>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${m.km}km</div>
+      </div>
+    `).join('');
+
+    // 5단: 로드맵
+    if (g?.race_date) {
+      const raceDate = new Date(g.race_date);
+      const monthsLeft = Math.ceil((raceDate - now) / (30 * 24 * 60 * 60 * 1000));
+      const phases = [
+        { name: '기초체력 강화', desc: '유산소 기반 구축, 주간 거리 점진적 증가', icon: '🌱' },
+        { name: '롱런 강화', desc: '장거리 훈련 확대, LSD 22km+ 도전', icon: '🏃' },
+        { name: '스피드 강화', desc: '인터벌/템포런 집중, 목표 페이스 적응', icon: '⚡' },
+        { name: '마라톤 특화', desc: '레이스 페이스 훈련, 30km 장거리', icon: '🎯' },
+        { name: '최종 마무리', desc: '훈련량 유지, 레이스 시뮬레이션', icon: '🏁' },
+        { name: '테이퍼링', desc: '훈련량 감소, 컨디션 최상화', icon: '💎' },
+      ];
+      const roadmap = [];
+      for (let i = 0; i < Math.min(monthsLeft, 6); i++) {
+        const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const isNow = i === 0;
+        const ph = phases[Math.min(i, phases.length - 1)];
+        roadmap.push({ month: m.toLocaleDateString('ko-KR', { month: 'long' }), phase: ph, isNow });
+      }
+      document.getElementById('mn-roadmap').innerHTML = roadmap.map(r => `
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;${r.isNow ? 'padding:10px;background:rgba(252,76,2,.08);border-radius:10px;border-left:3px solid var(--orange)' : ''}">
+          <div style="font-size:20px;flex-shrink:0">${r.phase.icon}</div>
+          <div>
+            <div style="font-size:11px;color:${r.isNow ? 'var(--orange)' : 'var(--gray)'}">${r.month} ${r.isNow ? '← 현재' : ''}</div>
+            <div style="font-size:13px;font-weight:700;margin:2px 0;color:var(--white)">${r.phase.name}</div>
+            <div style="font-size:11px;color:var(--gray)">${r.phase.desc}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+  } catch(e) {
+    console.error('Monthly cards error:', e);
+  }
+}
+  // (구 코드 제거됨)
+  if (false) {
+    const dummy = true;
     const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
     const typeKm = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
     const typeColors = {
