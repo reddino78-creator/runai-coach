@@ -1,5 +1,4 @@
 const CACHE_NAME = 'babaschool-v7';
-const STATIC_ASSETS = [];
 
 // 설치
 self.addEventListener('install', event => {
@@ -16,8 +15,10 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// 모든 요청 네트워크에서 직접 가져오기 (캐시 없음)
+// 네트워크 요청 처리
 self.addEventListener('fetch', event => {
+  // chrome-extension 등 지원하지 않는 스킴 무시
+  if (!event.request.url.startsWith('http')) return;
   event.respondWith(fetch(event.request));
 });
 const STATIC_ASSETS = [
