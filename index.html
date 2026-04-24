@@ -2069,6 +2069,11 @@ async function loadWeeklyCards() {
     }
     const paceToSec = (p) => { const [m,s] = p.split(':').map(Number); return m*60+s; };
     const secToPace = (s) => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+
+    // 목표 페이스 가져오기
+    const { data: goals } = await sb.from('goals').select('target_pace').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const targetPace = goals?.[0]?.target_pace || document.getElementById('wk-target-pace')?.textContent || '5:27';
+
     const targetSec = paceToSec(targetPace);
     if (document.getElementById('wk-pace-interval')) {
       document.getElementById('wk-pace-interval').textContent = secToPace(targetSec - 30) + '/km';
