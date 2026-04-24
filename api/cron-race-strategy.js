@@ -207,7 +207,7 @@ async function generateStrategy(userId, goal, recentActs) {
   const stratB = strategies.strategyB;
 
   stratA.splits = calc5KSplits(totalDist, stratA.paceSec, 'A');
-  stratA.gels = calcGelStrategy(paceToSec(stratA.targetTime.replace(/(\d+):(\d+):(\d+)/, (_, h, m, s) => h * 3600 + m * 60 + parseInt(s))), stratA.paceSec);
+  stratA.gels = calcGelStrategy(stratA.paceSec * totalDist, stratA.paceSec);
   stratA.totalTimeSec = stratA.paceSec * totalDist;
 
   stratB.splits = calc5KSplits(totalDist, stratB.paceSec, 'B');
