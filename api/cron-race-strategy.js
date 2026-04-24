@@ -51,14 +51,15 @@ function secToTime(totalSec) {
 // 에너지젤 보급 전략 계산
 function calcGelStrategy(totalTimeSec, paceSec) {
   const gels = [];
-  // 45분부터 시작, 이후 30~35분 간격
   const firstGel = 45 * 60;
   const interval = 32 * 60;
   let time = firstGel;
   let gelNum = 1;
 
+  console.log('calcGelStrategy:', { totalTimeSec, paceSec, firstGel, limit: totalTimeSec - 20 * 60 });
+
   while (time < totalTimeSec - 20 * 60) {
-    const km = Math.round(time / paceSec * 10) / 10;
+    const km = Math.round((time / paceSec) * 10) / 10;
     const timeStr = secToTime(time);
     gels.push({
       num: gelNum,
@@ -71,6 +72,7 @@ function calcGelStrategy(totalTimeSec, paceSec) {
     time += interval;
     gelNum++;
   }
+  console.log('gels result:', gels.length);
   return gels;
 }
 
