@@ -16,6 +16,10 @@
     {
       "path": "/api/cron-monthly",
       "schedule": "0 23 1 * *"
+    },
+    {
+      "path": "/api/cron-race-strategy",
+      "schedule": "0 23 1 * *"
     }
   ]
 }
