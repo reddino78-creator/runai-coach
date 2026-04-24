@@ -2023,7 +2023,6 @@ async function loadWeeklyCards() {
       dayKm[idx] += a.distance / 1000;
     });
     const maxKm = Math.max(...dayKm, 1);
-    const todayIdx = todayDay === 0 ? 6 : todayDay - 1;
     const dayNames = ['월','화','수','목','금','토','일'];
     document.getElementById('wk-daily-bars').innerHTML = dayKm.map((km, i) => {
       const isCur = i === todayIdx;
