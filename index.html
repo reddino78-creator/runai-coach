@@ -973,39 +973,77 @@ select.input-field option { background:var(--dark3); }
     <!-- ══════════ 주간 리포트 ══════════ -->
     <div class="tab-panel" id="p-weekly">
 
-      <!-- 1섹션: 주간 목표 카드 -->
-      <div class="db-section">
-        <div class="db-goal-card">
-          <div class="db-goal-top">
-            <div>
-              <div class="db-goal-name" style="font-size:16px">📅 이번 주 목표</div>
-              <div class="db-goal-sub" style="margin-top:6px">
-                <span>🎯 목표 거리: <span id="wk-target-km" style="color:var(--orange);font-weight:700">--</span>km</span>
-                <span>⚡ 목표 페이스: <span id="wk-target-pace" style="color:var(--orange)">--:--</span>/km</span>
-                <span>📍 훈련 단계: <span id="wk-phase" style="color:var(--orange)">--</span></span>
-              </div>
-            </div>
-            <div class="db-goal-metrics">
-              <div class="db-metric">
-                <div class="db-metric-val" id="wk-done-km">0</div>
-                <div class="db-metric-lbl">이번주 km</div>
-              </div>
-              <div class="db-metric">
-                <div class="db-metric-val" id="wk-sessions">0</div>
-                <div class="db-metric-lbl">이번주 횟수</div>
-              </div>
-            </div>
-          </div>
+      <!-- 1단: 이번 주 코칭 카드 3개 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+
+        <!-- 이번 주 진행 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 주</div>
+          <div class="db-metric-val" id="wk-done-km" style="font-size:24px">0</div>
+          <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="wk-target-km">--</span>km 목표</div>
           <div class="db-mile-bar" style="margin-top:8px">
             <div class="db-mile-fill" id="wk-progress-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="wk-sessions">0</span>회 · <span id="wk-phase">--</span></div>
+        </div>
+
+        <!-- 핵심 집중 포인트 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 주 핵심</div>
+          <div id="wk-focus" style="font-size:13px;color:var(--white);line-height:1.7">주간 리포트 생성 후 표시됩니다</div>
+        </div>
+
+        <!-- 목표 페이스 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">훈련 페이스</div>
+          <div id="wk-pace-guide" style="font-size:11px;color:var(--gray-light);line-height:1.9">
+            <div>인터벌 <span id="wk-pace-interval" style="color:var(--orange);font-family:'DM Mono',monospace">--:--</span>/km</div>
+            <div>템포 <span id="wk-pace-tempo" style="color:var(--white);font-family:'DM Mono',monospace">--:--</span>/km</div>
+            <div>LSD <span id="wk-pace-lsd" style="color:var(--gray);font-family:'DM Mono',monospace">--:--</span>/km</div>
           </div>
         </div>
       </div>
 
-      <!-- 2섹션: 마일리지 차트 -->
+      <!-- 1.5단: 이번 주 훈련 현황 캘린더 -->
+      <div class="db-section">
+        <div class="db-section-title">이번 주 훈련 현황</div>
+        <div id="wk-this-week-calendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+          <!-- JS로 채워짐 -->
+          <div class="db-day-card"><div class="db-day-name">월</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">화</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">수</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">목</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">금</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">토</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card"><div class="db-day-name">일</div><div class="db-day-type">-</div></div>
+        </div>
+        <!-- 범례 -->
+        <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>✅</span> 완료</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>🔄</span> 대체</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>❌</span> 미완료</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>⏳</span> 예정</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>💤</span> 휴식</div>
+        </div>
+      </div>
+
+      <!-- 2단: 다음 주 훈련 계획 -->
+      <div class="db-section">
+        <div class="db-section-title">다음 주 훈련 계획</div>
+        <div class="db-week-grid" id="wk-next-plan">
+          <div class="db-day-card future"><div class="db-day-name">월</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card future"><div class="db-day-name">화</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card future"><div class="db-day-name">수</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card future"><div class="db-day-name">목</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card done"><div class="db-day-name">금</div><div class="db-day-type">휴식</div></div>
+          <div class="db-day-card future"><div class="db-day-name">토</div><div class="db-day-type">-</div></div>
+          <div class="db-day-card future"><div class="db-day-name">일</div><div class="db-day-type">-</div></div>
+        </div>
+      </div>
+
+      <!-- 3단: 데이터 분석 -->
       <div class="db-section">
         <div class="two-col">
-          <!-- 이번 주 일별 막대그래프 -->
           <div class="chart-box">
             <div class="cb-title">이번 주 일별 거리 (km)</div>
             <div class="bar-row" id="wk-daily-bars">
@@ -1018,7 +1056,6 @@ select.input-field option { background:var(--dark3); }
               <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">일</div></div>
             </div>
           </div>
-          <!-- 8주 마일리지 트렌드 -->
           <div class="chart-box">
             <div class="cb-title">최근 8주 마일리지 트렌드</div>
             <div class="trend-rows" id="wk-8weeks">
@@ -1028,16 +1065,14 @@ select.input-field option { background:var(--dark3); }
         </div>
       </div>
 
-      <!-- 3섹션: 훈련 종류 -->
+      <!-- 훈련 구성 비교 -->
       <div class="db-section">
         <div class="two-col">
-          <!-- 이번 주 -->
           <div class="chart-box">
             <div class="cb-title">이번 주 훈련 구성</div>
             <div id="wk-this-week-types" style="margin-bottom:12px"></div>
             <div id="wk-this-ratio" style="font-size:11px;color:var(--gray)"></div>
           </div>
-          <!-- 지난 주 -->
           <div class="chart-box">
             <div class="cb-title">지난 주 훈련 구성</div>
             <div id="wk-last-week-types" style="margin-bottom:12px"></div>
@@ -1046,7 +1081,7 @@ select.input-field option { background:var(--dark3); }
         </div>
       </div>
 
-      <!-- 4섹션: AI 주간 리포트 -->
+      <!-- 4단: AI 주간 리포트 -->
       <div class="db-section">
         <div class="section-hd">AI 주간 리포트</div>
         <div id="weeklyReport">
@@ -1838,6 +1873,38 @@ async function loadConditionAdvice(todayWorkout, plan, todayIdx, days, dayNames)
   }
 }
 
+function toggleWeeklyDetail() {
+  const summary = document.getElementById('weekly-summary');
+  const detail = document.getElementById('weekly-detail');
+  const btn = document.getElementById('weekly-toggle-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
+}
+
+function toggleMonthlyDetail() {
+  const summary = document.getElementById('monthly-summary');
+  const detail = document.getElementById('monthly-detail');
+  const btn = document.getElementById('monthly-toggle-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
+}
+
 async function loadReports() {
   try {
     // 주간 리포트 최신 1개
@@ -1852,12 +1919,22 @@ async function loadReports() {
     if (weeklyReports && weeklyReports.length > 0) {
       const r = weeklyReports[0];
       const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      const summary = getAnalysisSummary(r.content);
       weeklyEl.innerHTML = `
-        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:16px">
-          📅 ${date} 생성
-        </div>
-        <div class="aa-txt">${marked.parse(r.content)}</div>
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:12px">📅 ${date} 생성</div>
+        ${summary ? `<div id="weekly-summary" style="font-size:13px;color:var(--gray-light);line-height:1.8;margin-bottom:12px">${summary}</div>` : ''}
+        <div id="weekly-detail" style="display:none" class="aa-txt">${marked.parse(r.content)}</div>
+        <button onclick="toggleWeeklyDetail()" id="weekly-toggle-btn"
+          style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:12px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          상세보기 ▼
+        </button>
       `;
+
+      // 핵심 포인트 추출해서 카드에 표시
+      const focusEl = document.getElementById('wk-focus');
+      if (focusEl && summary) {
+        focusEl.textContent = summary.split('.')[0] + '.';
+      }
     }
 
     // 월간 리포트 최신 1개
@@ -1872,11 +1949,15 @@ async function loadReports() {
     if (monthlyReports && monthlyReports.length > 0) {
       const r = monthlyReports[0];
       const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      const summary = getAnalysisSummary(r.content);
       monthlyEl.innerHTML = `
-        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:16px">
-          📊 ${date} 생성
-        </div>
-        <div class="aa-txt">${marked.parse(r.content)}</div>
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:12px">📊 ${date} 생성</div>
+        ${summary ? `<div id="monthly-summary" style="font-size:13px;color:var(--gray-light);line-height:1.8;margin-bottom:12px">${summary}</div>` : ''}
+        <div id="monthly-detail" style="display:none" class="aa-txt">${marked.parse(r.content)}</div>
+        <button onclick="toggleMonthlyDetail()" id="monthly-toggle-btn"
+          style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:12px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          상세보기 ▼
+        </button>
       `;
     }
   } catch(e) {
@@ -1901,12 +1982,22 @@ async function loadWeeklyCards() {
     if (!acts || acts.length === 0) return;
 
     const now = new Date();
-    const todayDay = now.getDay(); // 0=일, 1=월
+    const todayDay = now.getDay();
+    const todayIdx = todayDay === 0 ? 6 : todayDay - 1;
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - (todayDay === 0 ? 6 : todayDay - 1));
     weekStart.setHours(0, 0, 0, 0);
     const lastWeekStart = new Date(weekStart);
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    // 이번 주 계획 가져오기
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const { data: plans } = await sb.from('weekly_plans')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('week_start', weekStartStr)
+      .limit(1);
+    const plan = plans?.[0];
 
     // 이번 주 활동
     const thisWeekActs = acts.filter(a => new Date(a.start_date) >= weekStart);
@@ -1943,7 +2034,96 @@ async function loadWeeklyCards() {
       </div>`;
     }).join('');
 
-    // 8주 트렌드
+    // ── 이번 주 훈련 현황 캘린더 (도장) ──
+    const calEl = document.getElementById('wk-this-week-calendar');
+    if (calEl) {
+      const dayNames = ['월','화','수','목','금','토','일'];
+      const days = ['mon','tue','wed','thu','fri','sat','sun'];
+
+      calEl.innerHTML = days.map((d, i) => {
+        const planned = plan?.[d] || (i === 4 ? '휴식' : '-');
+        const isRest = planned === '휴식';
+        const isPast = i < todayIdx;
+        const isToday = i === todayIdx;
+        const isFuture = i > todayIdx;
+
+        // 해당 요일 실제 운동 찾기
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(weekStart.getDate() + i);
+        const dayStr = dayDate.toISOString().split('T')[0];
+        const dayActs = acts.filter(a => a.start_date?.startsWith(dayStr));
+        const didExercise = dayActs.length > 0;
+        const actualWorkout = dayActs[0]?.workout_type || '';
+
+        // 도장 결정
+        let stamp = '';
+        let stampStyle = '';
+        let cardCls = 'db-day-card';
+        let workoutText = planned;
+
+        if (isRest) {
+          stamp = '💤';
+          cardCls += ' done';
+        } else if (isFuture) {
+          stamp = '⏳';
+          cardCls += ' future';
+        } else if (isToday) {
+          cardCls += ' today';
+          if (didExercise) {
+            stamp = actualWorkout === planned ? '✅' : '🔄';
+            workoutText = actualWorkout || planned;
+          } else {
+            stamp = '⏳';
+          }
+        } else if (isPast) {
+          if (!didExercise && planned !== '-') {
+            stamp = '❌';
+            stampStyle = 'color:#EF4444';
+            cardCls += ' done';
+          } else if (didExercise) {
+            if (actualWorkout === planned) {
+              stamp = '✅';
+              stampStyle = 'color:#22C55E';
+            } else {
+              stamp = '🔄';
+              stampStyle = 'color:#F59E0B';
+            }
+            workoutText = actualWorkout || planned;
+          } else {
+            cardCls += ' done';
+          }
+        }
+
+        return `<div class="${cardCls}" style="position:relative">
+          <div class="db-day-name">${dayNames[i]}</div>
+          <div class="db-day-type" style="font-size:8px">${workoutText}</div>
+          ${stamp ? `<div style="font-size:14px;margin-top:4px;${stampStyle}">${stamp}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+    const paceToSec = (p) => { const [m,s] = p.split(':').map(Number); return m*60+s; };
+    const secToPace = (s) => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+    const targetSec = paceToSec(targetPace);
+    if (document.getElementById('wk-pace-interval')) {
+      document.getElementById('wk-pace-interval').textContent = secToPace(targetSec - 30) + '/km';
+      document.getElementById('wk-pace-tempo').textContent = secToPace(targetSec - 15) + '/km';
+      document.getElementById('wk-pace-lsd').textContent = secToPace(targetSec + 60) + '/km';
+    }
+
+    // 다음 주 훈련 계획 (weekly_plans에서 현재 주 계획 표시)
+    const nextPlanEl = document.getElementById('wk-next-plan');
+    if (nextPlanEl && plan) {
+      const days = ['mon','tue','wed','thu','fri','sat','sun'];
+      const dayNames = ['월','화','수','목','금','토','일'];
+      nextPlanEl.innerHTML = days.map((d, i) => {
+        const workout = plan[d] || (i === 4 ? '휴식' : '-');
+        const isRest = workout === '휴식' || workout === '-';
+        return `<div class="db-day-card ${isRest ? 'done' : 'future'}">
+          <div class="db-day-name">${dayNames[i]}</div>
+          <div class="db-day-type">${workout}</div>
+        </div>`;
+      }).join('');
+    }
     const weeks8 = [];
     for (let i = 7; i >= 0; i--) {
       const wStart = new Date(weekStart);
