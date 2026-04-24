@@ -2238,6 +2238,8 @@ function renderDailyTopCards(acts, plan, todayIdx) {
   const mins = Math.floor((totalSecs % 3600) / 60);
   document.getElementById('daily-sum-time').textContent = hrs > 0 ? `${hrs}h${mins}m` : `${mins}m`;
 }
+
+function renderLastActivity(a) {
   const km = (a.distance / 1000).toFixed(1);
   const mins = Math.floor(a.moving_time / 60);
   const secs = a.moving_time % 60;
