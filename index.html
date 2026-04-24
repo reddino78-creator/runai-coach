@@ -870,21 +870,36 @@ select.input-field option { background:var(--dark3); }
         </div>
       </div>
 
-      <!-- 3단: 주간 캘린더 -->
+      <!-- 3단: 오늘의 훈련 / 다음 훈련 -->
       <div class="db-section">
-        <div class="db-section-title">이번 주 훈련 계획</div>
-        <div class="db-week-grid" id="db-week-calendar">
-          <div class="db-day-card"><div class="db-day-name">월</div><div class="db-day-type">-</div></div>
-          <div class="db-day-card"><div class="db-day-name">화</div><div class="db-day-type">-</div></div>
-          <div class="db-day-card"><div class="db-day-name">수</div><div class="db-day-type">-</div></div>
-          <div class="db-day-card"><div class="db-day-name">목</div><div class="db-day-type">-</div></div>
-          <div class="db-day-card"><div class="db-day-name">금</div><div class="db-day-type">휴식</div></div>
-          <div class="db-day-card"><div class="db-day-name">토</div><div class="db-day-type">-</div></div>
-          <div class="db-day-card"><div class="db-day-name">일</div><div class="db-day-type">-</div></div>
+        <div class="db-section-title">오늘의 코치</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="db-today-training">
+
+          <!-- 오늘 훈련 -->
+          <div style="background:linear-gradient(135deg,rgba(252,76,2,.18),rgba(252,76,2,.04));border:1px solid rgba(252,76,2,.3);border-radius:16px;padding:18px">
+            <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">오늘 훈련</div>
+            <div id="db-today-type" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:6px">-</div>
+            <div id="db-today-detail" style="font-size:12px;color:var(--gray-light);line-height:1.7">주간 계획을 불러오는 중...</div>
+          </div>
+
+          <!-- 다음 훈련 -->
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+            <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">다음 훈련</div>
+            <div id="db-next-type" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:6px">-</div>
+            <div id="db-next-detail" style="font-size:12px;color:var(--gray);line-height:1.7">-</div>
+          </div>
         </div>
       </div>
 
-      <!-- 4단: 최근 활동 1개 -->
+      <!-- 4단: 컨디션 기반 조정 제안 -->
+      <div class="db-section" id="db-condition-section" style="display:none">
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+          <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">🤖 코치 제안</div>
+          <div id="db-condition-advice" style="font-size:13px;color:var(--gray-light);line-height:1.8"></div>
+        </div>
+      </div>
+
+      <!-- 5단: 최근 활동 -->
       <div class="db-section">
         <div class="db-section-title">최근 활동</div>
         <div class="db-last-act" id="db-last-activity">
@@ -1638,21 +1653,129 @@ async function loadWeeklyPlan() {
     const plan = plans?.[0];
     const days = ['mon','tue','wed','thu','fri','sat','sun'];
     const dayNames = ['월','화','수','목','금','토','일'];
-    const todayIdx = day === 0 ? 6 : day - 1; // 월=0, 일=6
+    const todayIdx = day === 0 ? 6 : day - 1;
 
-    const cal = document.getElementById('db-week-calendar');
-    cal.innerHTML = days.map((d, i) => {
-      const workout = plan?.[d] || (i === 4 ? '휴식' : '-');
-      const isToday = i === todayIdx;
-      const isPast = i < todayIdx;
-      const cls = isToday ? 'db-day-card today' : isPast ? 'db-day-card done' : 'db-day-card future';
-      return `<div class="${cls}">
-        <div class="db-day-name">${dayNames[i]}</div>
-        <div class="db-day-type">${workout}</div>
-      </div>`;
-    }).join('');
+    // 오늘 훈련
+    const todayWorkout = plan?.[days[todayIdx]] || '휴식';
+    const todayEl = document.getElementById('db-today-type');
+    const todayDetailEl = document.getElementById('db-today-detail');
+
+    if (todayEl) {
+      const workoutEmoji = {
+        '인터벌': '⚡', '템포런': '🔥', '페이스주': '🎯',
+        '롱런': '🏃', 'LSD': '🌅', '이지런': '😊',
+        '트레일런': '🏔️', '수영': '🏊', '자전거': '🚴',
+        '휴식': '💤', '-': '💤'
+      };
+      const emoji = workoutEmoji[todayWorkout] || '🏃';
+      todayEl.textContent = `${emoji} ${todayWorkout}`;
+
+      // 훈련 세부 처방
+      const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+      const detail = getWorkoutDetail(todayWorkout, targetPace);
+      if (todayDetailEl) todayDetailEl.innerHTML = detail;
+    }
+
+    // 다음 훈련 찾기
+    let nextWorkout = null;
+    let nextDay = null;
+    for (let i = todayIdx + 1; i < 7; i++) {
+      const w = plan?.[days[i]];
+      if (w && w !== '휴식' && w !== '-') {
+        nextWorkout = w;
+        nextDay = dayNames[i];
+        break;
+      }
+    }
+
+    const nextTypeEl = document.getElementById('db-next-type');
+    const nextDetailEl = document.getElementById('db-next-detail');
+    if (nextTypeEl) {
+      if (nextWorkout) {
+        nextTypeEl.textContent = `${nextDay}요일 · ${nextWorkout}`;
+        if (nextDetailEl) {
+          const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+          nextDetailEl.innerHTML = getWorkoutDetail(nextWorkout, targetPace);
+        }
+      } else {
+        nextTypeEl.textContent = '이번 주 훈련 완료!';
+        if (nextDetailEl) nextDetailEl.textContent = '잘 하셨어요 🎉';
+      }
+    }
+
+    // 컨디션 기반 조정 제안
+    await loadConditionAdvice(todayWorkout, plan, todayIdx, days, dayNames);
+
   } catch(e) {
     console.log('Weekly plan load error:', e);
+  }
+}
+
+function getWorkoutDetail(workoutType, targetPace) {
+  const paceToSec = (p) => {
+    const [m, s] = p.split(':').map(Number);
+    return m * 60 + s;
+  };
+  const secToPace = (s) => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+  const targetSec = paceToSec(targetPace);
+
+  const details = {
+    '인터벌': `${secToPace(targetSec - 30)}/km × 6~8세트<br>400m 반복 · 세트 간 휴식 90초`,
+    '템포런': `${secToPace(targetSec - 15)}/km 유지<br>워밍업 2km → 주훈련 8km → 쿨다운 2km`,
+    '페이스주': `${targetPace}/km 목표 페이스<br>일정 페이스 유지에 집중`,
+    '롱런': `${secToPace(targetSec + 30)}/km 이하<br>심박수 Zone 2~3 유지`,
+    'LSD': `${secToPace(targetSec + 60)}/km 이하<br>편안한 대화 가능 페이스`,
+    '이지런': `${secToPace(targetSec + 45)}/km 이하<br>회복 중심 · 심박 낮게 유지`,
+    '트레일런': `고도 환산 페이스 적용<br>심박수 Zone 2~3 유지`,
+    '수영': `유산소 크로스트레이닝<br>러닝 심폐 기능 강화`,
+    '자전거': `유산소 크로스트레이닝<br>하체 근력 및 지구력 향상`,
+    '휴식': `완전 휴식 또는 스트레칭<br>근육 회복에 집중`,
+    '-': `오늘은 휴식일이에요<br>스트레칭으로 마무리`
+  };
+  return details[workoutType] || '훈련 계획을 확인해주세요';
+}
+
+async function loadConditionAdvice(todayWorkout, plan, todayIdx, days, dayNames) {
+  if (!currentUser) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data: condition } = await sb.from('conditions')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .eq('date', today)
+    .maybeSingle();
+
+  const section = document.getElementById('db-condition-section');
+  const adviceEl = document.getElementById('db-condition-advice');
+  if (!section || !adviceEl) return;
+
+  const advices = [];
+
+  if (condition) {
+    // 컨디션 기반
+    if (condition.condition === '피로') {
+      advices.push(`😴 <strong>피로 감지</strong> → 오늘 ${todayWorkout}을 이지런으로 대체하거나 강도를 낮추세요`);
+    } else if (condition.condition === '좋음') {
+      advices.push(`⚡ <strong>컨디션 최상</strong> → 오늘 ${todayWorkout} 목표 페이스에 도전해보세요!`);
+    }
+
+    // 부상 기반
+    if (condition.injury_part && condition.injury_part !== '없음') {
+      const injuryAdvice = {
+        '경미': `⚠️ <strong>${condition.injury_part} 경미 부상</strong> → 훈련 가능하지만 통증 시 즉시 중단`,
+        '중간': `🚨 <strong>${condition.injury_part} 중간 부상</strong> → 수영/자전거 등 대체 훈련 권장`,
+        '심각': `🛑 <strong>${condition.injury_part} 심각 부상</strong> → 완전 휴식 필요, 전문의 상담 권장`
+      };
+      advices.push(injuryAdvice[condition.injury_level] || '');
+      if (condition.memo) advices.push(`📝 ${condition.memo}`);
+    }
+  }
+
+  if (advices.length === 0) {
+    section.style.display = 'none';
+  } else {
+    section.style.display = 'block';
+    adviceEl.innerHTML = advices.filter(Boolean).join('<br><br>');
   }
 }
 
@@ -1963,22 +2086,48 @@ function renderLastActivity(a) {
   const paceSecPerKm = a.moving_time / (a.distance / 1000);
   const paceStr = `${Math.floor(paceSecPerKm/60)}:${String(Math.round(paceSecPerKm%60)).padStart(2,'0')}`;
   const date = new Date(a.start_date).toLocaleDateString('ko-KR');
-  const analysisHtml = a.analysis ? marked.parse(a.analysis) : '';
+
+  const summary = getAnalysisSummary(a.analysis);
+  const detailHtml = a.analysis ? marked.parse(a.analysis) : '';
 
   document.getElementById('db-last-activity').innerHTML = `
     <div class="db-act-header">
       <div class="db-act-name">${a.name || '달리기'}</div>
       <div class="db-act-date">${date}</div>
     </div>
-    <div class="db-act-badge">${a.workout_type || a.type}</div>
+    <div class="db-act-badge">${a.workout_type || a.sport_type || a.type}</div>
     <div class="db-act-stats">
       <div><div class="as-val">${km}km</div><div class="as-lbl">거리</div></div>
       <div><div class="as-val">${timeStr}</div><div class="as-lbl">시간</div></div>
       <div><div class="as-val">${paceStr}/km</div><div class="as-lbl">페이스</div></div>
       <div><div class="as-val">${a.calories || '-'}</div><div class="as-lbl">칼로리</div></div>
     </div>
-    ${analysisHtml ? `<div class="db-act-analysis">${analysisHtml}</div>` : ''}
+    ${summary || detailHtml ? `
+    <div class="db-act-analysis">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--orange);font-weight:600">🤖 AI 분석</span>
+        ${a.analysis ? `<button onclick="toggleDashAnalysis()" id="dash-analysis-btn" style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif">상세보기 ▼</button>` : ''}
+      </div>
+      ${summary ? `<div id="dash-summary" style="font-size:12px;color:var(--gray-light);line-height:1.7">${summary}</div>` : ''}
+      <div id="dash-detail" style="display:none;font-size:12px;color:var(--gray-light);line-height:1.7">${detailHtml}</div>
+    </div>` : ''}
   `;
+}
+
+function toggleDashAnalysis() {
+  const summary = document.getElementById('dash-summary');
+  const detail = document.getElementById('dash-detail');
+  const btn = document.getElementById('dash-analysis-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
 }
 
 function getAnalysisSummary(analysis) {
