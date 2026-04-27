@@ -1449,7 +1449,15 @@ select.input-field option { background:var(--dark3); }
           </div>
 
           <div id="conditionSaveStatus" style="display:none;font-size:12px;color:var(--green);margin-bottom:8px"></div>
-          <button class="save-btn" onclick="saveCondition()">💾 컨디션 저장</button>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.12);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 컨디션을 반영하면 <strong style="color:var(--white)">오늘 맞춤 훈련 코칭</strong>을 즉시 받을 수 있어요.<br>
+            <span style="font-size:11px;color:var(--gray)">부상이 있으면 대체 훈련을, 피로하면 강도 조절을 제안해드려요.</span>
+          </div>
+          <div id="conditionCoaching" style="display:none;background:var(--dark3);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;margin-bottom:14px">
+            <div style="font-size:10px;color:var(--orange);font-weight:600;margin-bottom:8px">🤖 오늘의 맞춤 코칭</div>
+            <div id="conditionCoachingText" style="font-size:12px;color:var(--gray-light);line-height:1.8"></div>
+          </div>
+          <button class="save-btn" onclick="saveCondition()" id="conditionSaveBtn">💪 컨디션 반영하기</button>
         </div>
 
         <div class="settings-card settings-full">
@@ -2973,6 +2981,10 @@ async function saveCondition() {
   if (!currentUser) return;
   const memo = document.getElementById('conditionMemo').value;
   const today = new Date().toISOString().split('T')[0];
+  const btn = document.getElementById('conditionSaveBtn');
+
+  btn.textContent = '⏳ 코칭 생성 중...';
+  btn.disabled = true;
 
   const { error } = await sb.from('conditions').upsert({
     user_id: currentUser.id,
@@ -2983,15 +2995,108 @@ async function saveCondition() {
     memo: memo || null
   }, { onConflict: 'user_id,date' });
 
-  const statusEl = document.getElementById('conditionSaveStatus');
-  if (!error) {
-    statusEl.style.display = 'block';
-    statusEl.textContent = `✅ ${today} 컨디션이 저장됐어요!`;
-    setTimeout(() => statusEl.style.display = 'none', 3000);
-    toast('💪 컨디션 저장 완료!');
-  } else {
+  if (error) {
     toast('❌ 저장 중 오류가 발생했어요');
+    btn.textContent = '💪 컨디션 반영하기';
+    btn.disabled = false;
+    return;
   }
+
+  // AI 코칭 생성
+  try {
+    const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+    const targetPace = g?.target_pace || '5:27';
+    const phase = g?.race_date ? getPhase(g.race_date) : '기초체력기';
+
+    // 오늘 계획된 훈련
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const { data: plans } = await sb.from('weekly_plans').select('*').eq('user_id', currentUser.id).eq('week_start', weekStartStr).limit(1);
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const todayPlan = plans?.[0]?.[days[todayIdx]] || '미정';
+
+    const prompt = `마라톤 코치로서 선수의 오늘 컨디션에 맞는 훈련 코칭을 해주세요.
+
+선수 정보:
+- 목표 페이스: ${targetPace}/km
+- 훈련 단계: ${phase}
+- 오늘 계획된 훈련: ${todayPlan}
+
+오늘 컨디션:
+- 상태: ${selectedCondition}
+- 부상: ${selectedInjury === '없음' ? '없음' : `${selectedInjury} (${selectedInjuryLevel})`}
+${memo ? `- 메모: ${memo}` : ''}
+
+300자 이내로 간결하게:
+1. 오늘 훈련 권장사항 (계획 수정 또는 유지)
+2. 구체적인 훈련 처방 (종류/거리/페이스)
+3. 주의사항 한 줄`;
+
+    // Claude API는 서버에서만 호출 가능하므로 별도 엔드포인트 사용
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const coachRes = await fetch(`/api/condition-coaching?user_id=${currentUser.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        condition: selectedCondition,
+        injury_part: selectedInjury,
+        injury_level: selectedInjuryLevel,
+        memo,
+        today_plan: todayPlan,
+        target_pace: targetPace,
+        phase
+      })
+    });
+
+    const coachData = await coachRes.json();
+    if (coachData.coaching) {
+      const coachingEl = document.getElementById('conditionCoaching');
+      const coachingText = document.getElementById('conditionCoachingText');
+      coachingEl.style.display = 'block';
+
+      let coachingHtml = coachData.coaching;
+      if (coachData.changed && coachData.adjustment_reason) {
+        coachingHtml += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--orange)">
+          📅 주간 계획 조정됨<br>
+          <span style="color:var(--gray-light)">${coachData.adjustment_reason}</span>
+        </div>`;
+      }
+      coachingText.innerHTML = coachingHtml;
+
+      // 대시보드 코치 제안도 업데이트
+      const adviceEl = document.getElementById('db-condition-advice');
+      const section = document.getElementById('db-condition-section');
+      if (adviceEl && section) {
+        section.style.display = 'block';
+        adviceEl.textContent = coachData.coaching;
+      }
+
+      // 주간 카드 새로고침
+      if (coachData.changed) await loadWeeklyCards();
+    }
+
+    const statusEl = document.getElementById('conditionSaveStatus');
+    statusEl.style.display = 'block';
+    statusEl.textContent = `✅ ${today} 컨디션 반영 완료!`;
+    setTimeout(() => statusEl.style.display = 'none', 3000);
+    toast('💪 컨디션 반영 완료! 맞춤 코칭을 확인하세요.');
+
+  } catch(e) {
+    console.error('Coaching error:', e);
+    toast('💪 컨디션 저장 완료!');
+  }
+
+  btn.textContent = '💪 컨디션 반영하기';
+  btn.disabled = false;
 }
 
 async function loadTodayCondition() {
