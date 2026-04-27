@@ -1798,33 +1798,41 @@ async function loadUserData() {
   if (acts && acts.length > 0) {
     // 일간 탭 렌더링
     renderActivities(acts);
-
-    // 대시보드 2단: 마일리지 계산
-    const now = new Date();
-    const weekStart = new Date(now);
-    const day = weekStart.getDay();
-    weekStart.setDate(weekStart.getDate() - (day === 0 ? 6 : day - 1));
-    weekStart.setHours(0, 0, 0, 0);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const weekKm = acts.filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
-    const monthKm = acts.filter(a => new Date(a.start_date) >= monthStart).reduce((s, a) => s + a.distance, 0) / 1000;
-
-    const weekTarget = parseInt(document.getElementById('db-week-target').textContent) || 50;
-    const monthTarget = parseInt(document.getElementById('db-month-target').textContent) || 200;
-
-    document.getElementById('db-week-done').textContent = weekKm.toFixed(1);
-    document.getElementById('db-month-done').textContent = monthKm.toFixed(1);
-    document.getElementById('db-week-bar').style.width = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0) + '%';
-    document.getElementById('db-month-bar').style.width = Math.min(100, (monthKm / monthTarget * 100)).toFixed(0) + '%';
-
-    // 훈련 달성률
-    const achieveRate = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0);
-    document.getElementById('db-achieve-rate').textContent = achieveRate + '%';
-
-    // 대시보드 4단: 최근 활동 1개
-    renderLastActivity(acts[0]);
+    if (acts.length > 0) renderLastActivity(acts[0]);
   }
+
+  // 대시보드 2단: 마일리지 계산 (별도 쿼리)
+  const now = new Date();
+  const weekStart = new Date(now);
+  const day = weekStart.getDay();
+  weekStart.setDate(weekStart.getDate() - (day === 0 ? 6 : day - 1));
+  weekStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const { data: allActs } = await sb.from('activities')
+    .select('distance, start_date')
+    .eq('user_id', currentUser.id)
+    .gte('start_date', monthStart.toISOString())
+    .order('start_date', { ascending: false });
+
+  const weekKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
+  const monthKm = (allActs || []).reduce((s, a) => s + a.distance, 0) / 1000;
+
+  const weekTarget = parseInt(document.getElementById('db-week-target').textContent) || 50;
+  const monthTarget = parseInt(document.getElementById('db-month-target').textContent) || 200;
+
+  document.getElementById('db-week-done').textContent = weekKm.toFixed(1);
+  document.getElementById('db-month-done').textContent = monthKm.toFixed(1);
+  document.getElementById('db-week-bar').style.width = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0) + '%';
+  document.getElementById('db-month-bar').style.width = Math.min(100, (monthKm / monthTarget * 100)).toFixed(0) + '%';
+
+  // 훈련 달성률
+  const achieveRate = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0);
+  document.getElementById('db-achieve-rate').textContent = achieveRate + '%';
+
+  // 목표 가능성
+  const probPct = Math.round(40 + Math.min(100, (monthKm / monthTarget * 100)) * 0.5);
+  document.getElementById('db-goal-prob').textContent = probPct + '%';
 
   // 대시보드 3단: 주간 캘린더
   await loadWeeklyPlan();
