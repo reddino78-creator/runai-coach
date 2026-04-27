@@ -45,7 +45,10 @@ export default async function handler(req, res) {
     });
 
     // 최근 활동 즉시 가져오기
-    await fetch(`${process.env.VERCEL_URL || 'https://runai-coach.vercel.app'}/api/strava-sync?user_id=${userId}`, {
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'https://runai-coach.vercel.app';
+    await fetch(`${baseUrl}/api/strava-sync?user_id=${userId}`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
     });
