@@ -1871,7 +1871,7 @@ async function loadWeeklyPlan() {
     const day = today.getDay();
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
 
     const { data: plans } = await sb.from('weekly_plans')
       .select('*')
@@ -2128,7 +2128,7 @@ async function loadWeeklyCards() {
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
 
     // 이번 주 계획 가져오기
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
     const { data: plans } = await sb.from('weekly_plans')
       .select('*')
       .eq('user_id', currentUser.id)
@@ -2895,7 +2895,7 @@ async function saveCondition() {
     const now = new Date();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
     const { data: plans } = await sb.from('weekly_plans').select('*').eq('user_id', currentUser.id).eq('week_start', weekStartStr).limit(1);
     const days = ['mon','tue','wed','thu','fri','sat','sun'];
     const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
