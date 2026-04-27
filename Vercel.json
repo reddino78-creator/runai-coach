@@ -3,23 +3,5 @@
     "api/*.js": {
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron-daily",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron-weekly",
-      "schedule": "0 23 * * 0"
-    },
-    {
-      "path": "/api/cron-monthly",
-      "schedule": "0 23 1 * *"
-    },
-    {
-      "path": "/api/cron-race-strategy",
-      "schedule": "0 23 1 * *"
-    }
-  ]
+  }
 }
