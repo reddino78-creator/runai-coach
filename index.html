@@ -1353,17 +1353,7 @@ select.input-field option { background:var(--dark3); }
           <button class="save-btn" onclick="saveTelegram()">저장</button>
         </div>
 
-        <!-- 앱 푸시 알림 -->
-        <div class="settings-card">
-          <div class="sc-title">🔔 앱 푸시 알림</div>
-          <div class="sc-sub-text">훈련 계획 재배치 알림 · 소리/진동 없음</div>
-          <div id="pushStatus" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--gray-light)">
-            상태 확인 중...
-          </div>
-          <button class="save-btn" id="pushBtn" onclick="togglePushNotification()">
-            🔔 알림 켜기
-          </button>
-        </div>
+
         <div class="settings-card settings-full">
           <div class="sc-title">🏊🚴🏃 트라이애슬론 목표</div>
           <div class="sc-sub-text">트라이애슬론 목표가 있으면 입력하세요 · AI 코치가 종목별 맞춤 분석을 제공합니다</div>
@@ -1869,7 +1859,6 @@ function getPhase(raceDate) {
 
 async function loadUserDataExtra() {
   // 푸시 알림 상태 확인
-  checkPushStatus();
   // 오늘 컨디션 불러오기
   await loadTodayCondition();
   // 레이스 전략 불러오기
@@ -2843,113 +2832,6 @@ async function savePR() {
     await sb.from('goals').update({ pr_full, pr_half, pr_10k, pr_5k }).eq('id', goals[0].id);
   }
   toast('✅ 개인 기록이 업데이트됐습니다!');
-}
-
-// ── PUSH NOTIFICATION ──
-const VAPID_PUBLIC_KEY = 'BHGlDZ8bH3Aynooy_zi_3lGMpMRoFMGaiDyWNt7OC6ZR-_cDu3WrGyf8skpv8LLmHtaNXfKTkTDMeJ_SW6uFdBk';
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-async function checkPushStatus() {
-  const statusEl = document.getElementById('pushStatus');
-  const btnEl = document.getElementById('pushBtn');
-  if (!statusEl || !btnEl) return;
-
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    statusEl.textContent = '❌ 이 브라우저는 푸시 알림을 지원하지 않아요';
-    btnEl.style.display = 'none';
-    return;
-  }
-
-  const permission = Notification.permission;
-  if (permission === 'denied') {
-    statusEl.textContent = '❌ 알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요.';
-    btnEl.style.display = 'none';
-    return;
-  }
-
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const subscription = await reg.pushManager.getSubscription();
-
-    if (subscription) {
-      statusEl.innerHTML = '✅ <strong style="color:var(--green)">알림 켜짐</strong> · 매일 오전 6시 훈련 계획 알림';
-      btnEl.textContent = '🔕 알림 끄기';
-      btnEl.style.background = 'rgba(255,255,255,0.1)';
-    } else {
-      statusEl.textContent = '💤 알림 꺼짐 · 켜면 훈련 계획 재배치 알림을 받아요';
-      btnEl.textContent = '🔔 알림 켜기';
-      btnEl.style.background = '';
-    }
-  } catch(e) {
-    statusEl.textContent = '알림 상태를 확인할 수 없어요';
-  }
-}
-
-async function togglePushNotification() {
-  if (!currentUser) return;
-
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const existing = await reg.pushManager.getSubscription();
-
-    // JWT 토큰 가져오기
-    const { data } = await sb.auth.getSession();
-    const token = data?.session?.access_token;
-    if (!token) { toast('❌ 로그인 상태를 확인해주세요'); return; }
-
-    if (existing) {
-      // 알림 끄기
-      await existing.unsubscribe();
-      await fetch('/api/push-unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ user_id: currentUser.id })
-      });
-      toast('🔕 알림이 꺼졌습니다');
-    } else {
-      // 알림 켜기
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        toast('❌ 알림 권한이 거부됐습니다');
-        return;
-      }
-
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
-
-      await fetch('/api/push-subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          subscription: subscription.toJSON()
-        })
-      });
-      toast('🔔 알림이 켜졌습니다!');
-    }
-    await checkPushStatus();
-  } catch(e) {
-    console.error('Push error:', e);
-    toast('❌ 알림 설정 중 오류가 발생했어요');
-  }
 }
 
 // ── 컨디션/부상 ──
