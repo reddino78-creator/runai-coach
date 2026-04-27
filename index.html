@@ -2964,6 +2964,9 @@ ${memo ? `- 메모: ${memo}` : ''}
 
       // 주간 카드 새로고침
       if (coachData.changed) await loadWeeklyCards();
+
+      // 대시보드 전체 새로고침
+      await loadUserData();
     }
 
     const statusEl = document.getElementById('conditionSaveStatus');
