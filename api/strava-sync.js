@@ -160,10 +160,11 @@ function analyzePhases(laps, targetPace) {
 function getWeekStart(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
+  // 일요일(0)이면 다음 월요일(+1), 나머지는 이번 주 월요일
+  const diff = day === 0 ? 1 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ── 날씨 데이터 가져오기 ──
