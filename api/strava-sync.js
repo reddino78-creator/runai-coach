@@ -481,10 +481,31 @@ async function saveWeeklyPlan(userId, analysis, goal) {
   const parsePrompt = `아래 주간 훈련 계획에서 요일별 훈련 종류만 추출해서 JSON으로 반환하세요.
 훈련 종류는 인터벌/템포런/페이스주/롱런/LSD/이지런/트레일런/수영/자전거/휴식 중 하나로만 표현하세요.
 
-${analysis}
+${analysis.substring(0, 2000)}
 
-반드시 아래 JSON 형식으로만 응답하세요:
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 절대 포함하지 마세요:
 {"mon":"","tue":"","wed":"","thu":"","fri":"휴식","sat":"","sun":""}`;
+
+  try {
+    const jsonStr = await callClaude(parsePrompt, 200);
+    console.log('Weekly plan raw:', jsonStr);
+    const clean = jsonStr.replace(/```json|```/g, '').replace(/[\n\r]/g, '').trim();
+    const jsonMatch = clean.match(/\{[^}]+\}/);
+    if (!jsonMatch) throw new Error('No JSON found');
+    const plan = JSON.parse(jsonMatch[0]);
+    console.log('Weekly plan parsed:', plan);
+    const weekStart = getWeekStart();
+    await sbUpsert('weekly_plans', {
+      user_id: userId, week_start: weekStart,
+      mon: plan.mon || '', tue: plan.tue || '', wed: plan.wed || '',
+      thu: plan.thu || '', fri: plan.fri || '휴식',
+      sat: plan.sat || '', sun: plan.sun || ''
+    }, 'user_id,week_start');
+    console.log('Weekly plan saved successfully');
+  } catch (e) {
+    console.error('Weekly plan parse error:', e.message);
+  }
+}
 
   try {
     const jsonStr = await callClaude(parsePrompt, 200);
