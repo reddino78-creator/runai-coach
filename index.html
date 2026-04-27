@@ -3214,10 +3214,15 @@ async function syncStrava() {
   if (!currentUser) return;
   toast('🔄 Strava 동기화 중...');
   try {
-    const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}`, { method: 'POST' });
-    const data = await res.json();
-    if (data.synced > 0) {
-      toast(`✅ ${data.synced}개 활동 동기화 완료!`);
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (result.synced > 0) {
+      toast(`✅ ${result.synced}개 활동 동기화 완료!`);
       await loadUserData();
     } else {
       toast('✅ 최신 상태예요!');
