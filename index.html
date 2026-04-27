@@ -1812,7 +1812,7 @@ async function loadUserData() {
   const { data: allActs } = await sb.from('activities')
     .select('distance, start_date')
     .eq('user_id', currentUser.id)
-    .gte('start_date', monthStart.toISOString())
+    .gte('start_date', `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`)
     .order('start_date', { ascending: false });
 
   const weekKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
