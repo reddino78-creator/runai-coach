@@ -507,22 +507,6 @@ ${analysis.substring(0, 2000)}
   }
 }
 
-  try {
-    const jsonStr = await callClaude(parsePrompt, 200);
-    const clean = jsonStr.replace(/```json|```/g, '').trim();
-    const plan = JSON.parse(clean);
-    const weekStart = getWeekStart();
-    await sbUpsert('weekly_plans', {
-      user_id: userId, week_start: weekStart,
-      mon: plan.mon || '', tue: plan.tue || '', wed: plan.wed || '',
-      thu: plan.thu || '', fri: plan.fri || '휴식',
-      sat: plan.sat || '', sun: plan.sun || ''
-    }, 'user_id,week_start');
-  } catch (e) {
-    console.error('Weekly plan parse error:', e);
-  }
-}
-
 // ══════════════════════════════════════
 // 월간 분석 (4000자 이내)
 // ══════════════════════════════════════
