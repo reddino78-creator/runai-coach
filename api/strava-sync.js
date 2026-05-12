@@ -307,13 +307,47 @@ async function sendTelegram(chatId, title, analysis) {
 }
 
 // ── 토큰 갱신 ──
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
+
+// AES-256-GCM 복호화
+async function decrypt(encryptedText) {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv }, key, encrypted
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch(e) {
+    return null;
+  }
+}
+
 async function refreshToken(profile, userId) {
+  // 개인 키 확인
+  let clientId = process.env.STRAVA_CLIENT_ID;
+  let clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+  if (profile.personal_client_id && profile.personal_client_secret) {
+    const decryptedSecret = await decrypt(profile.personal_client_secret);
+    if (decryptedSecret) {
+      clientId = profile.personal_client_id;
+      clientSecret = decryptedSecret;
+    }
+  }
+
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: profile.strava_refresh_token,
       grant_type: 'refresh_token'
     })
@@ -777,7 +811,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const profiles = await sbGet('profiles', `id=eq.${userId}`);
+    const profiles = await sbGet('profiles', `id=eq.${userId}&select=*`);
     const profile = profiles[0];
     if (!profile?.strava_access_token) return res.status(400).json({ error: 'Strava not connected' });
 
