@@ -5,6 +5,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
+
+// AES-256-GCM 복호화
+async function decrypt(encryptedText) {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch(e) {
+    console.error('Decrypt error:', e);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   const { code, state } = req.query;
 
@@ -13,16 +38,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    // state = user_id (Supabase)
     const userId = state;
+
+    // 개인 키 확인
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('personal_client_id, personal_client_secret')
+      .eq('id', userId)
+      .single();
+
+    let clientId = process.env.STRAVA_CLIENT_ID;
+    let clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+    // 개인 키가 있으면 사용
+    if (profile?.personal_client_id && profile?.personal_client_secret) {
+      const decryptedSecret = await decrypt(profile.personal_client_secret);
+      if (decryptedSecret) {
+        clientId = profile.personal_client_id;
+        clientSecret = decryptedSecret;
+        console.log('Using personal Strava API key for user:', userId);
+      }
+    }
 
     // Strava 토큰 교환
     const tokenRes = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         grant_type: 'authorization_code'
       })
@@ -53,7 +97,6 @@ export default async function handler(req, res) {
       headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
     });
 
-    // 대시보드로 리다이렉트
     res.redirect('/?strava=connected');
 
   } catch (error) {
