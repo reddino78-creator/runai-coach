@@ -50,14 +50,19 @@ export default async function handler(req, res) {
     let clientId = process.env.STRAVA_CLIENT_ID;
     let clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
-    // 개인 키가 있으면 사용
+    // 개인 키가 있으면 사용, 없으면 에러
     if (profile?.personal_client_id && profile?.personal_client_secret) {
       const decryptedSecret = await decrypt(profile.personal_client_secret);
       if (decryptedSecret) {
         clientId = profile.personal_client_id;
         clientSecret = decryptedSecret;
         console.log('Using personal Strava API key for user:', userId);
+      } else {
+        return res.redirect('/?error=decrypt_failed');
       }
+    } else {
+      // 개인 키 없으면 공용 키 사용 (Strava 확장 승인 후 사용 가능)
+      console.log('Using shared Strava API key for user:', userId);
     }
 
     // Strava 토큰 교환
