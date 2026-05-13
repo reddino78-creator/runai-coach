@@ -3252,13 +3252,25 @@ async function savePersonalKey() {
   }
 }
 
-function connectStrava() {
+async function connectStrava() {
   if (!currentUser) return;
-  const clientId = '228283';
+
+  // 개인 키가 있으면 개인 Client ID 사용
+  const personalClientId = document.getElementById('personalClientId').value.trim();
+  const clientId = personalClientId || '228283';
+
+  // DB에 저장된 개인 키 확인
+  const { data: profile } = await sb.from('profiles')
+    .select('personal_client_id')
+    .eq('id', currentUser.id)
+    .single();
+
+  const finalClientId = personalClientId || profile?.personal_client_id || '228283';
+
   const redirectUri = encodeURIComponent('https://runai-coach.vercel.app/api/strava-callback');
   const scope = 'activity:read_all';
   const state = currentUser.id;
-  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&approval_prompt=force`;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${finalClientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&approval_prompt=force`;
   window.location.href = url;
 }
 
