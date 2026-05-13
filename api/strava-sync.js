@@ -307,9 +307,9 @@ async function sendTelegram(chatId, title, analysis) {
 }
 
 // ── 토큰 갱신 ──
+// ── 토큰 갱신 ──
 const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
 
-// AES-256-GCM 복호화
 async function decrypt(encryptedText) {
   try {
     const encoder = new TextEncoder();
@@ -320,17 +320,12 @@ async function decrypt(encryptedText) {
     const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
     const iv = combined.slice(0, 12);
     const encrypted = combined.slice(12);
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv }, key, encrypted
-    );
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
     return new TextDecoder().decode(decrypted);
-  } catch(e) {
-    return null;
-  }
+  } catch(e) { return null; }
 }
 
 async function refreshToken(profile, userId) {
-  // 개인 키 확인
   let clientId = process.env.STRAVA_CLIENT_ID;
   let clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -811,7 +806,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const profiles = await sbGet('profiles', `id=eq.${userId}&select=*`);
+    const profiles = await sbGet('profiles', `id=eq.${userId}`);
     const profile = profiles[0];
     if (!profile?.strava_access_token) return res.status(400).json({ error: 'Strava not connected' });
 
@@ -825,7 +820,7 @@ export default async function handler(req, res) {
       const analysis = isTri
         ? await analyzeWeeklyTriathlon(userId, goal, accessToken)
         : await analyzeWeekly(userId, goal, accessToken);
-      await sbPost('reports', { user_id: userId, type: 'weekly', content: analysis });
+      await sbUpsert('reports', { user_id: userId, type: 'weekly', content: analysis }, 'user_id,type');
       const title = isTri ? '🏊🚴🏃 <b>트라이애슬론 주간 리포트</b>' : '📅 <b>주간 훈련 리포트</b>';
       await sendTelegram(profile.telegram_chat_id, title, analysis);
       return res.json({ success: true, type: 'weekly' });
@@ -834,7 +829,7 @@ export default async function handler(req, res) {
     // 월간 분석
     if (type === 'monthly') {
       const analysis = await analyzeMonthly(userId, goal, accessToken);
-      await sbPost('reports', { user_id: userId, type: 'monthly', content: analysis });
+      await sbUpsert('reports', { user_id: userId, type: 'monthly', content: analysis }, 'user_id,type');
       await sendTelegram(profile.telegram_chat_id, '📊 <b>월간 훈련 리포트</b>', analysis);
       return res.json({ success: true, type: 'monthly' });
     }
