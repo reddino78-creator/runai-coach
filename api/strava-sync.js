@@ -335,6 +335,7 @@ async function refreshToken(profile, userId) {
       clientId = profile.personal_client_id;
       clientSecret = decryptedSecret;
     }
+    // 복호화 실패 시 공용 키로 fallback (Strava 확장 승인 후 사용 가능)
   }
 
   const res = await fetch('https://www.strava.com/oauth/token', {
@@ -518,12 +519,10 @@ ${analysis.substring(0, 2000)}
 
   try {
     const jsonStr = await callClaude(parsePrompt, 200);
-    console.log('Weekly plan raw:', jsonStr);
     const clean = jsonStr.replace(/```json|```/g, '').replace(/[\n\r]/g, '').trim();
     const jsonMatch = clean.match(/\{[^}]+\}/);
     if (!jsonMatch) throw new Error('No JSON found');
     const plan = JSON.parse(jsonMatch[0]);
-    console.log('Weekly plan parsed:', plan);
     const weekStart = getWeekStart();
     await sbUpsert('weekly_plans', {
       user_id: userId, week_start: weekStart,
@@ -531,7 +530,6 @@ ${analysis.substring(0, 2000)}
       thu: plan.thu || '', fri: plan.fri || '휴식',
       sat: plan.sat || '', sun: plan.sun || ''
     }, 'user_id,week_start');
-    console.log('Weekly plan saved successfully');
   } catch (e) {
     console.error('Weekly plan parse error:', e.message);
   }
