@@ -993,10 +993,14 @@ select.input-field option { background:var(--dark3); }
           <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 주</div>
           <div class="db-metric-val" id="wk-done-km" style="font-size:24px">0</div>
           <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="wk-target-km">--</span>km 목표</div>
-          <div class="db-mile-bar" style="margin-top:8px">
-            <div class="db-mile-fill" id="wk-progress-bar" style="width:0%"></div>
+          <div class="db-mile-bar" style="margin-top:8px;overflow:hidden;display:flex">
+            <div id="wk-bar-run" style="height:100%;background:var(--orange);transition:width .8s;width:0%"></div>
+            <div id="wk-bar-swim" style="height:100%;background:#00D4AA;transition:width .8s;width:0%"></div>
+            <div id="wk-bar-ride" style="height:100%;background:#7C3AED;transition:width .8s;width:0%"></div>
           </div>
-          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="wk-sessions">0</span>회 · <span id="wk-phase">--</span></div>
+          <!-- 종목별 km -->
+          <div id="wk-sport-breakdown" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"></div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px"><span id="wk-sessions">0</span>회 · <span id="wk-phase">--</span></div>
         </div>
 
         <!-- 핵심 집중 포인트 -->
@@ -1108,10 +1112,14 @@ select.input-field option { background:var(--dark3); }
           <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 달</div>
           <div class="db-metric-val" id="mn-done-km" style="font-size:24px">0</div>
           <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="mn-target-km">--</span>km 목표</div>
-          <div class="db-mile-bar" style="margin-top:8px">
-            <div class="db-mile-fill" id="mn-progress-bar" style="width:0%"></div>
+          <div class="db-mile-bar" style="margin-top:8px;overflow:hidden;display:flex">
+            <div id="mn-bar-run" style="height:100%;background:var(--orange);transition:width .8s;width:0%"></div>
+            <div id="mn-bar-swim" style="height:100%;background:#00D4AA;transition:width .8s;width:0%"></div>
+            <div id="mn-bar-ride" style="height:100%;background:#7C3AED;transition:width .8s;width:0%"></div>
           </div>
-          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="mn-sessions">0</span>회 훈련</div>
+          <!-- 종목별 km -->
+          <div id="mn-sport-breakdown" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"></div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px"><span id="mn-sessions">0</span>회 훈련</div>
         </div>
 
         <!-- 목표 달성 가능성 -->
@@ -2247,7 +2255,28 @@ async function loadWeeklyCards() {
     document.getElementById('wk-done-km').textContent = thisWeekKm;
     document.getElementById('wk-sessions').textContent = thisWeekActs.length;
     document.getElementById('wk-target-km').textContent = weekTarget;
-    document.getElementById('wk-progress-bar').style.width = Math.min(100, (thisWeekKm / weekTarget * 100)).toFixed(0) + '%';
+    // 이번 주 종목별 km
+    const thisWeekRunKm = thisWeekActs.filter(a => !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+    const thisWeekSwimKm = thisWeekActs.filter(a => ['수영','Swim'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+    const thisWeekRideKm = thisWeekActs.filter(a => ['자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+
+    // 주간 스택 바
+    const wkRunPct = Math.min(100, (thisWeekRunKm / weekTarget * 100)).toFixed(0);
+    const wkSwimPct = Math.min(100 - parseFloat(wkRunPct), (thisWeekSwimKm / weekTarget * 100)).toFixed(0);
+    const wkRidePct = Math.min(100 - parseFloat(wkRunPct) - parseFloat(wkSwimPct), (thisWeekRideKm / weekTarget * 100)).toFixed(0);
+    if (document.getElementById('wk-bar-run')) document.getElementById('wk-bar-run').style.width = wkRunPct + '%';
+    if (document.getElementById('wk-bar-swim')) document.getElementById('wk-bar-swim').style.width = wkSwimPct + '%';
+    if (document.getElementById('wk-bar-ride')) document.getElementById('wk-bar-ride').style.width = wkRidePct + '%';
+
+    // 종목별 km 표시
+    const wkBreakdown = document.getElementById('wk-sport-breakdown');
+    if (wkBreakdown) {
+      const items = [];
+      if (thisWeekRunKm > 0) items.push(`<span style="font-size:10px;color:var(--orange)">🏃 ${thisWeekRunKm.toFixed(1)}km</span>`);
+      if (thisWeekSwimKm > 0) items.push(`<span style="font-size:10px;color:#00D4AA">🏊 ${thisWeekSwimKm.toFixed(1)}km</span>`);
+      if (thisWeekRideKm > 0) items.push(`<span style="font-size:10px;color:#7C3AED">🚴 ${thisWeekRideKm.toFixed(1)}km</span>`);
+      wkBreakdown.innerHTML = items.join('');
+    }
 
     // 이번 주 일별 막대그래프 (종목별 색상)
     const dayRunKm = [0,0,0,0,0,0,0];
@@ -2480,7 +2509,26 @@ async function loadMonthlyCards(goal) {
     document.getElementById('mn-done-km').textContent = thisMonthKm;
     document.getElementById('mn-target-km').textContent = monthTarget;
     document.getElementById('mn-sessions').textContent = thisMonthActs.length;
-    document.getElementById('mn-progress-bar').style.width = Math.min(100, (thisMonthKm / monthTarget * 100)).toFixed(0) + '%';
+    // 월간 스택 바 + 종목별 km
+    const mnRunKm = thisMonthActs.filter(a => !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+    const mnSwimKm = thisMonthActs.filter(a => ['수영','Swim'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+    const mnRideKm = thisMonthActs.filter(a => ['자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+
+    const mnRunPct = Math.min(100, (mnRunKm / monthTarget * 100)).toFixed(0);
+    const mnSwimPct = Math.min(100 - parseFloat(mnRunPct), (mnSwimKm / monthTarget * 100)).toFixed(0);
+    const mnRidePct = Math.min(100 - parseFloat(mnRunPct) - parseFloat(mnSwimPct), (mnRideKm / monthTarget * 100)).toFixed(0);
+    if (document.getElementById('mn-bar-run')) document.getElementById('mn-bar-run').style.width = mnRunPct + '%';
+    if (document.getElementById('mn-bar-swim')) document.getElementById('mn-bar-swim').style.width = mnSwimPct + '%';
+    if (document.getElementById('mn-bar-ride')) document.getElementById('mn-bar-ride').style.width = mnRidePct + '%';
+
+    const mnBreakdown = document.getElementById('mn-sport-breakdown');
+    if (mnBreakdown) {
+      const items = [];
+      if (mnRunKm > 0) items.push(`<span style="font-size:10px;color:var(--orange)">🏃 ${mnRunKm.toFixed(1)}km</span>`);
+      if (mnSwimKm > 0) items.push(`<span style="font-size:10px;color:#00D4AA">🏊 ${mnSwimKm.toFixed(1)}km</span>`);
+      if (mnRideKm > 0) items.push(`<span style="font-size:10px;color:#7C3AED">🚴 ${mnRideKm.toFixed(1)}km</span>`);
+      mnBreakdown.innerHTML = items.join('');
+    }
     document.getElementById('mn-dday').textContent = daysLeft;
     document.getElementById('mn-phase').textContent = phase;
     document.getElementById('mn-race-name').textContent = g?.race_name || '--';
