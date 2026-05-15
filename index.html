@@ -857,7 +857,14 @@ select.input-field option { background:var(--dark3); }
               <div class="db-mile-done" id="db-week-done">0</div>
               <div class="db-mile-total">/ <span id="db-week-target">50</span>km</div>
             </div>
-            <div class="db-mile-bar"><div class="db-mile-fill" id="db-week-bar" style="width:0%"></div></div>
+            <!-- 스택 바 -->
+            <div class="db-mile-bar" style="overflow:hidden">
+              <div id="db-week-bar-run" style="height:100%;float:left;background:var(--orange);transition:width .8s ease;width:0%"></div>
+              <div id="db-week-bar-swim" style="height:100%;float:left;background:#00D4AA;transition:width .8s ease;width:0%"></div>
+              <div id="db-week-bar-ride" style="height:100%;float:left;background:#7C3AED;transition:width .8s ease;width:0%"></div>
+            </div>
+            <!-- 범례 -->
+            <div id="db-week-legend" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"></div>
           </div>
           <div class="db-mile-card">
             <div class="db-mile-label">📈 이번 달</div>
@@ -865,7 +872,12 @@ select.input-field option { background:var(--dark3); }
               <div class="db-mile-done" id="db-month-done">0</div>
               <div class="db-mile-total">/ <span id="db-month-target">200</span>km</div>
             </div>
-            <div class="db-mile-bar"><div class="db-mile-fill" id="db-month-bar" style="width:0%"></div></div>
+            <div class="db-mile-bar" style="overflow:hidden">
+              <div id="db-month-bar-run" style="height:100%;float:left;background:var(--orange);transition:width .8s ease;width:0%"></div>
+              <div id="db-month-bar-swim" style="height:100%;float:left;background:#00D4AA;transition:width .8s ease;width:0%"></div>
+              <div id="db-month-bar-ride" style="height:100%;float:left;background:#7C3AED;transition:width .8s ease;width:0%"></div>
+            </div>
+            <div id="db-month-legend" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"></div>
           </div>
         </div>
       </div>
@@ -1043,7 +1055,14 @@ select.input-field option { background:var(--dark3); }
             </div>
           </div>
           <div class="chart-box">
-            <div class="cb-title">최근 8주 마일리지 트렌드</div>
+            <div class="cb-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>최근 8주 마일리지 트렌드</span>
+              <span style="font-size:10px;display:flex;gap:8px">
+                <span style="color:var(--orange)">🏃 러닝</span>
+                <span style="color:#00D4AA">🏊 수영</span>
+                <span style="color:#7C3AED">🚴 자전거</span>
+              </span>
+            </div>
             <div class="trend-rows" id="wk-8weeks">
               <div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터 로딩 중...</div>
             </div>
@@ -1843,16 +1862,57 @@ async function loadUserData() {
     .gte('start_date', `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`)
     .order('start_date', { ascending: false });
 
-  const weekKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
-  const monthKm = (allActs || []).reduce((s, a) => s + a.distance, 0) / 1000;
+  // 종목별 마일리지 분류 함수
+  function getSportCategory(act) {
+    const type = act.sport_type || act.type || '';
+    if (['수영', 'Swim'].includes(type)) return 'swim';
+    if (['자전거', 'Ride', 'VirtualRide', 'EBikeRide'].includes(type)) return 'ride';
+    return 'run'; // 러닝/트레일런/기타
+  }
+
+  function renderStackedBar(prefix, runKm, swimKm, rideKm, target, legendEl) {
+    const total = runKm + swimKm + rideKm;
+    const runPct = Math.min(100, (runKm / target * 100)).toFixed(1);
+    const swimPct = Math.min(100 - parseFloat(runPct), (swimKm / target * 100)).toFixed(1);
+    const ridePct = Math.min(100 - parseFloat(runPct) - parseFloat(swimPct), (rideKm / target * 100)).toFixed(1);
+
+    const runEl = document.getElementById(`${prefix}-run`);
+    const swimEl = document.getElementById(`${prefix}-swim`);
+    const rideEl = document.getElementById(`${prefix}-ride`);
+    if (runEl) runEl.style.width = runPct + '%';
+    if (swimEl) swimEl.style.width = swimPct + '%';
+    if (rideEl) rideEl.style.width = ridePct + '%';
+
+    // 범례
+    if (legendEl) {
+      const items = [];
+      if (runKm > 0) items.push(`<span style="font-size:10px;color:var(--orange)">🏃 ${runKm.toFixed(1)}km</span>`);
+      if (swimKm > 0) items.push(`<span style="font-size:10px;color:#00D4AA">🏊 ${swimKm.toFixed(1)}km</span>`);
+      if (rideKm > 0) items.push(`<span style="font-size:10px;color:#7C3AED">🚴 ${rideKm.toFixed(1)}km</span>`);
+      legendEl.innerHTML = items.join('');
+    }
+    return total;
+  }
+
+  const weekRunKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart && getSportCategory(a) === 'run').reduce((s, a) => s + a.distance, 0) / 1000;
+  const weekSwimKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart && getSportCategory(a) === 'swim').reduce((s, a) => s + a.distance, 0) / 1000;
+  const weekRideKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart && getSportCategory(a) === 'ride').reduce((s, a) => s + a.distance, 0) / 1000;
+
+  const monthRunKm = (allActs || []).filter(a => getSportCategory(a) === 'run').reduce((s, a) => s + a.distance, 0) / 1000;
+  const monthSwimKm = (allActs || []).filter(a => getSportCategory(a) === 'swim').reduce((s, a) => s + a.distance, 0) / 1000;
+  const monthRideKm = (allActs || []).filter(a => getSportCategory(a) === 'ride').reduce((s, a) => s + a.distance, 0) / 1000;
+
+  const weekKm = weekRunKm + weekSwimKm + weekRideKm;
+  const monthKm = monthRunKm + monthSwimKm + monthRideKm;
 
   const weekTarget = parseInt(document.getElementById('db-week-target').textContent) || 50;
   const monthTarget = parseInt(document.getElementById('db-month-target').textContent) || 200;
 
   document.getElementById('db-week-done').textContent = weekKm.toFixed(1);
   document.getElementById('db-month-done').textContent = monthKm.toFixed(1);
-  document.getElementById('db-week-bar').style.width = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0) + '%';
-  document.getElementById('db-month-bar').style.width = Math.min(100, (monthKm / monthTarget * 100)).toFixed(0) + '%';
+
+  renderStackedBar('db-week-bar', weekRunKm, weekSwimKm, weekRideKm, weekTarget, document.getElementById('db-week-legend'));
+  renderStackedBar('db-month-bar', monthRunKm, monthSwimKm, monthRideKm, monthTarget, document.getElementById('db-month-legend'));
 
   // 훈련 달성률
   const achieveRate = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0);
@@ -2189,20 +2249,35 @@ async function loadWeeklyCards() {
     document.getElementById('wk-target-km').textContent = weekTarget;
     document.getElementById('wk-progress-bar').style.width = Math.min(100, (thisWeekKm / weekTarget * 100)).toFixed(0) + '%';
 
-    // 이번 주 일별 막대그래프
-    const dayKm = [0, 0, 0, 0, 0, 0, 0]; // 월~일
+    // 이번 주 일별 막대그래프 (종목별 색상)
+    const dayRunKm = [0,0,0,0,0,0,0];
+    const daySwimKm = [0,0,0,0,0,0,0];
+    const dayRideKm = [0,0,0,0,0,0,0];
     thisWeekActs.forEach(a => {
       const d = new Date(a.start_date).getDay();
       const idx = d === 0 ? 6 : d - 1;
-      dayKm[idx] += a.distance / 1000;
+      const cat = a.sport_type === '수영' || a.type === 'Swim' ? 'swim'
+                : a.sport_type === '자전거' || ['Ride','VirtualRide','EBikeRide'].includes(a.type) ? 'ride' : 'run';
+      if (cat === 'swim') daySwimKm[idx] += a.distance / 1000;
+      else if (cat === 'ride') dayRideKm[idx] += a.distance / 1000;
+      else dayRunKm[idx] += a.distance / 1000;
     });
-    const maxKm = Math.max(...dayKm, 1);
+    const dayTotalKm = dayRunKm.map((v, i) => v + daySwimKm[i] + dayRideKm[i]);
+    const maxKm = Math.max(...dayTotalKm, 1);
     const dayNames = ['월','화','수','목','금','토','일'];
-    document.getElementById('wk-daily-bars').innerHTML = dayKm.map((km, i) => {
+    document.getElementById('wk-daily-bars').innerHTML = dayTotalKm.map((km, i) => {
       const isCur = i === todayIdx;
+      const h = Math.max(2, km/maxKm*100).toFixed(0);
+      const runH = (dayRunKm[i]/maxKm*100).toFixed(0);
+      const swimH = (daySwimKm[i]/maxKm*100).toFixed(0);
+      const rideH = (dayRideKm[i]/maxKm*100).toFixed(0);
       return `<div class="b-col">
         <div class="b-km">${km > 0 ? km.toFixed(1) : '-'}</div>
-        <div class="b-bar fill ${isCur ? 'cur' : ''}" style="height:${Math.max(2, km/maxKm*100).toFixed(0)}%"></div>
+        <div class="b-bar ${isCur ? 'cur' : ''}" style="height:${h}%;display:flex;flex-direction:column-reverse;overflow:hidden;padding:0">
+          <div style="width:100%;height:${runH}%;background:var(--orange);flex-shrink:0"></div>
+          <div style="width:100%;height:${swimH}%;background:#00D4AA;flex-shrink:0"></div>
+          <div style="width:100%;height:${rideH}%;background:#7C3AED;flex-shrink:0"></div>
+        </div>
         <div class="b-day">${dayNames[i]}</div>
       </div>`;
     }).join('');
@@ -2302,20 +2377,29 @@ async function loadWeeklyCards() {
         const d = new Date(a.start_date);
         return d >= wStart && d < wEnd;
       });
-      const wKm = (wActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const runKm = wActs.filter(a => !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const swimKm = wActs.filter(a => ['수영','Swim'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const rideKm = wActs.filter(a => ['자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const totalKm = runKm + swimKm + rideKm;
       const label = i === 0 ? '이번 주' : i === 1 ? '지난 주' : `${i}주 전`;
-      weeks8.push({ label, km: parseFloat(wKm), isNow: i === 0 });
+      weeks8.push({ label, totalKm, runKm, swimKm, rideKm, isNow: i === 0 });
     }
-    const maxMonthKm = Math.max(...weeks8.map(w => w.km), 1);
-    document.getElementById('wk-8weeks').innerHTML = weeks8.map(w => `
+    const maxMonthKm = Math.max(...weeks8.map(w => w.totalKm), 1);
+    document.getElementById('wk-8weeks').innerHTML = weeks8.map(w => {
+      const runW = (w.runKm / maxMonthKm * 100).toFixed(0);
+      const swimW = (w.swimKm / maxMonthKm * 100).toFixed(0);
+      const rideW = (w.rideKm / maxMonthKm * 100).toFixed(0);
+      return `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="font-size:10px;color:${w.isNow ? 'var(--orange)' : 'var(--gray)'};width:44px;text-align:right;font-family:'DM Mono',monospace;flex-shrink:0">${w.label}</div>
-        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${(w.km/maxMonthKm*100).toFixed(0)}%;background:${w.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px;transition:width 1s ease"></div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
+          <div style="height:100%;width:${runW}%;background:${w.isNow ? 'var(--orange)' : 'rgba(252,76,2,.45)'}"></div>
+          <div style="height:100%;width:${swimW}%;background:${w.isNow ? '#00D4AA' : 'rgba(0,212,170,.45)'}"></div>
+          <div style="height:100%;width:${rideW}%;background:${w.isNow ? '#7C3AED' : 'rgba(124,58,237,.45)'}"></div>
         </div>
-        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${w.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${w.km}km</div>
-      </div>
-    `).join('');
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${w.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${w.totalKm.toFixed(1)}km</div>
+      </div>`;
+    }).join('');
 
     // 훈련 종류 분류
     renderWorkoutTypes('wk-this-week-types', 'wk-this-ratio', thisWeekActs);
@@ -2471,20 +2555,29 @@ async function loadMonthlyCards(goal) {
       const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       const mActs = acts.filter(a => { const d = new Date(a.start_date); return d >= mStart && d < mEnd; });
-      const mKm = (mActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const runKm = mActs.filter(a => !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const swimKm = mActs.filter(a => ['수영','Swim'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const rideKm = mActs.filter(a => ['자전거','Ride','VirtualRide','EBikeRide'].includes(a.sport_type || a.type)).reduce((s,a) => s + a.distance, 0) / 1000;
+      const totalKm = runKm + swimKm + rideKm;
       const label = mStart.toLocaleDateString('ko-KR', { month: 'long' });
-      months6.push({ label, km: parseFloat(mKm), isNow: i === 0 });
+      months6.push({ label, totalKm, runKm, swimKm, rideKm, isNow: i === 0 });
     }
-    const maxMonthKm = Math.max(...months6.map(m => m.km), 1);
-    document.getElementById('mn-6months').innerHTML = months6.map(m => `
+    const maxMonthKm = Math.max(...months6.map(m => m.totalKm), 1);
+    document.getElementById('mn-6months').innerHTML = months6.map(m => {
+      const runW = (m.runKm / maxMonthKm * 100).toFixed(0);
+      const swimW = (m.swimKm / maxMonthKm * 100).toFixed(0);
+      const rideW = (m.rideKm / maxMonthKm * 100).toFixed(0);
+      return `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="font-size:10px;color:${m.isNow ? 'var(--orange)' : 'var(--gray)'};width:50px;font-family:'DM Mono',monospace;flex-shrink:0">${m.label}</div>
-        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${(m.km/maxMonthKm*100).toFixed(0)}%;background:${m.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px"></div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
+          <div style="height:100%;width:${runW}%;background:${m.isNow ? 'var(--orange)' : 'rgba(252,76,2,.45)'}"></div>
+          <div style="height:100%;width:${swimW}%;background:${m.isNow ? '#00D4AA' : 'rgba(0,212,170,.45)'}"></div>
+          <div style="height:100%;width:${rideW}%;background:${m.isNow ? '#7C3AED' : 'rgba(124,58,237,.45)'}"></div>
         </div>
-        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${m.km}km</div>
-      </div>
-    `).join('');
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${m.totalKm.toFixed(1)}km</div>
+      </div>`;
+    }).join('');
 
     // 5단: 로드맵
     if (g?.race_date) {
