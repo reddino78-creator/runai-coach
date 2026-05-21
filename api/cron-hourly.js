@@ -27,27 +27,25 @@ export default async function handler(req, res) {
       return res.json({ message: 'No connected users', synced: 0 });
     }
 
-    const results = [];
+    // 모든 사용자 병렬 처리 (각각 독립적으로 실행)
+    const syncPromises = profiles.map(profile =>
+      fetch(
+        `https://runai-coach.vercel.app/api/strava-sync?user_id=${profile.id}`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
+        }
+      )
+      .then(r => r.json())
+      .then(data => ({ userId: profile.id, synced: data.synced || 0 }))
+      .catch(e => ({ userId: profile.id, error: e.message }))
+    );
 
-    for (const profile of profiles) {
-      try {
-        const syncRes = await fetch(
-          `https://runai-coach.vercel.app/api/strava-sync?user_id=${profile.id}`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
-          }
-        );
-        const data = await syncRes.json();
-        results.push({ userId: profile.id, synced: data.synced || 0 });
-      } catch(e) {
-        console.error(`Sync error for ${profile.id}:`, e.message);
-        results.push({ userId: profile.id, error: e.message });
-      }
-    }
+    // 즉시 응답 (타임아웃 방지)
+    res.json({ success: true, users: profiles.length, message: '동기화 시작됨' });
 
-    const totalSynced = results.reduce((s, r) => s + (r.synced || 0), 0);
-    res.json({ success: true, users: profiles.length, totalSynced, results });
+    // 백그라운드에서 계속 실행
+    await Promise.allSettled(syncPromises);
 
   } catch(error) {
     console.error('Hourly cron error:', error);
