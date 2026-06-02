@@ -1649,6 +1649,7 @@ let obStep = 1;
 let selectedCondition = '보통';
 let selectedInjury = '없음';
 let selectedInjuryLevel = '경미';
+let allRaces = [];
 
 // ── INIT ──
 window.addEventListener('load', async () => {
@@ -1818,4 +1819,4 @@ async function finishOnboarding(skipRedirect = false) {
     tri_type: triSelected ? triType : null,
     tri_swim_target: triSelected ? document.getElementById('triSwimTarget').value || null : null,
     tri_bike_target: triSelected ? document.getElementById('triBikeTarget').value || null : null,
-    tri_run_target: triSelected ? d
+    tri_run_targ
