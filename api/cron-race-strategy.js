@@ -19,17 +19,6 @@ async function sbPost(table, data) {
   });
 }
 
-async function sbPatch(table, filter, data) {
-  await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
-    method: 'PATCH',
-    headers: {
-      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify(data)
-  });
-}
-
 function paceToSec(p) {
   if (!p || p === '-') return 0;
   const [m, s] = p.split(':').map(Number);
@@ -48,7 +37,7 @@ function secToTime(totalSec) {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// 에너지젤 보급 전략 계산
+// 에너지젤 보급 전략
 function calcGelStrategy(totalTimeSec, paceSec) {
   const gels = [];
   const firstGel = 45 * 60;
@@ -56,14 +45,11 @@ function calcGelStrategy(totalTimeSec, paceSec) {
   let time = firstGel;
   let gelNum = 1;
 
-  console.log('calcGelStrategy:', { totalTimeSec, paceSec, firstGel, limit: totalTimeSec - 20 * 60 });
-
   while (time < totalTimeSec - 20 * 60) {
     const km = Math.round((time / paceSec) * 10) / 10;
-    const timeStr = secToTime(time);
     gels.push({
       num: gelNum,
-      time: timeStr,
+      time: secToTime(time),
       km: km.toFixed(1),
       note: gelNum === 1 ? '첫 번째 - 위장 적응 위해 소량' :
             km > 30 ? '후반 - 카페인 젤 권장' :
@@ -72,11 +58,10 @@ function calcGelStrategy(totalTimeSec, paceSec) {
     time += interval;
     gelNum++;
   }
-  console.log('gels result:', gels.length);
   return gels;
 }
 
-// 5K 구간 페이스 전략 생성
+// 5K 구간 페이스 전략
 function calc5KSplits(totalDistKm, paceSec, strategy) {
   const splits = [];
   const segments = Math.ceil(totalDistKm / 5);
@@ -88,16 +73,14 @@ function calc5KSplits(totalDistKm, paceSec, strategy) {
     let segPace = paceSec;
 
     if (strategy === 'A') {
-      // 전략 A: 네거티브 스플릿 (후반 가속)
-      if (i === 0) segPace = paceSec + 10; // 첫 5K 약간 여유
+      if (i === 0) segPace = paceSec + 10;
       else if (i === 1) segPace = paceSec + 5;
-      else if (i >= segments - 2) segPace = paceSec - 8; // 후반 가속
+      else if (i >= segments - 2) segPace = paceSec - 8;
       else segPace = paceSec;
     } else {
-      // 전략 B: 이븐 페이스 (일정 유지)
-      if (i === 0) segPace = paceSec + 15; // 첫 5K 더 여유
-      else if (i >= segments - 1) segPace = paceSec - 5; // 마지막만 약간 가속
-      else segPace = paceSec + 5; // 전반적으로 약간 여유있게
+      if (i === 0) segPace = paceSec + 15;
+      else if (i >= segments - 1) segPace = paceSec - 5;
+      else segPace = paceSec + 5;
     }
 
     const segTimeSec = segPace * segDist;
@@ -140,20 +123,34 @@ async function generateStrategy(userId, goal, recentActs) {
   const targetPaceSec = paceToSec(goal.target_pace || '5:27');
   const totalDist = 42.195;
 
-  // 최근 훈련 분석
-  const recentKm = recentActs.slice(0, 20).reduce((s, a) => s + a.distance, 0) / 1000;
-  const avgPaceSec = recentActs.length > 0
-    ? recentActs.slice(0, 10).reduce((s, a) => s + a.moving_time / (a.distance / 1000), 0) / Math.min(10, recentActs.length)
-    : targetPaceSec;
+  // 최근 실제 훈련 페이스 계산 (러닝만)
+  const runActs = recentActs.filter(a => {
+    const type = a.sport_type || a.type || '';
+    return !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(type);
+  });
 
-  // Claude에게 달성 가능한 페이스 분석 요청
-  const prompt = `마라톤 코치로서 선수의 레이스 전략 페이스를 계산하세요.
+  const recentKm = runActs.slice(0, 20).reduce((s, a) => s + a.distance, 0) / 1000;
+  const avgPaceSec = runActs.length > 0
+    ? runActs.slice(0, 10).reduce((s, a) => s + a.moving_time / (a.distance / 1000), 0) / Math.min(10, runActs.length)
+    : targetPaceSec * 1.15; // 데이터 없으면 목표보다 15% 느리게
+
+  // 목표 페이스와 실제 훈련 페이스 차이
+  const paceDiff = avgPaceSec - targetPaceSec;
+  const paceDiffStr = paceDiff > 0 ? `${Math.round(paceDiff)}초 느림` : `${Math.abs(Math.round(paceDiff))}초 빠름`;
+
+  const prompt = `마라톤 코치로서 선수의 현실적인 레이스 전략 페이스를 냉철하게 계산하세요.
 
 선수 정보:
-- 목표 기록: ${goal.target_time} (페이스 ${goal.target_pace}/km)
+- 목표 기록: ${goal.target_time} (목표 페이스 ${goal.target_pace}/km)
 - PR: 풀 ${goal.pr_full || '-'} / 하프 ${goal.pr_half || '-'} / 10K ${goal.pr_10k || '-'}
 - 최근 4주 훈련량: ${recentKm.toFixed(0)}km
-- 최근 평균 훈련 페이스: ${secToPace(avgPaceSec)}/km
+- 최근 평균 훈련 페이스: ${secToPace(avgPaceSec)}/km (목표 대비 ${paceDiffStr})
+
+중요 판단 기준:
+- 실제 레이스 페이스는 훈련 페이스보다 약 10~15% 빨라질 수 있음
+- 하지만 훈련 페이스가 목표보다 많이 느리면 목표 달성이 어려움
+- 훈련량이 부족하면 현실적인 목표를 낮춰야 함
+- 냉철하고 현실적으로 판단할 것
 
 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
 {
@@ -165,7 +162,7 @@ async function generateStrategy(userId, goal, recentActs) {
     "keyPoint": "핵심 포인트 1문장"
   },
   "strategyB": {
-    "targetTime": "H:MM:SS", 
+    "targetTime": "H:MM:SS",
     "paceSec": 숫자(초단위),
     "probability": 90,
     "description": "전략 설명 2문장",
@@ -173,38 +170,51 @@ async function generateStrategy(userId, goal, recentActs) {
   }
 }
 
-전략 A는 달성 가능성 80% (최상 컨디션 기준)
-전략 B는 달성 가능성 90% (안전한 완주 기준)
-현실적인 훈련 데이터 기반으로 냉철하게 판단하세요.`;
+전략 A: 달성 가능성 80% - 최상 컨디션 기준, 현실적으로 도달 가능한 목표
+전략 B: 달성 가능성 90% - 안전한 완주 기준, 거의 확실히 달성 가능한 목표
+반드시 실제 훈련 데이터 기반으로 판단하고, 희망적 수치보다 현실적 수치를 제시하세요.`;
 
   let strategies;
   try {
     const result = await callClaude(prompt);
     const clean = result.replace(/```json|```/g, '').trim();
     strategies = JSON.parse(clean);
+
+    // 검증: paceSec이 합리적 범위인지 확인 (3시간~6시간 완주 범위)
+    const validatePace = (p) => p > 250 && p < 510; // 4:10/km ~ 8:30/km
+    if (!validatePace(strategies.strategyA?.paceSec) || !validatePace(strategies.strategyB?.paceSec)) {
+      throw new Error('Invalid pace range');
+    }
   } catch(e) {
-    // 파싱 실패 시 기본값
-    const aPaceSec = targetPaceSec + 10;
-    const bPaceSec = targetPaceSec + 30;
+    console.error('Strategy parse error:', e.message);
+
+    // 파싱 실패 시 실제 훈련 페이스 기반으로 계산
+    // 훈련 페이스의 90% (레이스 효과) 적용
+    const racePaceSec = avgPaceSec * 0.90;
+
+    // 전략 A: 실제 훈련 페이스 기반 80% 달성 가능
+    const aPaceSec = Math.round(racePaceSec);
+    // 전략 B: 10초 더 여유있게
+    const bPaceSec = Math.round(racePaceSec + 15);
+
     strategies = {
       strategyA: {
         targetTime: secToTime(aPaceSec * totalDist),
         paceSec: aPaceSec,
         probability: 80,
-        description: '현재 훈련 페이스 기반 최상 컨디션 전략.',
+        description: `현재 훈련 페이스(${secToPace(avgPaceSec)}/km) 기반 최상 컨디션 전략. 레이스 효과를 적용한 현실적 목표입니다.`,
         keyPoint: '네거티브 스플릿으로 후반 가속'
       },
       strategyB: {
         targetTime: secToTime(bPaceSec * totalDist),
         paceSec: bPaceSec,
         probability: 90,
-        description: '안전하고 안정적인 완주 전략.',
-        keyPoint: '이븐 페이스로 끝까지 유지'
+        description: `안전하고 확실한 완주 전략. 현재 훈련 상태에서 90% 이상 달성 가능한 목표입니다.`,
+        keyPoint: '이븐 페이스로 안정적 완주'
       }
     };
   }
 
-  // 각 전략별 세부 데이터 계산
   const stratA = strategies.strategyA;
   const stratB = strategies.strategyB;
 
@@ -220,11 +230,9 @@ async function generateStrategy(userId, goal, recentActs) {
 }
 
 export default async function handler(req, res) {
-  // 인증 체크
   const authHeader = req.headers.authorization || '';
   const isInternal = authHeader === `Bearer ${process.env.CRON_SECRET}`;
   if (!isInternal) {
-    // JWT 검증
     const token = authHeader.replace('Bearer ', '');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
     try {
@@ -239,7 +247,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 모든 사용자 또는 특정 사용자
     const userId = req.query.user_id;
     let profiles;
 
@@ -259,22 +266,17 @@ export default async function handler(req, res) {
       try {
         const uid = profile.id;
 
-        // 목표 가져오기
         const goals = await sbGet('goals', `user_id=eq.${uid}&order=created_at.desc&limit=1`);
         const goal = goals?.[0];
         if (!goal?.race_date) continue;
 
-        // 레이스가 지났으면 스킵
         const daysLeft = Math.ceil((new Date(goal.race_date) - new Date()) / 86400000);
         if (daysLeft < 0) continue;
 
-        // 최근 활동
         const recentActs = await sbGet('activities', `user_id=eq.${uid}&order=start_date.desc&limit=30`);
 
-        // 전략 생성
         const strategy = await generateStrategy(uid, goal, Array.isArray(recentActs) ? recentActs : []);
 
-        // 저장 (upsert)
         await fetch(`${SUPABASE_URL}/rest/v1/race_strategies?user_id=eq.${uid}`, {
           method: 'DELETE',
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -288,7 +290,7 @@ export default async function handler(req, res) {
 
         results.push({ userId: uid, success: true });
       } catch(e) {
-        console.error(`Strategy error for ${profile.id}:`, e);
+        console.error(`Strategy error for ${profile.id}:`, e.message);
         results.push({ userId: profile.id, error: e.message });
       }
     }
@@ -296,7 +298,7 @@ export default async function handler(req, res) {
     res.json({ success: true, processed: results.length, results });
 
   } catch(error) {
-    console.error('Race strategy error:', error);
+    console.error('Race strategy error:', error.message);
     res.status(500).json({ error: error.message });
   }
 }
