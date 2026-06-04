@@ -307,43 +307,14 @@ async function sendTelegram(chatId, title, analysis) {
 }
 
 // ── 토큰 갱신 ──
-// ── 토큰 갱신 ──
-const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
-
-async function decrypt(encryptedText) {
-  try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
-    const key = await crypto.subtle.importKey(
-      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
-    );
-    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const encrypted = combined.slice(12);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
-    return new TextDecoder().decode(decrypted);
-  } catch(e) { return null; }
-}
-
+// ── 토큰 갱신 (공용 키 사용) ──
 async function refreshToken(profile, userId) {
-  let clientId = process.env.STRAVA_CLIENT_ID;
-  let clientSecret = process.env.STRAVA_CLIENT_SECRET;
-
-  if (profile.personal_client_id && profile.personal_client_secret) {
-    const decryptedSecret = await decrypt(profile.personal_client_secret);
-    if (decryptedSecret) {
-      clientId = profile.personal_client_id;
-      clientSecret = decryptedSecret;
-    }
-    // 복호화 실패 시 공용 키로 fallback (Strava 확장 승인 후 사용 가능)
-  }
-
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
       refresh_token: profile.strava_refresh_token,
       grant_type: 'refresh_token'
     })
