@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     const userId = req.query.user_id;
     if (!userId) return res.status(400).json({ error: 'user_id required' });
 
-    const profiles = await sbGet('profiles', `id=eq.${userId}&strava_access_token=not.is.null`);
+    const profiles = await sbGet('profiles', `id=eq.${userId}&strava_access_token=not.is.null&select=id,telegram_chat_id`);
     if (!Array.isArray(profiles) || profiles.length === 0) {
       return res.json({ message: 'No profile found' });
     }
@@ -213,6 +213,21 @@ export default async function handler(req, res) {
       strategy_b: strategy.strategyB,
       race_date: goal.race_date
     });
+
+    // 텔레그램 발송
+    const profile = profiles[0];
+    if (profile.telegram_chat_id && process.env.TELEGRAM_BOT_TOKEN) {
+      const a = strategy.strategyA;
+      const b = strategy.strategyB;
+      const msg = `🏁 <b>레이스 전략 업데이트</b>\n─────────\n` +
+        `🎯 <b>전략 A (80%)</b>\n목표: ${a.targetTime} · ${secToPace(a.paceSec)}/km\n${a.keyPoint}\n\n` +
+        `✅ <b>전략 B (90%)</b>\n목표: ${b.targetTime} · ${secToPace(b.paceSec)}/km\n${b.keyPoint}`;
+      await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: profile.telegram_chat_id, text: msg, parse_mode: 'HTML' })
+      });
+    }
 
     res.json({ success: true, userId: uid });
 
