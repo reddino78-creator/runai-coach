@@ -19,89 +19,254 @@ async function sbPost(table, data) {
   });
 }
 
-function paceToSec(p) {
-  if (!p || p === '-') return 0;
-  const [m, s] = p.split(':').map(Number);
+async function sbPatch(table, filter, data) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+}
+
+async function sbUpsert(table, data, onConflict) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+}
+
+// ── 헬퍼 함수 ──
+function calcPace(movingTime, distance) {
+  if (!distance || distance === 0) return '-';
+  const sec = movingTime / (distance / 1000);
+  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+}
+
+function paceToSec(paceStr) {
+  if (!paceStr || paceStr === '-') return 999;
+  const [m, s] = paceStr.split(':').map(Number);
   return m * 60 + s;
 }
 
-function secToPace(s) {
-  if (!s || s <= 0) return '--:--';
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+function calcPaceOffset(targetPace, offsetSecs) {
+  const total = paceToSec(targetPace) - offsetSecs;
+  return `${Math.floor(total / 60)}:${String(Math.abs(total % 60)).padStart(2, '0')}`;
 }
 
-function secToTime(totalSec) {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = Math.round(totalSec % 60);
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function getTrainingPhase(raceDate) {
+  if (!raceDate) return '기초체력기';
+  const d = Math.ceil((new Date(raceDate) - new Date()) / 86400000);
+  if (d > 140) return '기초체력기';
+  if (d > 84) return '훈련강화기';
+  if (d > 42) return '피크훈련기';
+  if (d > 14) return '테이퍼링기';
+  return '레이스준비기';
 }
 
-// 에너지젤 보급 전략
-function calcGelStrategy(totalTimeSec, paceSec) {
-  const gels = [];
-  const firstGel = 45 * 60;
-  const interval = 32 * 60;
-  let time = firstGel;
-  let gelNum = 1;
-
-  while (time < totalTimeSec - 20 * 60) {
-    const km = Math.round((time / paceSec) * 10) / 10;
-    gels.push({
-      num: gelNum,
-      time: secToTime(time),
-      km: km.toFixed(1),
-      note: gelNum === 1 ? '첫 번째 - 위장 적응 위해 소량' :
-            km > 30 ? '후반 - 카페인 젤 권장' :
-            '수분과 함께 섭취'
-    });
-    time += interval;
-    gelNum++;
-  }
-  return gels;
+function getWeeklyTarget(phase) {
+  return phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
 }
 
-// 5K 구간 페이스 전략
-function calc5KSplits(totalDistKm, paceSec, strategy) {
-  const splits = [];
-  const segments = Math.ceil(totalDistKm / 5);
+// ── 운동 종류 구분 ──
+function getSportType(activity) {
+  const type = activity.sport_type || activity.type || '';
+  if (type === 'TrailRun') return '트레일런';
+  if (type === 'Run' || type === 'VirtualRun') return '러닝';
+  if (type === 'Walk' || type === 'Hike') return '워킹/하이킹';
+  if (type === 'Swim') return '수영';
+  if (type === 'Ride' || type === 'VirtualRide' || type === 'EBikeRide') return '자전거';
+  if (type === 'WeightTraining' || type === 'Workout') return '근력훈련';
+  return type || '기타';
+}
 
-  for (let i = 0; i < segments; i++) {
-    const startKm = i * 5;
-    const endKm = Math.min((i + 1) * 5, totalDistKm);
-    const segDist = endKm - startKm;
-    let segPace = paceSec;
+function isCrossTraining(sportType) {
+  return ['워킹/하이킹', '수영', '자전거', '근력훈련', '기타'].includes(sportType);
+}
 
-    if (strategy === 'A') {
-      if (i === 0) segPace = paceSec + 10;
-      else if (i === 1) segPace = paceSec + 5;
-      else if (i >= segments - 2) segPace = paceSec - 8;
-      else segPace = paceSec;
+// ── 트레일런 고도 환산 페이스 ──
+function calcAdjustedPace(movingTime, distance, elevation) {
+  if (!distance || distance === 0) return '-';
+  // 고도 100m 상승 = +1분/km 추가
+  const elevationBonus = (elevation || 0) / 100 * 60; // 초 단위
+  const adjustedTime = movingTime + elevationBonus;
+  const sec = adjustedTime / (distance / 1000);
+  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+}
+
+// ── 훈련 종류 자동 분류 ──
+function classifyWorkout(activity, targetPace, sportType) {
+  // 크로스트레이닝은 별도 분류
+  if (isCrossTraining(sportType)) return sportType;
+
+  const km = activity.distance / 1000;
+  const pace = sportType === '트레일런'
+    ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
+    : calcPace(activity.moving_time, activity.distance);
+
+  const paceSec = paceToSec(pace);
+  const targetSec = paceToSec(targetPace);
+  const diff = paceSec - targetSec;
+
+  if (km < 3) return '이지런';
+  if (diff <= -25 && km <= 12) return '인터벌';
+  if (diff <= -10 && km <= 15) return '템포런';
+  if (diff <= 10 && km >= 8) return '페이스주';
+  if (km >= 20) return 'LSD';
+  if (km >= 15) return '롱런';
+  return '이지런';
+}
+
+// ── 웜업/주훈련/쿨다운 구간 분석 ──
+function analyzePhases(laps, targetPace) {
+  if (!laps || laps.length < 3) return null;
+
+  const targetSec = paceToSec(targetPace);
+  const phases = { warmup: [], main: [], cooldown: [] };
+
+  laps.forEach((lap, i) => {
+    const lapPaceSec = lap.moving_time / (lap.distance / 1000);
+    const diff = lapPaceSec - targetSec;
+
+    if (i < 2 && diff > 30) {
+      phases.warmup.push(lap);
+    } else if (i >= laps.length - 2 && diff > 20) {
+      phases.cooldown.push(lap);
     } else {
-      if (i === 0) segPace = paceSec + 15;
-      else if (i >= segments - 1) segPace = paceSec - 5;
-      else segPace = paceSec + 5;
+      phases.main.push(lap);
+    }
+  });
+
+  const warmupKm = (phases.warmup.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
+  const mainKm = (phases.main.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
+  const cooldownKm = (phases.cooldown.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
+
+  const mainPaceSec = phases.main.length > 0
+    ? phases.main.reduce((s, l) => s + l.moving_time / (l.distance / 1000), 0) / phases.main.length
+    : 0;
+  const mainPace = mainPaceSec > 0
+    ? `${Math.floor(mainPaceSec / 60)}:${String(Math.round(mainPaceSec % 60)).padStart(2, '0')}`
+    : '-';
+
+  return { warmupKm, mainKm, cooldownKm, mainPace };
+}
+
+// ── 주간 시작일 ──
+function getWeekStart(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay();
+  // 일요일(0)이면 다음 월요일(+1), 나머지는 이번 주 월요일
+  const diff = day === 0 ? 1 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── 날씨 데이터 가져오기 ──
+async function fetchWeather(lat, lng, activityDate) {
+  try {
+    if (!lat || !lng || !process.env.OPENWEATHER_API_KEY) return null;
+
+    const date = new Date(activityDate);
+    const now = new Date();
+    const diffHours = (now - date) / (1000 * 60 * 60);
+
+    let url;
+    if (diffHours < 48) {
+      // 최근 48시간: 현재 날씨
+      url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=kr`;
+    } else {
+      return null; // 과거 날씨는 유료
     }
 
-    const segTimeSec = segPace * segDist;
-    const cumTimeSec = splits.reduce((sum, s) => sum + s.segTimeSec, 0) + segTimeSec;
+    const res = await fetch(url);
+    const data = await res.json();
 
-    splits.push({
-      segment: `${startKm}~${endKm}km`,
-      pace: secToPace(segPace),
-      segTime: secToTime(segTimeSec),
-      cumTime: secToTime(cumTimeSec),
-      note: i === 0 ? '워밍업 페이스' :
-            i === 1 ? '안정화 구간' :
-            i >= segments - 2 ? '피니시 구간' :
-            '목표 페이스 유지',
-      segTimeSec
-    });
+    if (data.main) {
+      return {
+        temp: Math.round(data.main.temp),
+        feels_like: Math.round(data.main.feels_like),
+        humidity: data.main.humidity,
+        weather: data.weather?.[0]?.description || '',
+        wind_speed: data.wind?.speed || 0,
+        is_rain: data.rain != null || (data.weather?.[0]?.main === 'Rain'),
+        is_snow: data.snow != null || (data.weather?.[0]?.main === 'Snow')
+      };
+    }
+    return null;
+  } catch(e) {
+    console.error('Weather fetch error:', e);
+    return null;
   }
-  return splits;
 }
 
-async function callClaude(prompt) {
+// ── 날씨 영향 분석 ──
+function analyzeWeatherImpact(weather) {
+  if (!weather) return null;
+  const impacts = [];
+
+  // 기온
+  if (weather.temp >= 30) impacts.push(`🌡️ 고온(${weather.temp}°C) - 페이스 5~10% 저하, 심박 상승 예상`);
+  else if (weather.temp >= 25) impacts.push(`🌡️ 고온(${weather.temp}°C) - 체감온도 ${weather.feels_like}°C, 수분 보충 필수`);
+  else if (weather.temp <= 0) impacts.push(`🥶 영하(${weather.temp}°C) - 준비운동 충분히, 근육 경직 주의`);
+  else if (weather.temp <= 5) impacts.push(`❄️ 한랭(${weather.temp}°C) - 워밍업 10분 이상 권장`);
+  else if (weather.temp >= 15 && weather.temp <= 22) impacts.push(`✅ 최적 기온(${weather.temp}°C) - 최상의 러닝 컨디션`);
+
+  // 습도
+  if (weather.humidity >= 80) impacts.push(`💧 고습도(${weather.humidity}%) - 체감온도 높음, 탈수 주의`);
+
+  // 강수
+  if (weather.is_rain) impacts.push(`🌧️ 강우 - 미끄럼 주의, 페이스 조절 필요`);
+  if (weather.is_snow) impacts.push(`❄️ 강설 - 안전 최우선, 강도 낮추기 권장`);
+
+  // 바람
+  if (weather.wind_speed >= 10) impacts.push(`💨 강풍(${weather.wind_speed}m/s) - 역풍 구간 페이스 손실 고려`);
+
+  return impacts.length > 0 ? impacts.join('\n') : `🌤️ ${weather.temp}°C, 날씨 양호`;
+}
+
+// ── 컨디션 가져오기 ──
+async function fetchUserCondition(userId, activityDate) {
+  try {
+    const date = activityDate.split('T')[0];
+    const conditions = await sbGet('conditions',
+      `user_id=eq.${userId}&date=eq.${date}&select=condition,injury_part,injury_level,memo`
+    );
+    return conditions?.[0] || null;
+  } catch(e) {
+    return null;
+  }
+}
+async function fetchActivityDetails(activityId, accessToken) {
+  try {
+    // 랩 데이터
+    const lapsRes = await fetch(
+      `https://www.strava.com/api/v3/activities/${activityId}/laps`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const laps = await lapsRes.json();
+
+    // 스트림 데이터 (심박수, 케이던스, 고도)
+    const streamsRes = await fetch(
+      `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=heartrate,cadence,altitude&key_by_type=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const streams = await streamsRes.json();
+
+    return { laps: Array.isArray(laps) ? laps : [], streams };
+  } catch (e) {
+    console.error('Activity details error:', e);
+    return { laps: [], streams: {} };
+  }
+}
+
+// ── Claude API 호출 ──
+async function callClaude(prompt, maxTokens) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -111,124 +276,497 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1000,
+      max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }]
     })
   });
   const data = await res.json();
-  return data.content?.[0]?.text || '';
+  return data.content?.[0]?.text || '분석을 불러올 수 없습니다.';
 }
 
-async function generateStrategy(userId, goal, recentActs) {
-  const targetPaceSec = paceToSec(goal.target_pace || '5:27');
-  const totalDist = 42.195;
+// ── 마크다운 → 텔레그램 HTML ──
+function mdToTelegram(text) {
+  return text
+    .replace(/#{1,3} (.+)/g, '\n<b>$1</b>')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\|.+\|/g, '')
+    .replace(/[-]{3,}/g, '─────────')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
-  // 최근 실제 훈련 페이스 계산 (러닝만)
-  const runActs = recentActs.filter(a => {
-    const type = a.sport_type || a.type || '';
-    return !['수영','Swim','자전거','Ride','VirtualRide','EBikeRide'].includes(type);
+async function sendTelegram(chatId, title, analysis) {
+  if (!chatId || !process.env.TELEGRAM_BOT_TOKEN) return;
+  const msg = `${title}\n─────────\n${mdToTelegram(analysis)}`;
+  const truncated = msg.length > 4096 ? msg.substring(0, 4090) + '...' : msg;
+  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: truncated, parse_mode: 'HTML' })
+  });
+}
+
+// ── 토큰 갱신 ──
+// ── 토큰 갱신 ──
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
+
+async function decrypt(encryptedText) {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+    return new TextDecoder().decode(decrypted);
+  } catch(e) { return null; }
+}
+
+async function refreshToken(profile, userId) {
+  let clientId = process.env.STRAVA_CLIENT_ID;
+  let clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+  if (profile.personal_client_id && profile.personal_client_secret) {
+    const decryptedSecret = await decrypt(profile.personal_client_secret);
+    if (decryptedSecret) {
+      clientId = profile.personal_client_id;
+      clientSecret = decryptedSecret;
+    }
+    // 복호화 실패 시 공용 키로 fallback (Strava 확장 승인 후 사용 가능)
+  }
+
+  const res = await fetch('https://www.strava.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: profile.strava_refresh_token,
+      grant_type: 'refresh_token'
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    await sbPatch('profiles', `id=eq.${userId}`, {
+      strava_access_token: data.access_token,
+      strava_refresh_token: data.refresh_token
+    });
+    return data.access_token;
+  }
+  return profile.strava_access_token;
+}
+
+// ══════════════════════════════════════
+// 일일 분석 (1000자 이내)
+// ══════════════════════════════════════
+async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition) {
+  const km = (activity.distance / 1000).toFixed(1);
+  const pace = calcPace(activity.moving_time, activity.distance);
+  const targetPace = goal?.target_pace || '5:27';
+  const trainingPhase = getTrainingPhase(goal?.race_date);
+  const weeklyTarget = getWeeklyTarget(trainingPhase);
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+  const isCross = isCrossTraining(sportType);
+  const isTrail = sportType === '트레일런';
+  const adjustedPace = isTrail ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain) : pace;
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekKm = (recentActivities
+    .filter(a => new Date(a.start_date) >= weekStart)
+    .reduce((s, a) => s + a.distance, 0) / 1000 + parseFloat(km)).toFixed(1);
+
+  // 심박수/케이던스 요약
+  const hrData = details?.streams?.heartrate?.data || [];
+  const cadData = details?.streams?.cadence?.data || [];
+  const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
+  const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null; // 양발 기준
+
+  // 구간 분석
+  const phaseInfo = phases ? `
+웜업: ${phases.warmupKm}km
+주훈련: ${phases.mainKm}km @ ${phases.mainPace}/km
+쿨다운: ${phases.cooldownKm}km` : '구간 데이터 없음';
+
+  // 날씨 영향 분석
+  const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
+
+  // 컨디션 정보
+  const conditionInfo = condition ? `
+컨디션: ${condition.condition || '보통'}
+부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}
+${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
+
+  const prompt = `마라톤 코치로서 간결한 일일 분석을 작성하세요.
+
+선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
+PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
+
+오늘 운동:
+- 종류: ${sportType} [${workoutType}]
+- 거리: ${km}km | 시간: ${Math.floor(activity.moving_time / 60)}분
+- 페이스: ${pace}/km ${isTrail ? `(고도 환산: ${adjustedPace}/km)` : ''}
+- 고도: ${activity.total_elevation_gain || 0}m
+${avgHR ? `- 평균 심박수: ${avgHR}bpm` : ''}
+${avgCad ? `- 케이던스: ${avgCad}spm (권장: 170~180spm)` : ''}
+- 구간: ${phaseInfo}
+${weatherImpact ? `\n날씨 환경:\n${weatherImpact}` : ''}
+${conditionInfo ? `\n선수 컨디션:${conditionInfo}` : ''}
+
+이번 주: ${weekKm}km / ${weeklyTarget}km 목표
+최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`).join(', ') || '없음'}
+
+훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
+
+1000자 이내로 작성:
+
+**오늘 평가**
+${isCross ? '크로스트레이닝 관점에서 마라톤 훈련에 미치는 영향 평가' : isTrail ? '트레일런 강도를 고도 환산 페이스 기준으로 평가' : '목표 페이스 대비 평가, 웜업/주훈련/쿨다운 구성 평가'}
+${avgHR ? '심박수 기반 강도 평가 포함' : ''}
+${avgCad ? '케이던스 평가 및 개선 방향 포함' : ''}
+${weatherImpact ? '날씨가 페이스/심박에 미친 영향 분석 포함' : ''}
+${condition?.injury_part && condition.injury_part !== '없음' ? `⚠️ ${condition.injury_part} 부상(${condition.injury_level}) 고려한 조언 포함` : ''}
+${condition?.condition === '피로' ? '⚠️ 피로 컨디션 고려한 회복 조언 포함' : ''}
+
+**이번 주 영향**
+(주간 목표 달성에 미치는 영향 1문장)
+
+**남은 훈련 처방**
+(이번 주 남은 훈련 2-3개, 구체적 페이스/거리 포함${condition?.injury_part && condition.injury_part !== '없음' ? ', 부상 고려' : ''})`;
+
+  return callClaude(prompt, 800);
+}
+
+// ══════════════════════════════════════
+// 주간 분석 (2000자 이내)
+// ══════════════════════════════════════
+async function analyzeWeekly(userId, goal, accessToken) {
+  const targetPace = goal?.target_pace || '5:27';
+  const trainingPhase = getTrainingPhase(goal?.race_date);
+  const weeklyTarget = getWeeklyTarget(trainingPhase);
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+
+  const lastWeekStart = Math.floor(Date.now() / 1000) - 14 * 24 * 60 * 60;
+  const lastWeekEnd = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+  const lastWeekRes = await fetch(
+    `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=20`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  ).then(r => r.json());
+
+  const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
+  const lastWeekKm = (lastWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+
+  const lastWeekSummary = lastWeekActs.map(a => {
+    const st = getSportType(a);
+    const wt = classifyWorkout(a, targetPace, st);
+    const adjustedPace = st === '트레일런'
+      ? `(환산 ${calcAdjustedPace(a.moving_time, a.distance, a.total_elevation_gain)}/km)`
+      : '';
+    return `- [${st}/${wt}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km ${adjustedPace} 고도${a.total_elevation_gain||0}m`;
+  }).join('\n') || '기록 없음';
+
+  const prompt = `마라톤 코치로서 주간 리포트를 작성하세요.
+
+선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
+PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
+훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
+
+지난 주 기록 (총 ${lastWeekKm}km / 목표 ${weeklyTarget}km):
+${lastWeekSummary}
+
+2000자 이내로 작성:
+
+**지난 주 평가**
+(훈련량, 강도, 종류 구성 평가. 트레일런/크로스트레이닝 포함 시 마라톤 훈련 관점 평가. 3-4문장)
+
+**다음 주 훈련 계획 (목표 ${weeklyTarget}km)**
+
+| 요일 | 훈련 | 거리 | 페이스 |
+|------|------|------|--------|
+| 월 | | | |
+| 화 | | | |
+| 수 | | | |
+| 목 | | | |
+| 금 | 휴식 | - | - |
+| 토 | | | |
+| 일 | | | |
+
+**핵심 훈련 상세**
+1. [가장 중요한 훈련 - 웜업/주훈련/쿨다운 구간 포함]
+2. [두 번째 훈련]
+
+**이번 주 핵심 포인트**
+(집중할 2-3가지, 케이던스/심박수 관련 포함)`;
+
+  const analysis = await callClaude(prompt, 1800);
+  await saveWeeklyPlan(userId, analysis, goal);
+  return analysis;
+}
+
+// ── 주간 계획 저장 ──
+async function saveWeeklyPlan(userId, analysis, goal) {
+  const parsePrompt = `아래 주간 훈련 계획에서 요일별 훈련 종류만 추출해서 JSON으로 반환하세요.
+훈련 종류는 인터벌/템포런/페이스주/롱런/LSD/이지런/트레일런/수영/자전거/휴식 중 하나로만 표현하세요.
+
+${analysis.substring(0, 2000)}
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 절대 포함하지 마세요:
+{"mon":"","tue":"","wed":"","thu":"","fri":"휴식","sat":"","sun":""}`;
+
+  try {
+    const jsonStr = await callClaude(parsePrompt, 200);
+    const clean = jsonStr.replace(/```json|```/g, '').replace(/[\n\r]/g, '').trim();
+    const jsonMatch = clean.match(/\{[^}]+\}/);
+    if (!jsonMatch) throw new Error('No JSON found');
+    const plan = JSON.parse(jsonMatch[0]);
+    const weekStart = getWeekStart();
+    await sbUpsert('weekly_plans', {
+      user_id: userId, week_start: weekStart,
+      mon: plan.mon || '', tue: plan.tue || '', wed: plan.wed || '',
+      thu: plan.thu || '', fri: plan.fri || '휴식',
+      sat: plan.sat || '', sun: plan.sun || ''
+    }, 'user_id,week_start');
+  } catch (e) {
+    console.error('Weekly plan parse error:', e.message);
+  }
+}
+
+// ══════════════════════════════════════
+// 월간 분석 (4000자 이내)
+// ══════════════════════════════════════
+async function analyzeMonthly(userId, goal, accessToken) {
+  const targetPace = goal?.target_pace || '5:27';
+  const trainingPhase = getTrainingPhase(goal?.race_date);
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+
+  const lastMonthStart = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60;
+  const lastMonthEnd = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+  const lastMonthRes = await fetch(
+    `https://www.strava.com/api/v3/athlete/activities?after=${lastMonthStart}&before=${lastMonthEnd}&per_page=30`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  ).then(r => r.json());
+
+  const lastMonthActs = Array.isArray(lastMonthRes) ? lastMonthRes : [];
+  const lastMonthKm = (lastMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+
+  // 운동 종류별 집계
+  const sportCounts = {};
+  const sportKm = {};
+  lastMonthActs.forEach(a => {
+    const st = getSportType(a);
+    const wt = classifyWorkout(a, targetPace, st);
+    const key = `${st}/${wt}`;
+    sportCounts[key] = (sportCounts[key] || 0) + 1;
+    sportKm[key] = (sportKm[key] || 0) + a.distance / 1000;
   });
 
-  const recentKm = runActs.slice(0, 20).reduce((s, a) => s + a.distance, 0) / 1000;
-  const avgPaceSec = runActs.length > 0
-    ? runActs.slice(0, 10).reduce((s, a) => s + a.moving_time / (a.distance / 1000), 0) / Math.min(10, runActs.length)
-    : targetPaceSec * 1.15; // 데이터 없으면 목표보다 15% 느리게
+  const sportSummary = Object.entries(sportCounts)
+    .map(([k, v]) => `${k}: ${v}회 (${sportKm[k].toFixed(1)}km)`)
+    .join('\n');
 
-  // 목표 페이스와 실제 훈련 페이스 차이
-  const paceDiff = avgPaceSec - targetPaceSec;
-  const paceDiffStr = paceDiff > 0 ? `${Math.round(paceDiff)}초 느림` : `${Math.abs(Math.round(paceDiff))}초 빠름`;
+  const prompt = `마라톤 전문 코치로서 월간 종합 리포트를 작성하세요.
 
-  const prompt = `마라톤 코치로서 선수의 현실적인 레이스 전략 페이스를 냉철하게 계산하세요.
+선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
+PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'} / 10K ${goal?.pr_10k || '-'}
+훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
 
-선수 정보:
-- 목표 기록: ${goal.target_time} (목표 페이스 ${goal.target_pace}/km)
-- PR: 풀 ${goal.pr_full || '-'} / 하프 ${goal.pr_half || '-'} / 10K ${goal.pr_10k || '-'}
-- 최근 4주 훈련량: ${recentKm.toFixed(0)}km
-- 최근 평균 훈련 페이스: ${secToPace(avgPaceSec)}/km (목표 대비 ${paceDiffStr})
+지난 달:
+- 총 거리: ${lastMonthKm}km | 총 ${lastMonthActs.length}회
+- 운동 구성:
+${sportSummary}
 
-중요 판단 기준:
-- 실제 레이스 페이스는 훈련 페이스보다 약 10~15% 빨라질 수 있음
-- 하지만 훈련 페이스가 목표보다 많이 느리면 목표 달성이 어려움
-- 훈련량이 부족하면 현실적인 목표를 낮춰야 함
-- 냉철하고 현실적으로 판단할 것
+4000자 이내로 작성:
 
-아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "strategyA": {
-    "targetTime": "H:MM:SS",
-    "paceSec": 숫자(초단위),
-    "probability": 80,
-    "description": "전략 설명 2문장",
-    "keyPoint": "핵심 포인트 1문장"
-  },
-  "strategyB": {
-    "targetTime": "H:MM:SS",
-    "paceSec": 숫자(초단위),
-    "probability": 90,
-    "description": "전략 설명 2문장",
-    "keyPoint": "핵심 포인트 1문장"
-  }
+## 지난 달 종합 평가
+
+**훈련량 분석**
+(달성률, 러닝/크로스트레이닝 비율, 강점/약점 3-4문장)
+
+**훈련 질 분석**
+(페이스 트렌드, 종류 구성 적절성, 트레일런/크로스트레이닝 마라톤 기여도 2-3문장)
+
+**현재 목표 달성 가능성: X%**
+(솔직한 평가 2문장)
+
+---
+
+## 다음 달 훈련 로드맵
+
+**다음 달 목표**
+- 월간 목표 거리: Xkm
+- 핵심 목표: (3가지)
+
+**주차별 계획**
+1주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
+2주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
+3주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
+4주차 (Xkm): 핵심훈련 [회복 위주]
+
+**레이스까지 월별 로드맵**
+(각 월의 핵심 훈련 테마)
+
+**다음 달 미션 완료 시 달성 가능성: X%**
+(상승 근거 2-3문장)
+
+**코치 한마디**
+(동기부여 1-2문장)`;
+
+  return callClaude(prompt, 3500);
 }
 
-전략 A: 달성 가능성 80% - 최상 컨디션 기준, 현실적으로 도달 가능한 목표
-전략 B: 달성 가능성 90% - 안전한 완주 기준, 거의 확실히 달성 가능한 목표
-반드시 실제 훈련 데이터 기반으로 판단하고, 희망적 수치보다 현실적 수치를 제시하세요.`;
+// ══════════════════════════════════════
+// 트라이애슬론 일일 분석
+// ══════════════════════════════════════
+async function analyzeTriathlonDaily(activities, goal, recentActivities) {
+  const targetPace = goal?.target_pace || '5:27';
+  const triType = goal?.tri_type || 'full';
+  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
 
-  let strategies;
-  try {
-    const result = await callClaude(prompt);
-    const clean = result.replace(/```json|```/g, '').trim();
-    strategies = JSON.parse(clean);
+  // 오늘 운동들 요약
+  const todaySummary = activities.map(a => {
+    const st = getSportType(a);
+    const km = (a.distance / 1000).toFixed(1);
+    const pace = calcPace(a.moving_time, a.distance);
+    const hrs = Math.floor(a.moving_time / 3600);
+    const mins = Math.floor((a.moving_time % 3600) / 60);
+    const timeStr = hrs > 0 ? `${hrs}시간 ${mins}분` : `${mins}분`;
 
-    // 검증: paceSec이 합리적 범위인지 확인 (3시간~6시간 완주 범위)
-    const validatePace = (p) => p > 250 && p < 510; // 4:10/km ~ 8:30/km
-    if (!validatePace(strategies.strategyA?.paceSec) || !validatePace(strategies.strategyB?.paceSec)) {
-      throw new Error('Invalid pace range');
-    }
-  } catch(e) {
-    console.error('Strategy parse error:', e.message);
+    if (st === '수영') return `🏊 수영 ${km}km (${timeStr})`;
+    if (st === '자전거') return `🚴 자전거 ${km}km @ ${pace}/km (${timeStr})`;
+    return `🏃 러닝 ${km}km @ ${pace}/km (${timeStr})`;
+  }).join('\n');
 
-    // 파싱 실패 시 실제 훈련 페이스 기반으로 계산
-    // 훈련 페이스의 90% (레이스 효과) 적용
-    const racePaceSec = avgPaceSec * 0.90;
+  // 총 훈련 시간
+  const totalMins = Math.floor(activities.reduce((s, a) => s + a.moving_time, 0) / 60);
+  const runActs = activities.filter(a => getSportType(a) === '러닝' || getSportType(a) === '트레일런');
+  const swimActs = activities.filter(a => getSportType(a) === '수영');
+  const bikeActs = activities.filter(a => getSportType(a) === '자전거');
 
-    // 전략 A: 실제 훈련 페이스 기반 80% 달성 가능
-    const aPaceSec = Math.round(racePaceSec);
-    // 전략 B: 10초 더 여유있게
-    const bPaceSec = Math.round(racePaceSec + 15);
+  // 벽돌훈련 감지 (자전거 + 러닝 같은 날)
+  const isBrick = bikeActs.length > 0 && runActs.length > 0;
 
-    strategies = {
-      strategyA: {
-        targetTime: secToTime(aPaceSec * totalDist),
-        paceSec: aPaceSec,
-        probability: 80,
-        description: `현재 훈련 페이스(${secToPace(avgPaceSec)}/km) 기반 최상 컨디션 전략. 레이스 효과를 적용한 현실적 목표입니다.`,
-        keyPoint: '네거티브 스플릿으로 후반 가속'
-      },
-      strategyB: {
-        targetTime: secToTime(bPaceSec * totalDist),
-        paceSec: bPaceSec,
-        probability: 90,
-        description: `안전하고 확실한 완주 전략. 현재 훈련 상태에서 90% 이상 달성 가능한 목표입니다.`,
-        keyPoint: '이븐 페이스로 안정적 완주'
-      }
-    };
-  }
+  const prompt = `트라이애슬론 전문 코치로서 오늘 훈련을 분석하세요.
 
-  const stratA = strategies.strategyA;
-  const stratB = strategies.strategyB;
+선수 목표:
+- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
+- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'}
+- D-${daysLeft || '?'}
+- PR: 풀마라톤 ${goal?.pr_full || '-'} / 트라이애슬론 ${goal?.pr_10k || '-'}
 
-  stratA.splits = calc5KSplits(totalDist, stratA.paceSec, 'A');
-  stratA.gels = calcGelStrategy(stratA.paceSec * totalDist, stratA.paceSec);
-  stratA.totalTimeSec = stratA.paceSec * totalDist;
+오늘 훈련 (총 ${totalMins}분):
+${todaySummary}
+${isBrick ? '⚡ 벽돌훈련 감지 (자전거→러닝)' : ''}
 
-  stratB.splits = calc5KSplits(totalDist, stratB.paceSec, 'B');
-  stratB.gels = calcGelStrategy(stratB.paceSec * totalDist, stratB.paceSec);
-  stratB.totalTimeSec = stratB.paceSec * totalDist;
+최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km`).join(', ') || '없음'}
 
-  return { strategyA: stratA, strategyB: stratB };
+트라이애슬론 목표 기준:
+- 수영 목표: ${goal?.tri_swim_target || '-'}
+- 자전거 목표: ${goal?.tri_bike_target || '-'}
+- 러닝 목표: ${goal?.tri_run_target || '-'}
+
+1000자 이내로 작성:
+
+**오늘 훈련 평가**
+${isBrick ? '벽돌훈련 효과와 자전거→러닝 전환 품질 평가' : '각 종목별 강도와 품질 평가'}
+수영/자전거가 마라톤 러닝 능력에 미치는 긍정적 영향 언급
+
+**종목별 피드백**
+(오늘 한 종목들에 대한 구체적 피드백)
+
+**내일/이번 주 권장 훈련**
+(종목 균형과 회복을 고려한 처방)`;
+
+  return callClaude(prompt, 800);
 }
 
+// ══════════════════════════════════════
+// 트라이애슬론 주간 분석
+// ══════════════════════════════════════
+async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
+  const targetPace = goal?.target_pace || '5:27';
+  const triType = goal?.tri_type || 'full';
+  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
+  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
+
+  const lastWeekStart = Math.floor(Date.now() / 1000) - 14 * 24 * 60 * 60;
+  const lastWeekEnd = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+  const lastWeekRes = await fetch(
+    `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=30`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  ).then(r => r.json());
+
+  const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
+
+  // 종목별 집계
+  const swimKm = (lastWeekActs.filter(a => getSportType(a) === '수영').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const bikeKm = (lastWeekActs.filter(a => getSportType(a) === '자전거').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const runKm = (lastWeekActs.filter(a => ['러닝','트레일런'].includes(getSportType(a))).reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+  const totalMins = Math.floor(lastWeekActs.reduce((s, a) => s + a.moving_time, 0) / 60);
+  const brickSessions = lastWeekActs.filter(a => getSportType(a) === '자전거').length;
+
+  const lastWeekSummary = lastWeekActs.map(a => {
+    const st = getSportType(a);
+    return `- [${st}] ${(a.distance/1000).toFixed(1)}km / ${Math.floor(a.moving_time/60)}분`;
+  }).join('\n') || '기록 없음';
+
+  const prompt = `트라이애슬론 전문 코치로서 주간 리포트를 작성하세요.
+
+선수 목표:
+- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
+- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'} | D-${daysLeft || '?'}
+- 수영목표 ${goal?.tri_swim_target || '-'} / 자전거목표 ${goal?.tri_bike_target || '-'} / 러닝목표 ${goal?.tri_run_target || '-'}
+
+지난 주 훈련:
+- 수영: ${swimKm}km | 자전거: ${bikeKm}km | 러닝: ${runKm}km
+- 총 훈련시간: ${Math.floor(totalMins/60)}시간 ${totalMins%60}분
+- 벽돌훈련: ${brickSessions}회
+${lastWeekSummary}
+
+2000자 이내로 작성:
+
+**지난 주 평가**
+(종목별 볼륨 평가, 균형 분석, 수영/자전거의 마라톤 기여도 3-4문장)
+
+**다음 주 훈련 계획**
+
+| 요일 | 훈련 | 거리/시간 | 강도 |
+|------|------|---------|------|
+| 월 | | | |
+| 화 | | | |
+| 수 | | | |
+| 목 | | | |
+| 금 | 휴식 | - | - |
+| 토 | 벽돌훈련(자전거+러닝) | | |
+| 일 | | | |
+
+**핵심 훈련 상세**
+1. [벽돌훈련 - 자전거 거리/강도 → 러닝 거리/페이스]
+2. [장거리 수영 or 자전거]
+3. [마라톤 페이스런]
+
+**이번 주 핵심 포인트**
+(트라이애슬론과 마라톤 병행 관련 2-3가지)`;
+
+  const analysis = await callClaude(prompt, 1800);
+  await saveWeeklyPlan(userId, analysis, goal);
+  return analysis;
+}
+
+// ── 오늘 같은 날 활동 묶기 ──
+function groupActivitiesByDay(activities) {
+  const groups = {};
+  activities.forEach(a => {
+    const day = a.start_date.split('T')[0];
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(a);
+  });
+  return groups;
+}
 export default async function handler(req, res) {
   const authHeader = req.headers.authorization || '';
   const isInternal = authHeader === `Bearer ${process.env.CRON_SECRET}`;
@@ -260,21 +798,21 @@ export default async function handler(req, res) {
       return res.json({ message: 'No profiles found' });
     }
 
-    const results = [];
+    // 즉시 응답 (타임아웃 방지)
+    res.json({ success: true, users: profiles.length, message: '레이스 전략 생성 시작됨' });
 
-    for (const profile of profiles) {
+    // 백그라운드에서 각 사용자 처리
+    await Promise.allSettled(profiles.map(async profile => {
       try {
         const uid = profile.id;
-
         const goals = await sbGet('goals', `user_id=eq.${uid}&order=created_at.desc&limit=1`);
         const goal = goals?.[0];
-        if (!goal?.race_date) continue;
+        if (!goal?.race_date) return;
 
         const daysLeft = Math.ceil((new Date(goal.race_date) - new Date()) / 86400000);
-        if (daysLeft < 0) continue;
+        if (daysLeft < 0) return;
 
         const recentActs = await sbGet('activities', `user_id=eq.${uid}&order=start_date.desc&limit=30`);
-
         const strategy = await generateStrategy(uid, goal, Array.isArray(recentActs) ? recentActs : []);
 
         await fetch(`${SUPABASE_URL}/rest/v1/race_strategies?user_id=eq.${uid}`, {
@@ -287,18 +825,12 @@ export default async function handler(req, res) {
           strategy_b: strategy.strategyB,
           race_date: goal.race_date
         });
-
-        results.push({ userId: uid, success: true });
       } catch(e) {
         console.error(`Strategy error for ${profile.id}:`, e.message);
-        results.push({ userId: profile.id, error: e.message });
       }
-    }
-
-    res.json({ success: true, processed: results.length, results });
+    }));
 
   } catch(error) {
     console.error('Race strategy error:', error.message);
-    res.status(500).json({ error: error.message });
   }
 }
