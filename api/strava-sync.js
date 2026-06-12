@@ -307,14 +307,43 @@ async function sendTelegram(chatId, title, analysis) {
 }
 
 // ── 토큰 갱신 ──
-// ── 토큰 갱신 (공용 키 사용) ──
+// ── 토큰 갱신 ──
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
+
+async function decrypt(encryptedText) {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+    return new TextDecoder().decode(decrypted);
+  } catch(e) { return null; }
+}
+
 async function refreshToken(profile, userId) {
+  let clientId = process.env.STRAVA_CLIENT_ID;
+  let clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+  if (profile.personal_client_id && profile.personal_client_secret) {
+    const decryptedSecret = await decrypt(profile.personal_client_secret);
+    if (decryptedSecret) {
+      clientId = profile.personal_client_id;
+      clientSecret = decryptedSecret;
+    }
+    // 복호화 실패 시 공용 키로 fallback (Strava 확장 승인 후 사용 가능)
+  }
+
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: profile.strava_refresh_token,
       grant_type: 'refresh_token'
     })
@@ -514,6 +543,25 @@ async function analyzeMonthly(userId, goal, accessToken) {
   const trainingPhase = getTrainingPhase(goal?.race_date);
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
 
+  // 현재 월부터 레이스 월까지 명시적 계산
+  const now = new Date();
+  const raceDate = goal?.race_date ? new Date(goal.race_date) : null;
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  let roadmapMonths = '';
+  if (raceDate) {
+    const monthsLeft = Math.ceil((raceDate - now) / (30 * 24 * 60 * 60 * 1000));
+    const totalMonths = Math.min(monthsLeft, 6);
+    const monthList = [];
+    for (let i = 0; i < totalMonths; i++) {
+      const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const isNow = i === 0;
+      const isRace = i === totalMonths - 1;
+      const label = monthNames[m.getMonth()] + (isNow ? '(현재)' : '') + (isRace ? '(레이스)' : '');
+      monthList.push(label);
+    }
+    roadmapMonths = monthList.join(' → ');
+  }
+
   const lastMonthStart = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60;
   const lastMonthEnd = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
   const lastMonthRes = await fetch(
@@ -578,7 +626,9 @@ ${sportSummary}
 4주차 (Xkm): 핵심훈련 [회복 위주]
 
 **레이스까지 월별 로드맵**
-(각 월의 핵심 훈련 테마)
+반드시 아래 순서대로 각 월의 핵심 훈련 테마를 작성하세요:
+${roadmapMonths || '월 정보 없음'}
+(위 순서 그대로, 각 월에 맞는 훈련 테마 1줄씩)
 
 **다음 달 미션 완료 시 달성 가능성: X%**
 (상승 근거 2-3문장)
