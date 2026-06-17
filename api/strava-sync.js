@@ -92,36 +92,19 @@ function isCrossTraining(sportType) {
 // ── 트레일런 고도 환산 페이스 ──
 function calcAdjustedPace(movingTime, distance, elevation) {
   if (!distance || distance === 0) return '-';
-  const elevationBonus = (elevation || 0) / 100 * 60;
+  // 고도 100m 상승 = +1분/km 추가
+  const elevationBonus = (elevation || 0) / 100 * 60; // 초 단위
   const adjustedTime = movingTime + elevationBonus;
   const sec = adjustedTime / (distance / 1000);
   return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
 }
 
-// ── 언덕 강도 분류 ──
-function classifyHill(distance, elevation) {
-  if (!distance || distance === 0) return null;
-  const elevPerKm = (elevation || 0) / (distance / 1000);
-  if (elevPerKm < 5)  return null; // 평지
-  if (elevPerKm < 15) return { level: '저강도 언덕', desc: '살짝 굴곡 있음', icon: '🏃', elevPerKm };
-  if (elevPerKm < 25) return { level: '중강도 언덕', desc: '업다운이 계속 느껴짐', icon: '⛰️', elevPerKm };
-  if (elevPerKm < 40) return { level: '고강도 언덕', desc: '페이스 유지가 부담됨', icon: '🏔️', elevPerKm };
-  return { level: '매우 고강도 언덕', desc: '트레일/산악 느낌', icon: '🗻', elevPerKm };
-}
-
 // ── 훈련 종류 자동 분류 ──
 function classifyWorkout(activity, targetPace, sportType) {
+  // 크로스트레이닝은 별도 분류
   if (isCrossTraining(sportType)) return sportType;
 
   const km = activity.distance / 1000;
-  const elevation = activity.total_elevation_gain || 0;
-
-  // 일반 러닝에서 중강도 이상 언덕이면 언덕훈련으로 분류
-  if (sportType !== '트레일런') {
-    const hill = classifyHill(activity.distance, elevation);
-    if (hill && hill.elevPerKm >= 15) return '언덕훈련';
-  }
-
   const pace = sportType === '트레일런'
     ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
     : calcPace(activity.moving_time, activity.distance);
@@ -261,16 +244,14 @@ async function fetchUserCondition(userId, activityDate) {
 }
 async function fetchActivityDetails(activityId, accessToken) {
   try {
-    // 랩 데이터
     const lapsRes = await fetch(
       `https://www.strava.com/api/v3/activities/${activityId}/laps`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const laps = await lapsRes.json();
 
-    // 스트림 데이터 (심박수, 케이던스, 고도)
     const streamsRes = await fetch(
-      `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=heartrate,cadence,altitude&key_by_type=true`,
+      `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=heartrate,cadence,altitude,velocity_smooth&key_by_type=true`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const streams = await streamsRes.json();
@@ -282,7 +263,87 @@ async function fetchActivityDetails(activityId, accessToken) {
   }
 }
 
-// ── Claude API 호출 ──
+// ── 랩 상세 분석 (심박/케이던스/페이스 드랍) ──
+function analyzeLapDetails(laps) {
+  if (!laps || laps.length < 2) return null;
+
+  const lapDetails = laps.map((lap, i) => {
+    const pace = calcPace(lap.moving_time, lap.distance);
+    const hr = lap.average_heartrate ? Math.round(lap.average_heartrate) : null;
+    const cad = lap.average_cadence ? Math.round(lap.average_cadence * 2) : null;
+    return { num: i + 1, km: (lap.distance / 1000).toFixed(2), pace, hr, cad };
+  });
+
+  // 후반 페이스 드랍 감지 (마지막 3랩 vs 중간 3랩)
+  const midLaps = laps.slice(Math.floor(laps.length * 0.3), Math.floor(laps.length * 0.6));
+  const lastLaps = laps.slice(-3);
+  const midPaceSec = midLaps.length > 0
+    ? midLaps.reduce((s, l) => s + l.moving_time / (l.distance / 1000), 0) / midLaps.length : 0;
+  const lastPaceSec = lastLaps.length > 0
+    ? lastLaps.reduce((s, l) => s + l.moving_time / (l.distance / 1000), 0) / lastLaps.length : 0;
+  const paceDrop = midPaceSec > 0 && lastPaceSec > 0 ? Math.round(lastPaceSec - midPaceSec) : 0;
+
+  return { lapDetails, paceDrop };
+}
+
+// ── 페이스 변동성 (이븐 페이스 능력) ──
+function calcPaceVariability(laps) {
+  if (!laps || laps.length < 3) return null;
+  const paces = laps
+    .filter(l => l.distance > 200)
+    .map(l => l.moving_time / (l.distance / 1000));
+  if (paces.length < 2) return null;
+
+  const avg = paces.reduce((s, v) => s + v, 0) / paces.length;
+  const variance = paces.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / paces.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = (stdDev / avg) * 100; // 변동계수 (%)
+
+  let rating;
+  if (cv < 2) rating = '매우 안정적';
+  else if (cv < 4) rating = '안정적';
+  else if (cv < 7) rating = '보통';
+  else if (cv < 10) rating = '불안정';
+  else rating = '매우 불안정';
+
+  return { stdDevSec: Math.round(stdDev), cv: cv.toFixed(1), rating };
+}
+
+// ── 고도 상세 분석 (오르막/내리막 페이스) ──
+function analyzeElevationDetail(streams, laps) {
+  if (!streams?.altitude?.data || !laps || laps.length < 2) return null;
+
+  const altData = streams.altitude.data;
+
+  // 오르막/내리막 랩 분리
+  let uphillLaps = [], downhillLaps = [], flatLaps = [];
+  laps.forEach(lap => {
+    const elevGain = lap.total_elevation_gain || 0;
+    const elevLoss = (lap.elevation_low !== undefined && lap.elevation_high !== undefined)
+      ? Math.max(0, lap.elevation_high - lap.elevation_low) : 0;
+    const km = lap.distance / 1000;
+    const elevPerKm = elevGain / km;
+
+    if (elevPerKm >= 10) uphillLaps.push(lap);
+    else if (elevPerKm <= -5 || (lap.total_elevation_gain === 0 && km > 0.3)) downhillLaps.push(lap);
+    else flatLaps.push(lap);
+  });
+
+  const avgPace = (lapsArr) => {
+    if (lapsArr.length === 0) return null;
+    const totalTime = lapsArr.reduce((s, l) => s + l.moving_time, 0);
+    const totalDist = lapsArr.reduce((s, l) => s + l.distance, 0);
+    return totalDist > 0 ? calcPace(totalTime, totalDist) : null;
+  };
+
+  return {
+    uphillPace: avgPace(uphillLaps),
+    downhillPace: avgPace(downhillLaps),
+    flatPace: avgPace(flatLaps),
+    uphillCount: uphillLaps.length,
+    downhillCount: downhillLaps.length
+  };
+}
 async function callClaude(prompt, maxTokens) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -323,14 +384,44 @@ async function sendTelegram(chatId, title, analysis) {
   });
 }
 
-// ── 토큰 갱신 (공용 키 사용) ──
+// ── 토큰 갱신 ──
+// ── 토큰 갱신 ──
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || 'babaschool2024encrypt';
+
+async function decrypt(encryptedText) {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(ENCRYPT_KEY.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+    );
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+    return new TextDecoder().decode(decrypted);
+  } catch(e) { return null; }
+}
+
 async function refreshToken(profile, userId) {
+  let clientId = process.env.STRAVA_CLIENT_ID;
+  let clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+  if (profile.personal_client_id && profile.personal_client_secret) {
+    const decryptedSecret = await decrypt(profile.personal_client_secret);
+    if (decryptedSecret) {
+      clientId = profile.personal_client_id;
+      clientSecret = decryptedSecret;
+    }
+    // 복호화 실패 시 공용 키로 fallback (Strava 확장 승인 후 사용 가능)
+  }
+
   const res = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: profile.strava_refresh_token,
       grant_type: 'refresh_token'
     })
@@ -360,9 +451,27 @@ async function analyzeDailyActivity(activity, goal, recentActivities, workoutTyp
   const isTrail = sportType === '트레일런';
   const adjustedPace = isTrail ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain) : pace;
 
-  // 언덕 강도 분석
+  // 언덕 강도
   const hill = !isTrail ? classifyHill(activity.distance, activity.total_elevation_gain) : null;
   const hillInfo = hill ? `\n언덕 강도: ${hill.icon} ${hill.level} (${hill.elevPerKm.toFixed(1)}m/km · ${hill.desc})` : '';
+
+  // 랩 상세 + 페이스 변동성 + 고도 상세
+  const lapDetail = analyzeLapDetails(details?.laps);
+  const paceVar = calcPaceVariability(details?.laps);
+  const elevDetail = analyzeElevationDetail(details?.streams, details?.laps);
+
+  const lapSummary = lapDetail?.lapDetails?.slice(0, 8).map(l =>
+    `  랩${l.num}(${l.km}km): ${l.pace}/km${l.hr ? ` ❤️${l.hr}` : ''}${l.cad ? ` 케${l.cad}` : ''}`
+  ).join('\n') || '';
+
+  const paceDrop = lapDetail?.paceDrop || 0;
+  const paceDropInfo = paceDrop > 15 ? `⚠️ 후반 페이스 드랍 ${paceDrop}초/km (심각한 체력 저하)`
+    : paceDrop > 5 ? `후반 페이스 드랍 ${paceDrop}초/km`
+    : paceDrop <= 0 ? '✅ 네거티브 스플릿 성공' : '';
+
+  const paceVarInfo = paceVar ? `페이스 변동성: ±${paceVar.stdDevSec}초/km (${paceVar.rating}, CV ${paceVar.cv}%)` : '';
+  const elevDetailInfo = elevDetail && (elevDetail.uphillPace || elevDetail.downhillPace)
+    ? `오르막 ${elevDetail.uphillPace || '-'}/km | 내리막 ${elevDetail.downhillPace || '-'}/km | 평지 ${elevDetail.flatPace || '-'}/km` : '';
 
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
@@ -371,65 +480,51 @@ async function analyzeDailyActivity(activity, goal, recentActivities, workoutTyp
     .filter(a => new Date(a.start_date) >= weekStart)
     .reduce((s, a) => s + a.distance, 0) / 1000 + parseFloat(km)).toFixed(1);
 
-  // 심박수/케이던스 요약
   const hrData = details?.streams?.heartrate?.data || [];
   const cadData = details?.streams?.cadence?.data || [];
   const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
-  const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null; // 양발 기준
+  const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
 
-  // 구간 분석
-  const phaseInfo = phases ? `
-웜업: ${phases.warmupKm}km
-주훈련: ${phases.mainKm}km @ ${phases.mainPace}/km
-쿨다운: ${phases.cooldownKm}km` : '구간 데이터 없음';
-
-  // 날씨 영향 분석
+  const phaseInfo = phases ? `웜업: ${phases.warmupKm}km | 주훈련: ${phases.mainKm}km @ ${phases.mainPace}/km | 쿨다운: ${phases.cooldownKm}km` : '구간 데이터 없음';
   const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
+  const conditionInfo = condition ? `컨디션: ${condition.condition || '보통'} | 부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}${condition.memo ? ` | ${condition.memo}` : ''}` : '';
 
-  // 컨디션 정보
-  const conditionInfo = condition ? `
-컨디션: ${condition.condition || '보통'}
-부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}
-${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
+  const prompt = `너는 결과로만 말하는 독한 마라톤 코치다. 칭찬은 진짜 잘했을 때만, 나머지는 냉철하게 지적하고 구체적 처방을 내려라. 감성적 위로 없이 팩트로만 말해라.
 
-  const prompt = `마라톤 코치로서 간결한 일일 분석을 작성하세요.
-
-선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
+선수: ${goal?.race_name || '마라톤'} 목표 ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
 
 오늘 운동:
-- 종류: ${sportType} [${workoutType}]
-- 거리: ${km}km | 시간: ${Math.floor(activity.moving_time / 60)}분
-- 페이스: ${pace}/km ${isTrail ? `(고도 환산: ${adjustedPace}/km)` : ''}
-- 고도: ${activity.total_elevation_gain || 0}m${hillInfo}
-${avgHR ? `- 평균 심박수: ${avgHR}bpm` : ''}
-${avgCad ? `- 케이던스: ${avgCad}spm (권장: 170~180spm)` : ''}
+- ${sportType} [${workoutType}] ${km}km / ${Math.floor(activity.moving_time / 60)}분
+- 페이스: ${pace}/km ${isTrail ? `(고도환산: ${adjustedPace}/km)` : ''}${hillInfo}
+- 고도: ${activity.total_elevation_gain || 0}m${elevDetailInfo ? `\n- 구간별: ${elevDetailInfo}` : ''}
+${avgHR ? `- 심박: ${avgHR}bpm` : ''}${avgCad ? ` | 케이던스: ${avgCad}spm` : ''}
 - 구간: ${phaseInfo}
-${weatherImpact ? `\n날씨 환경:\n${weatherImpact}` : ''}
-${conditionInfo ? `\n선수 컨디션:${conditionInfo}` : ''}
+${lapSummary ? `- 랩 상세:\n${lapSummary}` : ''}
+${paceDropInfo ? `- ${paceDropInfo}` : ''}
+${paceVarInfo ? `- ${paceVarInfo}` : ''}
+${weatherImpact ? `날씨: ${weatherImpact}` : ''}
+${conditionInfo ? `컨디션: ${conditionInfo}` : ''}
 
-이번 주: ${weekKm}km / ${weeklyTarget}km 목표
-최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`).join(', ') || '없음'}
-
+이번 주: ${weekKm}km / ${weeklyTarget}km | 최근: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`).join(', ') || '없음'}
 훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
 
-1000자 이내로 작성:
+900자 이내로 작성. 코치 말투: 직설적, 냉철, 구체적. "수고했습니다" 같은 말 금지.
 
 **오늘 평가**
-${isCross ? '크로스트레이닝 관점에서 마라톤 훈련에 미치는 영향 평가' : isTrail ? '트레일런 강도를 고도 환산 페이스 기준으로 평가' : hill ? `언덕훈련 평가: ${hill.icon} ${hill.level}(${hill.elevPerKm.toFixed(1)}m/km) - 고도 환산 실질 강도, 심폐/하체 근지구력/마라톤 후반 효과 포함` : '목표 페이스 대비 평가, 웜업/주훈련/쿨다운 구성 평가'}
-${avgHR ? '심박수 기반 강도 평가 포함' : ''}
-${avgCad ? '케이던스 평가 및 개선 방향 포함' : ''}
-${weatherImpact ? '날씨가 페이스/심박에 미친 영향 분석 포함' : ''}
-${condition?.injury_part && condition.injury_part !== '없음' ? `⚠️ ${condition.injury_part} 부상(${condition.injury_level}) 고려한 조언 포함` : ''}
-${condition?.condition === '피로' ? '⚠️ 피로 컨디션 고려한 회복 조언 포함' : ''}
+${isCross ? '크로스트레이닝이 마라톤에 미치는 실질적 효과 냉철하게 평가' : isTrail ? '트레일런 고도환산 강도로 평가, 마라톤 훈련 관점 효과' : hill ? `언덕훈련 ${hill.level} 평가: 고도환산 실질강도, 하체/심폐 효과, 마라톤 레이스 후반에 미치는 장기 효과` : '목표 페이스 달성 여부 직접 평가, 칭찬/지적 팩트로'}
+${paceDrop > 10 ? '후반 페이스 드랍 원인 분석 및 개선 방향 지적' : ''}
+${paceVar && parseFloat(paceVar.cv) > 5 ? `페이스 변동성 CV ${paceVar.cv}%: 마라톤에서 이게 왜 문제인지 직접 설명` : ''}
+${avgCad && avgCad < 165 ? `케이던스 ${avgCad}spm: 목표 170~180 대비 부족, 개선 방법 구체적으로` : ''}
+${condition?.injury_part && condition.injury_part !== '없음' ? `⚠️ ${condition.injury_part} 부상(${condition.injury_level}): 현실적 훈련 조정 지시` : ''}
 
 **이번 주 영향**
-(주간 목표 달성에 미치는 영향 1문장)
+(주간 목표 달성 가능성 수치로 냉정하게 판단. 부족하면 직접 말해라.)
 
 **남은 훈련 처방**
-(이번 주 남은 훈련 2-3개, 구체적 페이스/거리 포함${condition?.injury_part && condition.injury_part !== '없음' ? ', 부상 고려' : ''})`;
+(남은 요일 훈련 2-3개, 페이스/거리 구체적으로. 핑계 없이 실행 가능한 처방만.)`;
 
-  return callClaude(prompt, 800);
+  return callClaude(prompt, 900);
 }
 
 // ══════════════════════════════════════
@@ -457,12 +552,10 @@ async function analyzeWeekly(userId, goal, accessToken) {
     const adjustedPace = st === '트레일런'
       ? `(환산 ${calcAdjustedPace(a.moving_time, a.distance, a.total_elevation_gain)}/km)`
       : '';
-    const hill = st !== '트레일런' ? classifyHill(a.distance, a.total_elevation_gain) : null;
-    const hillTag = hill ? ` ${hill.icon}${hill.level}` : '';
-    return `- [${st}/${wt}${hillTag}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km ${adjustedPace} 고도${a.total_elevation_gain||0}m`;
+    return `- [${st}/${wt}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km ${adjustedPace} 고도${a.total_elevation_gain||0}m`;
   }).join('\n') || '기록 없음';
 
-  const prompt = `마라톤 코치로서 주간 리포트를 작성하세요.
+  const prompt = `너는 결과로만 말하는 독한 마라톤 코치다. 데이터로 냉정하게 평가하고, 다음 주 훈련을 구체적으로 지시해라.
 
 선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
@@ -471,10 +564,10 @@ PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
 지난 주 기록 (총 ${lastWeekKm}km / 목표 ${weeklyTarget}km):
 ${lastWeekSummary}
 
-2000자 이내로 작성:
+2000자 이내. 코치 말투: 직설적, 냉철. "수고했어요" 금지.
 
 **지난 주 평가**
-(훈련량, 강도, 종류 구성 평가. 트레일런/크로스트레이닝 포함 시 마라톤 훈련 관점 평가. 언덕 훈련이 있으면 고도 기반 실질 운동강도와 마라톤 효과 별도 평가. 3-4문장)
+(목표 ${weeklyTarget}km 대비 ${lastWeekKm}km - 달성률 수치 먼저. 부족하면 왜 문제인지 직접 말해라. 언덕/트레일런/크로스트레이닝 있으면 마라톤에 실질 효과 냉철하게 평가. 3-4문장)
 
 **다음 주 훈련 계획 (목표 ${weeklyTarget}km)**
 
@@ -489,11 +582,11 @@ ${lastWeekSummary}
 | 일 | | | |
 
 **핵심 훈련 상세**
-1. [가장 중요한 훈련 - 웜업/주훈련/쿨다운 구간 포함]
-2. [두 번째 훈련]
+1. [가장 중요한 훈련 - 웜업/주훈련/쿨다운 페이스 구체적으로]
+2. [두 번째 훈련 - 구체적 지시]
 
 **이번 주 핵심 포인트**
-(집중할 2-3가지, 케이던스/심박수 관련 포함)`;
+(개선 필요 사항 2-3가지 직접 지적. 케이던스/페이스 안정성 등 데이터 기반.)`;
 
   const analysis = await callClaude(prompt, 1800);
   await saveWeeklyPlan(userId, analysis, goal);
@@ -503,7 +596,7 @@ ${lastWeekSummary}
 // ── 주간 계획 저장 ──
 async function saveWeeklyPlan(userId, analysis, goal) {
   const parsePrompt = `아래 주간 훈련 계획에서 요일별 훈련 종류만 추출해서 JSON으로 반환하세요.
-훈련 종류는 인터벌/템포런/페이스주/롱런/LSD/이지런/언덕훈련/트레일런/수영/자전거/휴식 중 하나로만 표현하세요.
+훈련 종류는 인터벌/템포런/페이스주/롱런/LSD/이지런/트레일런/수영/자전거/휴식 중 하나로만 표현하세요.
 
 ${analysis.substring(0, 2000)}
 
@@ -536,23 +629,6 @@ async function analyzeMonthly(userId, goal, accessToken) {
   const trainingPhase = getTrainingPhase(goal?.race_date);
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
 
-  // 현재 월부터 레이스 월까지 명시적 계산
-  const now = new Date();
-  const raceDate = goal?.race_date ? new Date(goal.race_date) : null;
-  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  let roadmapMonths = '';
-  if (raceDate) {
-    const monthsLeft = Math.ceil((raceDate - now) / (30 * 24 * 60 * 60 * 1000));
-    const totalMonths = Math.min(monthsLeft, 6);
-    const monthList = [];
-    for (let i = 0; i < totalMonths; i++) {
-      const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const label = monthNames[m.getMonth()] + (i === 0 ? '(현재)' : '') + (i === totalMonths - 1 ? '(레이스)' : '');
-      monthList.push(label);
-    }
-    roadmapMonths = monthList.join(' → ');
-  }
-
   const lastMonthStart = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60;
   const lastMonthEnd = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
   const lastMonthRes = await fetch(
@@ -569,8 +645,7 @@ async function analyzeMonthly(userId, goal, accessToken) {
   lastMonthActs.forEach(a => {
     const st = getSportType(a);
     const wt = classifyWorkout(a, targetPace, st);
-    const hill = st !== '트레일런' ? classifyHill(a.distance, a.total_elevation_gain) : null;
-    const key = hill ? `${st}/${wt}(${hill.level})` : `${st}/${wt}`;
+    const key = `${st}/${wt}`;
     sportCounts[key] = (sportCounts[key] || 0) + 1;
     sportKm[key] = (sportKm[key] || 0) + a.distance / 1000;
   });
@@ -579,7 +654,7 @@ async function analyzeMonthly(userId, goal, accessToken) {
     .map(([k, v]) => `${k}: ${v}회 (${sportKm[k].toFixed(1)}km)`)
     .join('\n');
 
-  const prompt = `마라톤 전문 코치로서 월간 종합 리포트를 작성하세요.
+  const prompt = `너는 독한 마라톤 코치다. 지난 달 훈련을 데이터로 냉정하게 해부하고, 다음 달 로드맵을 구체적으로 지시해라. 감성 없이 팩트로만.
 
 선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'} / 10K ${goal?.pr_10k || '-'}
@@ -595,13 +670,13 @@ ${sportSummary}
 ## 지난 달 종합 평가
 
 **훈련량 분석**
-(달성률, 러닝/크로스트레이닝 비율, 강점/약점 3-4문장)
+(달성률 수치 먼저. 부족하면 목표 달성에 어떤 영향인지 직접 말해라. 언덕/트레일런 있으면 마라톤 관점 실질 효과. 3-4문장)
 
 **훈련 질 분석**
-(페이스 트렌드, 종류 구성 적절성, 트레일런/크로스트레이닝 마라톤 기여도 2-3문장)
+(페이스가 목표 대비 어떤지 수치로. 종류 구성이 마라톤 준비에 맞는지 냉철하게. 2-3문장)
 
 **현재 목표 달성 가능성: X%**
-(솔직한 평가 2문장)
+(근거 있는 냉정한 수치. 희망적 수치 금지. 2문장)
 
 ---
 
@@ -618,15 +693,13 @@ ${sportSummary}
 4주차 (Xkm): 핵심훈련 [회복 위주]
 
 **레이스까지 월별 로드맵**
-반드시 아래 순서대로 각 월의 핵심 훈련 테마를 작성하세요:
-${roadmapMonths || '월 정보 없음'}
-(위 순서 그대로, 각 월에 맞는 훈련 테마 1줄씩)
+(각 월의 핵심 훈련 테마)
 
 **다음 달 미션 완료 시 달성 가능성: X%**
 (상승 근거 2-3문장)
 
 **코치 한마디**
-(동기부여 1-2문장)`;
+(채찍질 한 마디. 현실을 직시하게 하는 말. 위로 말고 각성.)`;
 
   return callClaude(prompt, 3500);
 }
