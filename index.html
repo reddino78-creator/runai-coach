@@ -961,6 +961,18 @@ select.input-field option { background:var(--dark3); }
         </div>
       </div>
 
+      <!-- 4.5단: 선수 약점 프로파일 -->
+      <div class="db-section" id="db-athlete-section" style="display:none">
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace">🧬 나의 약점 프로파일</div>
+            <a id="db-athlete-refresh" onclick="refreshAthleteProfile()" style="font-size:11px;color:var(--orange);cursor:pointer">🔄 갱신</a>
+          </div>
+          <div id="db-athlete-body" style="font-size:13px;color:var(--gray-light);line-height:1.7"></div>
+          <div id="db-athlete-updated" style="font-size:10px;color:var(--gray);margin-top:10px"></div>
+        </div>
+      </div>
+
       <!-- 5단: 최근 활동 -->
       <div class="db-section">
         <div class="db-section-title">최근 활동</div>
@@ -1652,6 +1664,36 @@ select.input-field option { background:var(--dark3); }
           </div>
           <button class="save-btn" onclick="savePR()">기록 업데이트</button>
         </div>
+
+        <div class="settings-card settings-full">
+          <div class="sc-title">❤️ 심박 설정</div>
+          <div class="sc-sub-text">훈련 심박 구간 계산에 쓰여요. 약점 분석과 AI 코칭이 이 구간으로 강도를 평가합니다.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <label class="input-label">최대심박</label>
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <button type="button" id="hrModeAuto" onclick="setHrMaxMode('auto')" style="flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent">🤖 자동</button>
+                <button type="button" id="hrModeManual" onclick="setHrMaxMode('manual')" style="flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent">✏️ 직접 입력</button>
+              </div>
+              <div id="hrMaxAutoBox" style="background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)"><span id="hrMaxAutoVal">--</span> <span style="font-size:12px">bpm</span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px;line-height:1.5" id="hrMaxAutoBasis">러닝 심박 기록을 분석하면 표시돼요</div>
+              </div>
+              <input class="input-field" type="number" inputmode="numeric" id="settingHrMax" placeholder="예: 188" min="120" max="230" style="display:none" oninput="updateHrZonesPreview()">
+            </div>
+            <div>
+              <label class="input-label">안정시 심박 (선택)</label>
+              <div style="height:38px"></div>
+              <input class="input-field" type="number" inputmode="numeric" id="settingHrRest" placeholder="예: 55" min="30" max="110" oninput="updateHrZonesPreview()">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);line-height:1.6;margin-bottom:12px">
+            💡 최대심박은 대회 막판 스퍼트나 측정 테스트 기록을 알면 직접 입력이 더 정확해요.<br>
+            💡 안정시 심박은 아침에 일어나 누운 채 1분 측정(며칠 평균)하거나 워치에 표시되는 값을 쓰세요. 입력하면 여유심박 방식으로 더 개인에 맞는 구간이 계산돼요.
+          </div>
+          <div id="hrZonesBox" style="display:none;background:var(--dark3);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
+          <button class="save-btn" onclick="saveHeartRate()">심박 저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1904,6 +1946,7 @@ async function loadUserData() {
   document.getElementById('settingName').value = name;
   document.getElementById('settingEmail').value = currentUser.email || '';
   if (profile?.telegram_chat_id) document.getElementById('settingTelegram').value = profile.telegram_chat_id;
+  applyHeartRateSettings(profile);
 
   // Latest goal
   const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
@@ -2057,6 +2100,174 @@ async function loadUserDataExtra() {
   await loadTodayCondition();
   // 레이스 전략 불러오기
   await loadRaceStrategy();
+  // 선수 약점 프로파일 (실패해도 다른 화면에 영향 없도록 분리)
+  loadAthleteProfile().catch(e => console.error('athlete profile', e));
+}
+
+// ── 선수 약점 프로파일 ──
+function escapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderAthleteProfile(p) {
+  const body = document.getElementById('db-athlete-body');
+  const weak = p.weaknesses || [], strong = p.strengths || [], caution = p.cautions || [];
+  let html = '';
+  if (weak.length === 0 && strong.length === 0 && caution.length === 0) {
+    html = '<div style="color:var(--gray)">아직 판단할 데이터가 부족해요. 러닝 기록이 쌓이면 자동으로 분석돼요.</div>';
+  }
+  weak.forEach(w => {
+    const color = w.severity === 'high' ? 'var(--orange)' : '#f5a623';
+    const tag = w.severity === 'high' ? '집중 개선' : '개선 필요';
+    html += `<div style="border-left:3px solid ${color};padding:6px 0 6px 12px;margin-bottom:12px">
+      <div style="font-weight:600;color:var(--white,#fff)">${escapeHtml(w.label)}
+        <span style="font-size:10px;color:${color};border:1px solid ${color};border-radius:6px;padding:1px 6px;margin-left:6px">${tag}</span></div>
+      <div style="font-size:11px;color:var(--gray);margin:3px 0">📊 ${escapeHtml(w.evidence)}</div>
+      <div style="font-size:12px">💡 ${escapeHtml(w.advice)}</div>
+    </div>`;
+  });
+  if (strong.length) {
+    html += `<div style="margin-top:4px"><div style="font-size:11px;color:var(--gray);margin-bottom:6px">💪 강점</div>
+      ${strong.map(s => `<div style="font-size:12px;margin-bottom:4px"><span style="color:var(--green)">✓</span> ${escapeHtml(s.label)} <span style="color:var(--gray);font-size:11px">· ${escapeHtml(s.evidence)}</span></div>`).join('')}</div>`;
+  }
+  if (caution.length) {
+    html += `<div style="margin-top:10px;font-size:12px;color:#f5a623">⚠️ 주의 부위: ${caution.map(c => `${escapeHtml(c.part)} (최근 6개월 ${c.count}회)`).join(', ')}</div>`;
+  }
+  body.innerHTML = html;
+  document.getElementById('db-athlete-updated').textContent =
+    p.updated_at ? `${new Date(p.updated_at).toLocaleDateString('ko-KR')} 분석 · 매주 주간 리포트 때 자동 갱신` : '';
+  document.getElementById('db-athlete-section').style.display = 'block';
+  setHrAutoInfo(p.metrics || {});
+}
+
+// ── 심박 설정 ──
+// 서버(strava-sync.js)의 HR_ZONE_PCT와 같은 기준(Daniels). 둘 중 하나를 바꾸면 함께 바꿀 것
+const HR_ZONE_PCT = {
+  max: { easy: [0.65, 0.79], marathon: [0.80, 0.87], threshold: [0.88, 0.92], interval: [0.93, 1.00] },
+  hrr: { easy: [0.59, 0.74], marathon: [0.75, 0.82], threshold: [0.83, 0.88], interval: [0.89, 1.00] },
+};
+const HR_ZONE_INFO = [
+  { key: 'easy',      label: '이지',           use: '이지런·롱런·회복', color: '#27AE60' },
+  { key: 'marathon',  label: '마라톤',         use: '페이스주',         color: '#2D9CDB' },
+  { key: 'threshold', label: '역치',           use: '템포런',           color: '#f5a623' },
+  { key: 'interval',  label: '인터벌',         use: '인터벌',           color: '#FC4C02' },
+];
+let hrMaxMode = 'auto';
+let hrMaxAutoValue = null;
+
+function setHrMaxMode(mode) {
+  hrMaxMode = mode;
+  const on = 'border:1px solid var(--orange);color:var(--orange)';
+  const off = 'border:1px solid rgba(255,255,255,.12);color:var(--gray)';
+  const base = 'flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent;';
+  document.getElementById('hrModeAuto').style.cssText = base + (mode === 'auto' ? on : off);
+  document.getElementById('hrModeManual').style.cssText = base + (mode === 'manual' ? on : off);
+  document.getElementById('hrMaxAutoBox').style.display = mode === 'auto' ? 'block' : 'none';
+  document.getElementById('settingHrMax').style.display = mode === 'manual' ? 'block' : 'none';
+  if (mode === 'manual' && !document.getElementById('settingHrMax').value && hrMaxAutoValue) {
+    document.getElementById('settingHrMax').value = hrMaxAutoValue; // 자동 추정값에서 출발
+  }
+  updateHrZonesPreview();
+}
+
+function setHrAutoInfo(m) {
+  hrMaxAutoValue = m.hrMaxAuto || null;
+  document.getElementById('hrMaxAutoVal').textContent = hrMaxAutoValue || '--';
+  document.getElementById('hrMaxAutoBasis').textContent = hrMaxAutoValue
+    ? `🤖 ${m.hrMaxAutoBasis || '러닝 기록 기반 추정'}`
+    : '심박 기록이 부족해 추정할 수 없어요. 직접 입력해주세요.';
+  updateHrZonesPreview();
+}
+
+function applyHeartRateSettings(profile) {
+  document.getElementById('settingHrRest').value = profile?.hr_rest || '';
+  document.getElementById('settingHrMax').value = profile?.hr_max || '';
+  setHrMaxMode(profile?.hr_max ? 'manual' : 'auto');
+}
+
+function currentHrValues() {
+  const max = hrMaxMode === 'manual'
+    ? parseInt(document.getElementById('settingHrMax').value, 10) || null
+    : hrMaxAutoValue;
+  const rest = parseInt(document.getElementById('settingHrRest').value, 10) || null;
+  return { max, rest };
+}
+
+function updateHrZonesPreview() {
+  const box = document.getElementById('hrZonesBox');
+  const { max, rest } = currentHrValues();
+  if (!max || max < 120 || max > 230) { box.style.display = 'none'; return; }
+  const useRest = rest && rest >= 30 && rest < max - 20;
+  const pct = useRest ? HR_ZONE_PCT.hrr : HR_ZONE_PCT.max;
+  const at = (p) => Math.round(useRest ? rest + p * (max - rest) : p * max);
+  box.innerHTML =
+    `<div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">
+       내 훈련 심박 구간 · ${useRest ? '여유심박(안정시 반영)' : '최대심박 %'} 기준</div>` +
+    HR_ZONE_INFO.map(z => `
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:4px 0">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}
+          <span style="color:var(--gray);font-size:11px"> · ${z.use}</span></span>
+        <span style="font-family:'DM Mono',monospace">${at(pct[z.key][0])}–${at(pct[z.key][1])}</span>
+      </div>`).join('');
+  box.style.display = 'block';
+}
+
+async function saveHeartRate() {
+  const rawMax = document.getElementById('settingHrMax').value.trim();
+  const rawRest = document.getElementById('settingHrRest').value.trim();
+  const hr_max = hrMaxMode === 'manual' ? parseInt(rawMax, 10) : null;
+  const hr_rest = rawRest ? parseInt(rawRest, 10) : null;
+
+  if (hrMaxMode === 'manual' && !(hr_max >= 120 && hr_max <= 230)) { toast('⚠️ 최대심박은 120~230 사이로 입력해주세요'); return; }
+  if (hr_rest !== null && !(hr_rest >= 30 && hr_rest <= 110)) { toast('⚠️ 안정시 심박은 30~110 사이로 입력해주세요'); return; }
+  const maxForCheck = hr_max || hrMaxAutoValue;
+  if (hr_rest !== null && maxForCheck && hr_rest >= maxForCheck - 20) { toast('⚠️ 안정시 심박이 최대심박에 비해 너무 높아요'); return; }
+
+  const { error } = await sb.from('profiles').update({ hr_max, hr_rest }).eq('id', currentUser.id);
+  if (error) { toast('⚠️ 저장 실패: ' + error.message); return; }
+  toast('✅ 심박 설정을 저장했어요. 약점 분석을 새 기준으로 다시 계산할게요');
+  // 새 심박 기준으로 약점 프로파일 재계산 → 다음 코칭부터 반영
+  try {
+    const fresh = await requestAthleteProfile();
+    if (fresh) renderAthleteProfile(fresh);
+  } catch (e) { console.error('athlete profile refresh', e); }
+}
+
+async function requestAthleteProfile() {
+  const { data } = await sb.auth.getSession();
+  const token = data?.session?.access_token;
+  const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=profile`, {
+    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const result = await res.json();
+  return result?.success ? result.profile : null;
+}
+
+async function loadAthleteProfile() {
+  if (!currentUser) return;
+  const { data } = await sb.from('athlete_profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
+  if (data) renderAthleteProfile(data);
+  // 없거나 7일 이상 지났으면 새로 분석 (화면은 기존 값 먼저 보여주고 갱신)
+  const stale = !data || (Date.now() - new Date(data.updated_at).getTime()) > 7 * 86400000;
+  if (stale) {
+    const fresh = await requestAthleteProfile();
+    if (fresh) renderAthleteProfile(fresh);
+  }
+}
+
+async function refreshAthleteProfile() {
+  if (!currentUser) return;
+  const btn = document.getElementById('db-athlete-refresh');
+  btn.textContent = '⏳ 분석 중...';
+  try {
+    const fresh = await requestAthleteProfile();
+    if (fresh) { renderAthleteProfile(fresh); toast('🧬 약점 프로파일을 갱신했어요'); }
+    else toast('❌ 프로파일 분석에 실패했어요');
+  } catch (e) {
+    toast('❌ 프로파일 분석에 실패했어요');
+  } finally {
+    btn.textContent = '🔄 갱신';
+  }
 }
 
 async function loadWeeklyPlan() {
