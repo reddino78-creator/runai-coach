@@ -1174,6 +1174,84 @@ function groupActivitiesByDay(activities) {
   });
   return groups;
 }
+// ══════════════════════════════════════
+// PR 자동 갱신 — Strava best_efforts(구간 최고기록) 기반
+// 새 러닝 활동이 저장될 때마다 goals의 PR과 비교해 더 빠르면 갱신
+// ══════════════════════════════════════
+const PR_EFFORTS = {
+  'Marathon':      { key: 'pr_full', label: '풀코스' },
+  'Half-Marathon': { key: 'pr_half', label: '하프코스' },
+  '10K':           { key: 'pr_10k',  label: '10K' },
+  '5K':            { key: 'pr_5k',   label: '5K' },
+};
+
+function prTimeToSec(t) {
+  if (!t || typeof t !== 'string') return Infinity;
+  const p = t.trim().split(':').map(Number);
+  if (p.some(isNaN)) return Infinity;
+  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+  if (p.length === 2) return p[0] * 60 + p[1];
+  return Infinity;
+}
+
+function prSecToTime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.round(s % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    : `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+async function checkAndUpdatePR(userId, activity, goal, accessToken, chatId) {
+  try {
+    if (!goal?.id) return;
+    // 실외 러닝만 (트레드밀 VirtualRun은 거리 정확도 문제로 제외)
+    const st = activity.sport_type || activity.type;
+    if (st !== 'Run' && st !== 'TrailRun') return;
+    if ((activity.distance || 0) < 4900) return;
+
+    // 요약 활동에는 best_efforts가 없으므로 상세 조회
+    let efforts = activity.best_efforts;
+    if (!Array.isArray(efforts)) {
+      const r = await fetch(`https://www.strava.com/api/v3/activities/${activity.id}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } });
+      const detail = await r.json();
+      efforts = Array.isArray(detail.best_efforts) ? detail.best_efforts : [];
+    }
+
+    const updates = {};
+    const improved = [];
+    const now = new Date().toISOString();
+    for (const e of efforts) {
+      const map = PR_EFFORTS[e.name];
+      if (!map || !e.elapsed_time) continue;
+      const current = prTimeToSec(goal[map.key]);
+      if (e.elapsed_time < current) {
+        const newTime = prSecToTime(e.elapsed_time);
+        updates[map.key] = newTime;
+        updates[`${map.key}_updated_at`] = now;
+        improved.push(`🏅 <b>${map.label}</b>: ${goal[map.key] || '-'} → <b>${newTime}</b>`);
+      }
+    }
+    if (improved.length === 0) return;
+
+    await sbPatch('goals', `id=eq.${goal.id}`, updates);
+    Object.assign(goal, updates); // 같은 동기화에서 다음 활동 비교 시 최신 PR 사용
+
+    if (chatId && process.env.TELEGRAM_BOT_TOKEN) {
+      const msg = `🎉 <b>개인 최고 기록(PB) 갱신!</b>\n─────────\n${improved.join('\n')}\n\n📅 ${activity.start_date_local?.slice(0, 10) || ''} · ${activity.name}`;
+      await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'HTML' })
+      });
+    }
+  } catch (e) {
+    console.error('PR check error:', e.message); // PR 실패가 동기화 전체를 막지 않도록
+  }
+}
+
 export default async function handler(req, res) {
   const userId = req.query.user_id || req.body?.user_id;
   const type = req.query.type || 'daily';
@@ -1284,6 +1362,7 @@ export default async function handler(req, res) {
           const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
           if (existing.length > 0) continue;
           newDayActs.push(activity);
+          await checkAndUpdatePR(userId, activity, goal, accessToken, profile.telegram_chat_id);
         }
         if (newDayActs.length === 0) continue;
 
@@ -1348,6 +1427,8 @@ export default async function handler(req, res) {
       for (const activity of activities) {
         const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
         if (existing.length > 0) continue;
+
+        await checkAndUpdatePR(userId, activity, goal, accessToken, profile.telegram_chat_id);
 
         const sportType = getSportType(activity);
         const workoutType = classifyWorkout(activity, targetPace, sportType);
