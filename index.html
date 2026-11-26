@@ -2008,8 +2008,9 @@ async function loadUserData() {
 
     // 주간 탭 목표 카드
     const phase = getPhase(g.race_date);
-    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
-    const monthlyTarget = weeklyTarget * 4;
+    // 개인화 주간 목표(최근 4주 평균 × 훈련 단계, 서버 계산) 우선, 없으면 단계 기본값
+    const weeklyTarget = (await getPersonalWeeklyTarget()) || (phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40);
+    const monthlyTarget = Math.round(weeklyTarget * 4.3);
     if (document.getElementById('wk-target-km')) document.getElementById('wk-target-km').textContent = weeklyTarget;
     if (document.getElementById('wk-target-pace')) document.getElementById('wk-target-pace').textContent = g.target_pace || '--:--';
     if (document.getElementById('wk-phase')) document.getElementById('wk-phase').textContent = phase;
@@ -2111,6 +2112,18 @@ async function loadUserDataExtra() {
   await loadRaceStrategy();
   // 선수 약점 프로파일 (실패해도 다른 화면에 영향 없도록 분리)
   loadAthleteProfile().catch(e => console.error('athlete profile', e));
+}
+
+// ── 개인화 주간 목표 (athlete_profiles.metrics.weeklyTargetKm, 화면 로드당 1회 조회) ──
+let personalWeeklyTargetPromise = null;
+function getPersonalWeeklyTarget() {
+  if (!currentUser) return Promise.resolve(null);
+  if (!personalWeeklyTargetPromise) {
+    personalWeeklyTargetPromise = sb.from('athlete_profiles').select('metrics').eq('user_id', currentUser.id).maybeSingle()
+      .then(({ data }) => data?.metrics?.weeklyTargetKm || null)
+      .catch(() => null);
+  }
+  return personalWeeklyTargetPromise;
 }
 
 // ── 선수 약점 프로파일 ──
@@ -2831,8 +2844,8 @@ async function loadMonthlyCards(goal) {
     const thisMonthActs = acts.filter(a => new Date(a.start_date) >= monthStart);
     const thisMonthKm = (thisMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
     const phase = g?.race_date ? getPhase(g.race_date) : '--';
-    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
-    const monthTarget = weeklyTarget * 4;
+    const weeklyTarget = (await getPersonalWeeklyTarget()) || (phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40);
+    const monthTarget = Math.round(weeklyTarget * 4.3);
     const daysLeft = g?.race_date ? Math.ceil((new Date(g.race_date) - now) / 86400000) : '--';
 
     document.getElementById('mn-done-km').textContent = thisMonthKm;
