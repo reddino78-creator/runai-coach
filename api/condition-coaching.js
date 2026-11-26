@@ -34,13 +34,13 @@ async function sendTelegram(chatId, message) {
   if (!r.ok) await send({ chat_id: chatId, text: text.replace(/<\/?b>/g, '') }); // 실패 시 서식 없이
 }
 
+// 한국 시간 기준 (서버는 UTC — 그대로 쓰면 아침 9시 전 입력 시 요일·주가 틀어짐)
+function kstNow() { return new Date(Date.now() + 9 * 60 * 60 * 1000); }
 function getWeekStart() {
-  const now = new Date();
-  const day = now.getDay();
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  weekStart.setHours(0, 0, 0, 0);
-  return weekStart.toISOString().split('T')[0];
+  const k = kstNow();
+  const day = k.getUTCDay();
+  k.setUTCDate(k.getUTCDate() - (day === 0 ? 6 : day - 1));
+  return k.toISOString().split('T')[0];
 }
 
 export default async function handler(req, res) {
@@ -81,7 +81,20 @@ export default async function handler(req, res) {
 
   const days = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayNames = ['월','화','수','목','금','토','일'];
-  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const kDow = kstNow().getUTCDay();
+  const todayIdx = kDow === 0 ? 6 : kDow - 1;
+
+  // 선수 기준값 (약점 프로파일에 저장된 현재 실력 기준 마라톤 페이스·심박 구간)
+  const apRows = await sbGet('athlete_profiles', `user_id=eq.${userId}&select=metrics`);
+  const m = apRows?.[0]?.metrics || {};
+  const mpSec = m.currentMP ? m.currentMP.split(':').reduce((a, b) => a * 60 + Number(b), 0) : null;
+  const ps = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+  const paceGuide = mpSec
+    ? `현재 마라톤 페이스 ${m.currentMP}/km 기준 — 회복 ${ps(mpSec + 80)}-${ps(mpSec + 100)} | 이지 ${ps(mpSec + 45)}-${ps(mpSec + 75)} | 템포 ${ps(mpSec - 20)}-${ps(mpSec - 12)}`
+    : `목표 페이스 ${target_pace}/km (현재 실력 데이터 없음)`;
+  const z = m.hrZones;
+  const zoneGuide = z?.easy ? `심박: 이지 ${z.easy[0]}-${z.easy[1]} / 템포 ${z.threshold[0]}-${z.threshold[1]}` : '';
+  const remainingKeys = days.slice(todayIdx);   // 오늘~일요일만 조정 가능 (지난 요일은 그대로)
 
   // 현재 주간 계획 요약
   const weekPlanSummary = plan
@@ -91,8 +104,8 @@ export default async function handler(req, res) {
   const prompt = `마라톤 코치로서 선수의 컨디션에 맞게 오늘 훈련과 이번 주 계획을 조정해주세요.
 
 선수 정보:
-- 목표 페이스: ${target_pace}/km
-- 훈련 단계: ${phase}
+- 훈련 페이스: ${paceGuide}
+${zoneGuide ? `- ${zoneGuide}\n` : ''}- 훈련 단계: ${phase}
 - 오늘(${dayNames[todayIdx]}요일) 계획: ${today_plan}
 - 이번 주 계획: ${weekPlanSummary}
 
@@ -104,15 +117,7 @@ ${memo ? `- 메모: ${memo}` : ''}
 아래 JSON 형식으로만 응답하세요:
 {
   "coaching": "오늘 코칭 메시지 (200자 이내)",
-  "weekly_adjustment": {
-    "mon": "훈련종류 또는 휴식",
-    "tue": "훈련종류 또는 휴식",
-    "wed": "훈련종류 또는 휴식",
-    "thu": "훈련종류 또는 휴식",
-    "fri": "휴식",
-    "sat": "훈련종류 또는 휴식",
-    "sun": "훈련종류 또는 휴식"
-  },
+  "weekly_adjustment": { ${remainingKeys.map(k => `"${k}": "훈련종류"`).join(', ')} },
   "adjustment_reason": "주간 계획 조정 이유 (100자 이내)",
   "changed": true
 }
@@ -123,6 +128,8 @@ ${memo ? `- 메모: ${memo}` : ''}
 - 부상(경미): 해당 부위 부담 없는 훈련으로 조정
 - 피로: 강도 낮추기, 인터벌/템포 → 이지런으로
 - 좋음: 계획 유지 (changed: false)
+- weekly_adjustment에는 오늘(${dayNames[todayIdx]})부터 일요일까지만 넣을 것. 지금 계획에서 바꿀 필요 없는 날은 기존 계획 그대로 적을 것
+- 강훈련(인터벌·템포런·페이스주) 이틀 연속 금지, 처방 강도는 위 훈련 페이스·심박 기준
 - 훈련 종류: 인터벌/템포런/페이스주/롱런/LSD/이지런/수영/자전거/휴식`;
 
   try {
@@ -145,10 +152,12 @@ ${memo ? `- 메모: ${memo}` : ''}
     const result = JSON.parse(text.replace(/```json|```/g, '').trim());
 
     // 주간 계획 업데이트
-    if (result.changed && result.weekly_adjustment && plan) {
+    const adjustment = {};
+    for (const k of remainingKeys) if (result.weekly_adjustment?.[k]) adjustment[k] = String(result.weekly_adjustment[k]).slice(0, 20);
+    if (result.changed && Object.keys(adjustment).length && plan) {
       await sbPatch('weekly_plans',
         `user_id=eq.${userId}&week_start=eq.${weekStart}`,
-        result.weekly_adjustment
+        adjustment
       );
 
       // 텔레그램 알림
@@ -162,7 +171,7 @@ ${memo ? `- 메모: ${memo}` : ''}
     res.json({
       success: true,
       coaching: result.coaching || '코칭을 불러올 수 없습니다.',
-      weekly_adjustment: result.weekly_adjustment,
+      weekly_adjustment: adjustment,
       adjustment_reason: result.adjustment_reason,
       changed: result.changed
     });
