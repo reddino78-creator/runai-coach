@@ -528,7 +528,8 @@ const QUALITY_TYPES = ['인터벌', '템포런', '페이스주', '언덕훈련']
 const RUN_LABELS = ['이지런', 'LSD', '롱런', '페이스주', '템포런', '인터벌', '언덕훈련', '풀코스'];
 
 // ── 일마 정모 일정 (구글 시트 CSV) ──
-// 시트 열: 날짜 | 종류 | 시간 | 거리(km) | 코스 | 메모  — 헤더 이름으로 찾으므로 열 순서는 자유
+// 시트 열: 날짜 | 종류 | 시간 | 거리(km) | 코스 | 언덕 | 메모
+// 언덕: O/Y/있음 또는 누적 상승 m(예: 150). 비워도 코스·메모에 '업힐·언덕·오르막'이 있으면 언덕 코스로 봄  — 헤더 이름으로 찾으므로 열 순서는 자유
 // 일요 LSD는 시간 기준(예: 2:00, 2시간, 120분). 거리는 비워도 됨 → 개인 LSD 페이스로 예상 거리 환산
 // CLUB_RUNS_CSV_URL 이 없거나 읽기에 실패하면 빈 목록 → 기존 규칙(일요일 일산호수 LSD)대로 동작
 let clubRunsCache = null;
@@ -580,7 +581,7 @@ async function fetchClubRuns(anchor = Date.now()) {
   const [head, ...body] = clubRunsCache;
   if (!head) return [];
   const col = (k) => head.findIndex(h => h.includes(k));
-  const ci = { date: col('날짜'), type: col('종류'), min: col('시간'), km: col('거리'), course: col('코스'), memo: col('메모') };
+  const ci = { date: col('날짜'), type: col('종류'), min: col('시간'), km: col('거리'), hill: col('언덕'), course: col('코스'), memo: col('메모') };
   if (ci.date < 0) return [];
   const today = ymd(new Date(anchor));
   const until = ymd(new Date(anchor + 45 * 86400000));
@@ -590,7 +591,12 @@ async function fetchClubRuns(anchor = Date.now()) {
     if (!date) return null;
     const km = ci.km >= 0 ? parseFloat(String(r[ci.km]).replace(/[^\d.]/g, '')) : NaN;
     const dt = new Date(date + 'T00:00:00Z');
+    const hv = ci.hill >= 0 ? String(r[ci.hill] || '').trim() : '';
+    const hillM = parseFloat(hv.replace(/[^\d.]/g, ''));
+    const text = `${ci.course >= 0 ? r[ci.course] : ''} ${ci.memo >= 0 ? r[ci.memo] : ''}`;
+    const hill = /^(o|y|yes|있음|예|v|✓|○)$/i.test(hv) || hillM > 0 || /업힐|언덕|오르막|hill/i.test(text);
     return {
+      hill, hillM: hillM > 0 ? Math.round(hillM) : null,
       date, km: isNaN(km) ? null : km, min: ci.min >= 0 ? parseSheetMinutes(r[ci.min]) : null,
       type: (ci.type >= 0 && r[ci.type]) || 'LSD',
       course: ci.course >= 0 ? r[ci.course] : '', memo: ci.memo >= 0 ? r[ci.memo] : '',
@@ -600,18 +606,19 @@ async function fetchClubRuns(anchor = Date.now()) {
 }
 function fmtMin(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
 // 시간 기준 LSD → 개인 이지·LSD 페이스(현재 MP+45~75초)로 예상 거리
-function lsdKmRange(min, mpSec) {
+function lsdKmRange(min, mpSec, hill = false) {
   if (!min || !mpSec) return null;
-  const a = Math.round(min * 60 / (mpSec + 75)), b = Math.round(min * 60 / (mpSec + 45));
+  const slow = hill ? 20 : 0;  // 언덕 코스는 같은 노력에 페이스가 느려지므로 약 20초/km 느리게 환산
+  const a = Math.round(min * 60 / (mpSec + 75 + slow)), b = Math.round(min * 60 / (mpSec + 45 + slow));
   return { lo: a, hi: b, mid: Math.round((a + b) / 2) };
 }
 function clubRunsText(list, mpSec) {
   if (!list?.length) return '';
   return `[일마 정모 일정 — 클럽이 정한 확정 일정]\n` + list.map(c => {
-    const est = c.min && !c.km ? lsdKmRange(c.min, mpSec) : null;
+    const est = c.min && !c.km ? lsdKmRange(c.min, mpSec, c.hill) : null;
     return `- ${c.label} ${c.type}${c.min ? ` ${fmtMin(c.min)}` : ''}${c.km ? ` ${c.km}km` : ''}` +
       `${est ? ` (이 선수 LSD 페이스로 약 ${est.lo}~${est.hi}km, 주간 거리 계산은 ${est.mid}km)` : ''}` +
-      `${c.course ? ` · ${c.course}` : ''}${c.memo ? ` · ${c.memo}` : ''}`;
+      `${c.course ? ` · ${c.course}` : ''}${c.hill ? ` · ⛰️ 언덕 코스${c.hillM ? `(누적 상승 약 ${c.hillM}m)` : ''} — 강훈련으로 취급, 전날·다음 날은 이지런 또는 휴식, 페이스보다 심박·노력 기준으로 처방` : ''}${c.memo ? ` · ${c.memo}` : ''}`;
   }).join('\n') + '\n';
 }
 
