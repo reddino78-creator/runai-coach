@@ -92,10 +92,19 @@ function analyzeTrainingData(acts) {
     : 0;
 
   // 체력 페이스 (가중 평균 — 최근 2주 가중 3배, 1개월 2배, 3개월 1배)
+  // 레이스 기록(38km 이상 또는 workout_type=1)은 제외 — 훈련 페이스와 성격이 다름
   // 페이스 범위 필터: 3:30~8:00/km (210~480초)
+  const isRace = (a) => a.distance >= 38000 || a.workout_type === 1;
   const validPaces = (runs) => runs
+    .filter(a => !isRace(a))
     .map(a => a.moving_time / (a.distance / 1000))
     .filter(s => s >= 210 && s <= 480);
+
+  // 레이스 기록 중 최근 3개월 내 풀마라톤(38km+) 최고 기록 별도 추출
+  const recentRaces = recent3m.filter(a => isRace(a) && a.distance >= 38000);
+  const bestRacePaceSec = recentRaces.length > 0
+    ? Math.min(...recentRaces.map(a => a.moving_time / (a.distance / 1000)))
+    : null;
 
   let totalW = 0, totalWS = 0;
   validPaces(recent2w).forEach(s => { totalWS += s * 3; totalW += 3; });
@@ -122,14 +131,21 @@ function analyzeTrainingData(acts) {
   if (intensityRatio >= 25) completeness += 20;
   else if (intensityRatio >= 15) completeness += 10;
 
+  // 레이스 기록이 있으면 훈련 페이스와 비교해 더 빠른 쪽 반영
+  // (실제 레이스 성과가 훈련보다 체력을 더 정확하게 보여줄 수 있음)
+  const effectiveFitnessSec = bestRacePaceSec && bestRacePaceSec < fitnessPaceSec
+    ? Math.round(bestRacePaceSec * 0.98 + fitnessPaceSec * 0.02) // 레이스 기록 98% 반영
+    : Math.round(fitnessPaceSec);
+
   return {
     totalKm3m: totalKm3m.toFixed(0),
     weeklyAvgKm: weeklyAvgKm.toFixed(1),
     longestLsdKm: longestLsdKm.toFixed(1),
     lsd20Count,
     intensityRatio,
-    fitnessPaceSec: Math.round(fitnessPaceSec),
-    fitnessPace: secToPace(Math.round(fitnessPaceSec)),
+    fitnessPaceSec: effectiveFitnessSec,
+    fitnessPace: secToPace(effectiveFitnessSec),
+    bestRacePace: bestRacePaceSec ? secToPace(Math.round(bestRacePaceSec)) : null,
     completeness,
     runCount3m: recent3m.length,
     runCount1m: recent1m.length
@@ -182,7 +198,9 @@ async function deriveRealisticTargets(goal, training, daysLeft, phase, improveme
   const fitnessSec = training.fitnessPaceSec;
 
   // 대회일 예상 페이스 = 현재 체력 페이스 - 향상치
-  const projectedPaceSec = Math.max(fitnessSec - improvement, userTargetSec * 0.95);
+  // Math.min: 체력 기반 예측과 목표의 95% 중 더 빠른(작은) 값은 허용하지 않음
+  // → 단, 체력이 충분히 뒷받침되면 목표보다 빠른 전략도 가능
+  const projectedPaceSec = fitnessSec - improvement;
 
   // 레이스 효율: 훈련 페이스 대비 레이스 페이스는 보통 3~8% 빠름
   // 완성도에 따라 조정
@@ -199,7 +217,7 @@ async function deriveRealisticTargets(goal, training, daysLeft, phase, improveme
 
 [선수 현재 체력 데이터]
 - 최근 3개월 총 훈련량: ${training.totalKm3m}km (주간 평균 ${training.weeklyAvgKm}km)
-- 현재 체력 추정 페이스: ${training.fitnessPace}/km (최근 훈련 가중 평균)
+- 현재 체력 추정 페이스: ${training.fitnessPace}/km (최근 훈련 가중 평균)${training.bestRacePace ? ` | 최근 레이스 실제 페이스: ${training.bestRacePace}/km` : ''}
 - 최장 LSD: ${training.longestLsdKm}km | 20km↑ LSD 횟수: ${training.lsd20Count}회
 - 강도훈련 비율: ${training.intensityRatio}% | 훈련 완성도: ${training.completeness}/100점
 - 최근 3개월 총 훈련 횟수: ${training.runCount3m}회
