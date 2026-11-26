@@ -191,7 +191,7 @@ async function callClaude(prompt) {
   return data.content?.[0]?.text || '';
 }
 
-async function deriveRealisticTargets(goal, training, daysLeft, phase, improvement) {
+async function deriveRealisticTargets(goal, training, daysLeft, phase, improvement, athleteNote) {
   const userTargetSec = paceToSec(goal.target_pace || '5:27');
   // 현재 레이스 페이스 기준점
   // - 최근 3개월 풀코스 레이스가 있으면: 실제 레이스 페이스 그대로 (가장 확실한 근거)
@@ -224,7 +224,7 @@ async function deriveRealisticTargets(goal, training, daysLeft, phase, improveme
 - 강도훈련 비율: ${training.intensityRatio}% | 훈련 완성도: ${training.completeness}/100점
 - 최근 3개월 총 훈련 횟수: ${training.runCount3m}회
 
-[대회 정보]
+${athleteNote ? `[선수 약점 프로파일 — 데이터 기반]\n${athleteNote}\n→ trainingAdvice는 이 약점 중 D-day까지 가장 효과가 큰 것을 우선 다룰 것. 주의 부위가 있으면 부상 위험도 고려.\n\n` : ''}[대회 정보]
 - 목표 대회: ${goal.race_name || '마라톤'} | D-${daysLeft}일 | 훈련 단계: ${phase}
 - 선수 희망 목표: ${goal.target_time} (${goal.target_pace}/km)
 - PR: 풀 ${goal.pr_full || '-'} / 하프 ${goal.pr_half || '-'} / 10K ${goal.pr_10k || '-'}
@@ -350,7 +350,7 @@ function calcGelStrategy(totalTimeSec, paceSec) {
 // ══════════════════════════════════════
 // 메인: 전략 생성
 // ══════════════════════════════════════
-async function generateStrategy(userId, goal, acts, daysLeft) {
+async function generateStrategy(userId, goal, acts, daysLeft, athleteNote) {
   const phase = getTrainingPhase(goal.race_date);
 
   // ① 훈련 데이터 분석
@@ -360,7 +360,7 @@ async function generateStrategy(userId, goal, acts, daysLeft) {
   const improvement = estimateImprovementByRaceDay(daysLeft, phase, training.completeness);
 
   // ③ AI로 현실적 목표 도출
-  const targets = await deriveRealisticTargets(goal, training, daysLeft, phase, improvement);
+  const targets = await deriveRealisticTargets(goal, training, daysLeft, phase, improvement, athleteNote);
 
   // ④ 각 목표별 구간 전략 생성
   const t90 = targets.target90;
@@ -439,7 +439,11 @@ export default async function handler(req, res) {
       return true;
     });
 
-    const strategy = await generateStrategy(uid, goal, uniqueActs, daysLeft);
+    // 약점 프로파일 (주간 리포트 때 갱신됨) — 없으면 빈 값
+    const apRows = await sbGet('athlete_profiles', `user_id=eq.${uid}&select=summary`);
+    const athleteNote = Array.isArray(apRows) ? (apRows[0]?.summary || '') : '';
+
+    const strategy = await generateStrategy(uid, goal, uniqueActs, daysLeft, athleteNote);
 
     // 저장 (기존 삭제 후 재저장)
     await fetch(`${SUPABASE_URL}/rest/v1/race_strategies?user_id=eq.${uid}`, {
