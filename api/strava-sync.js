@@ -1,65 +1,2099 @@
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaBa School</title>
+<meta name="theme-color" content="#FC4C02">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BaBa School">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange: #FC4C02;
+  --orange-light: #FF6B35;
+  --black: #090909;
+  --dark: #111111;
+  --dark2: #181818;
+  --dark3: #222222;
+  --gray: #777777;
+  --gray-light: #BBBBBB;
+  --white: #F4F1EC;
+  --green: #27AE60;
+  --yellow: #F0B429;
+  --red: #E74C3C;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--black); color:var(--white); font-family:'Pretendard',-apple-system,sans-serif; min-height:100vh; }
 
-async function sbGet(table, filter) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+/* SCREENS */
+.screen { display:none !important; }
+.screen.active { display:block !important; min-height:100vh; }
+#screen-onboarding.active { display:flex !important; align-items:center; justify-content:center; }
+#screen-dashboard.active { display:block !important; }
+
+/* LANDING */
+.landing-wrap { min-height:100vh; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+
+/* 미니멀 라인 배경 */
+.bg-lines {
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+.bg-accent {
+  position:absolute; width:1px; height:100%;
+  background:linear-gradient(to bottom, transparent, rgba(252,76,2,0.4), transparent);
+  left:50%; top:0; pointer-events:none;
+  animation: lineGlow 4s ease-in-out infinite;
+}
+@keyframes lineGlow { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+.landing-nav {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:32px 56px; position:relative; z-index:10;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.logo { font-family:'DM Mono',monospace; font-size:16px; letter-spacing:3px; text-transform:uppercase; }
+.logo em { font-style:normal; color:var(--orange); }
+.nav-btns { display:flex; gap:10px; }
+.btn-ghost {
+  background:none; border:1px solid rgba(255,255,255,0.1);
+  color:var(--gray); padding:9px 20px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:12px; letter-spacing:1px;
+  cursor:pointer; transition:all .2s; text-transform:uppercase;
+}
+.btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
+.btn-orange {
+  background:var(--orange); border:none; color:white;
+  padding:9px 20px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:12px; letter-spacing:1px;
+  font-weight:600; cursor:pointer; transition:all .25s; text-transform:uppercase;
+}
+.btn-orange:hover { background:var(--orange-light); }
+
+/* HERO */
+.hero {
+  flex:1; display:flex; flex-direction:column;
+  align-items:flex-start; justify-content:center;
+  padding:0 56px 80px; position:relative; z-index:10;
+  max-width:900px;
+}
+
+.hero-eyebrow {
+  font-family:'DM Mono',monospace; font-size:11px;
+  letter-spacing:4px; text-transform:uppercase;
+  color:var(--orange); margin-bottom:32px;
+  animation:fadeUp .6s ease both;
+  display:flex; align-items:center; gap:12px;
+}
+.hero-eyebrow::before {
+  content:''; width:32px; height:1px; background:var(--orange);
+}
+
+.hero-title {
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(56px,8vw,110px);
+  line-height:1.0; letter-spacing:-3px;
+  margin-bottom:16px;
+  animation:fadeUp .6s ease .1s both;
+}
+.hero-title .brand { display:block; color:var(--white); }
+.hero-title .for-line {
+  display:flex; align-items:baseline; gap:16px;
+  font-size:clamp(28px,4vw,52px);
+  color:rgba(255,255,255,0.2);
+  letter-spacing:-1px;
+}
+.hero-title .rotating-word {
+  color:var(--orange);
+  font-style:italic;
+  min-width:200px;
+  display:inline-block;
+  transition:opacity .3s ease, transform .3s ease;
+}
+.hero-title .rotating-word.fade-out {
+  opacity:0; transform:translateY(-8px);
+}
+.hero-title .rotating-word.fade-in {
+  opacity:1; transform:translateY(0);
+}
+
+.hero-sub {
+  font-size:15px; color:var(--gray);
+  max-width:440px; line-height:1.7; font-weight:300;
+  margin-bottom:48px; margin-top:24px;
+  animation:fadeUp .6s ease .2s both;
+  border-left:2px solid rgba(252,76,2,0.3);
+  padding-left:16px;
+}
+
+.hero-btns {
+  display:flex; gap:12px; flex-wrap:wrap;
+  animation:fadeUp .6s ease .3s both;
+}
+.btn-hero {
+  background:var(--orange); border:none; color:white;
+  padding:16px 40px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:13px;
+  letter-spacing:2px; font-weight:500;
+  cursor:pointer; transition:all .3s; text-transform:uppercase;
+}
+.btn-hero:hover { background:var(--orange-light); transform:translateY(-2px); box-shadow:0 12px 32px rgba(252,76,2,.3); }
+.btn-hero-ghost {
+  background:none; border:1px solid rgba(255,255,255,.1); color:var(--gray);
+  padding:16px 40px; border-radius:4px;
+  font-family:'DM Mono',monospace; font-size:13px;
+  letter-spacing:2px; cursor:pointer; transition:all .3s; text-transform:uppercase;
+}
+.btn-hero-ghost:hover { border-color:rgba(252,76,2,.4); color:var(--orange); }
+
+/* 우측 스탯 */
+.hero-stats {
+  position:absolute; right:56px; top:50%;
+  transform:translateY(-50%);
+  display:flex; flex-direction:column; gap:32px;
+  animation:fadeUp .6s ease .4s both;
+}
+@media(max-width:900px) { .hero-stats{display:none} }
+.hs-item { text-align:right; }
+.hs-val {
+  font-family:'DM Mono',monospace; font-size:32px;
+  color:var(--white); line-height:1;
+}
+.hs-label { font-size:10px; color:var(--gray); letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+
+/* 하단 바 */
+.hero-bottom {
+  position:absolute; bottom:0; left:0; right:0;
+  border-top:1px solid rgba(255,255,255,0.05);
+  display:flex; z-index:10;
+}
+.hb-item {
+  flex:1; padding:20px 28px;
+  border-right:1px solid rgba(255,255,255,0.05);
+  font-size:11px; color:var(--gray);
+  font-family:'DM Mono',monospace; letter-spacing:1px;
+  display:flex; align-items:center; gap:8px;
+}
+.hb-item:last-child { border-right:none; }
+.hb-dot { width:6px; height:6px; border-radius:50%; background:var(--orange); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+/* AUTH MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(12px); z-index:1000; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; padding:20px; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--dark2); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:48px; width:100%; max-width:420px; position:relative; transform:translateY(20px); transition:transform .3s; }
+.modal-overlay.open .modal { transform:translateY(0); }
+.modal-close { position:absolute; top:20px; right:20px; background:none; border:none; color:var(--gray); font-size:20px; cursor:pointer; }
+.modal-logo { font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:6px; text-align:center; }
+.modal-logo em { font-style:normal; color:var(--orange); }
+.modal-sub { text-align:center; font-size:13px; color:var(--gray); margin-bottom:28px; }
+.tab-sw { display:flex; background:var(--dark3); border-radius:10px; padding:4px; margin-bottom:24px; }
+.tab-sw-btn { flex:1; padding:9px; border:none; background:none; color:var(--gray); font-family:'Pretendard',sans-serif; font-size:14px; font-weight:500; cursor:pointer; border-radius:7px; transition:all .2s; }
+.tab-sw-btn.active { background:var(--orange); color:white; }
+.form-group { margin-bottom:14px; }
+.form-label { display:block; font-size:11px; color:var(--gray); margin-bottom:6px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.5px; }
+.form-input { width:100%; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:13px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:15px; outline:none; transition:border-color .2s; }
+.form-input:focus { border-color:var(--orange); }
+.form-input::placeholder { color:var(--gray); }
+.form-submit { width:100%; background:var(--orange); border:none; color:white; padding:15px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; margin-top:6px; }
+.form-submit:hover { background:var(--orange-light); }
+.form-error { color:var(--red); font-size:13px; margin-top:6px; display:none; }
+.divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--gray); font-size:12px; }
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.07); }
+.strava-btn { width:100%; background:var(--dark3); border:1px solid rgba(252,76,2,.3); color:var(--white); padding:13px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.strava-btn:hover { background:rgba(252,76,2,.1); border-color:var(--orange); }
+
+/* ONBOARDING */
+#screen-onboarding { padding:40px 20px; min-height:100vh; background:var(--black); }
+#screen-dashboard { position:relative; z-index:1; }
+.ob-card { background:var(--dark2); border:1px solid rgba(255,255,255,.07); border-radius:24px; padding:48px; width:100%; max-width:640px; }
+.step-dots { display:flex; gap:6px; margin-bottom:36px; }
+.step-dot { height:4px; flex:1; border-radius:100px; background:rgba(255,255,255,.1); transition:background .3s; }
+.step-dot.done { background:var(--orange); }
+.ob-title { font-family:'DM Serif Display',serif; font-size:34px; line-height:1.1; margin-bottom:8px; }
+.ob-sub { font-size:14px; color:var(--gray); margin-bottom:32px; }
+.ob-step { display:none; }
+.ob-step.active { display:block; }
+
+/* GOAL CARDS */
+.goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+@media(max-width:560px){.goal-grid{grid-template-columns:1fr}}
+.goal-card { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:14px; padding:18px; cursor:pointer; transition:all .2s; position:relative; }
+.goal-card:hover { border-color:rgba(252,76,2,.3); }
+.goal-card.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.gc-icon { font-size:24px; margin-bottom:8px; }
+.gc-title { font-weight:700; font-size:14px; margin-bottom:3px; }
+.gc-time { font-family:'DM Mono',monospace; font-size:18px; color:var(--orange); margin-bottom:3px; }
+.gc-desc { font-size:11px; color:var(--gray); }
+.gc-check { position:absolute; top:10px; right:10px; width:18px; height:18px; background:var(--orange); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; opacity:0; transition:opacity .2s; }
+.goal-card.sel .gc-check { opacity:1; }
+
+/* FORM GRID */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.input-label { display:block; font-size:11px; color:var(--gray); margin-bottom:6px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.5px; }
+.input-field { width:100%; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:13px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
+.input-field:focus { border-color:var(--orange); }
+.input-field::placeholder { color:var(--gray); }
+select.input-field { cursor:pointer; }
+select.input-field option { background:var(--dark3); }
+
+/* LEVEL OPTIONS */
+.level-opts { display:flex; flex-direction:column; gap:8px; margin-bottom:24px; }
+.level-opt { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:14px; }
+.level-opt:hover { border-color:rgba(252,76,2,.3); }
+.level-opt.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.lo-icon { font-size:22px; }
+.lo-info { flex:1; }
+.lo-name { font-weight:600; font-size:14px; margin-bottom:2px; }
+.lo-desc { font-size:12px; color:var(--gray); }
+.lo-badge { font-family:'DM Mono',monospace; font-size:10px; padding:3px 8px; border-radius:100px; background:rgba(255,255,255,.06); color:var(--gray-light); }
+
+/* NOTIF OPTIONS */
+.notif-opts { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+.notif-opt { background:var(--dark3); border:2px solid rgba(255,255,255,.06); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:12px; }
+.notif-opt.sel { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.notif-chk { width:20px; height:20px; border:2px solid rgba(255,255,255,.15); border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; transition:all .2s; flex-shrink:0; }
+.notif-opt.sel .notif-chk { background:var(--orange); border-color:var(--orange); }
+
+/* OB BTNS */
+.ob-btns { display:flex; gap:10px; justify-content:flex-end; }
+.btn-back { background:none; border:1px solid rgba(255,255,255,.1); color:var(--gray-light); padding:13px 26px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; }
+.btn-next { background:var(--orange); border:none; color:white; padding:13px 32px; border-radius:10px; font-family:'Pretendard',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; }
+.btn-next:hover { background:var(--orange-light); }
+
+/* DASHBOARD */
+.dash-nav { background:rgba(17,17,17,.92); backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,.05); padding:0 32px; display:flex; align-items:center; height:60px; position:sticky; top:0; z-index:100; gap:0; }
+.dash-logo { font-family:'DM Mono',monospace; font-size:14px; letter-spacing:2px; margin-right:28px; flex-shrink:0; }
+.dash-logo em { font-style:normal; color:var(--orange); }
+.dash-tabs { display:flex; flex:1; overflow-x:auto; scrollbar-width:none; }
+.dash-tabs::-webkit-scrollbar { display:none; }
+.dash-tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--gray); padding:0 16px; height:60px; font-family:'Pretendard',sans-serif; font-size:13px; cursor:pointer; transition:all .2s; white-space:nowrap; }
+.dash-tab:hover { color:var(--gray-light); }
+.dash-tab.active { color:var(--white); border-bottom-color:var(--orange); }
+.dash-user { display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; }
+.user-av { width:30px; height:30px; background:linear-gradient(135deg,var(--orange),#FF8C5A); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+.user-nm { font-size:13px; color:var(--gray-light); }
+.logout-btn { background:none; border:none; color:var(--gray); font-size:12px; cursor:pointer; padding:4px 8px; font-family:'Pretendard',sans-serif; }
+.logout-btn:hover { color:var(--red); }
+
+/* 모바일 하단 탭바 */
+.mobile-nav {
+  display:none;
+  position:fixed; bottom:0; left:0; right:0;
+  background:#1A1A1A;
+  border-top:2px solid rgba(252,76,2,0.4);
+  z-index:200;
+  padding:6px 0 env(safe-area-inset-bottom);
+  box-shadow:0 -8px 32px rgba(0,0,0,0.5);
+}
+.mobile-nav-tabs { display:flex; }
+.mobile-tab {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:4px;
+  padding:8px 4px;
+  background:none; border:none;
+  border-right:1px solid rgba(255,255,255,0.06);
+  color:var(--gray); cursor:pointer;
+  font-family:'Pretendard',sans-serif;
+  font-size:10px; transition:all .2s;
+  position:relative;
+}
+.mobile-tab:last-child { border-right:none; }
+.mobile-tab.active { color:var(--orange); background:rgba(252,76,2,0.08); }
+.mobile-tab.active::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0;
+  height:2px; background:var(--orange);
+  border-radius:0 0 4px 4px;
+}
+.mobile-tab-icon { font-size:20px; line-height:1; }
+
+@media(max-width:768px) {
+  .dash-nav { padding:0 16px; }
+  .dash-tabs { display:none; }
+  .dash-user .user-nm { display:none; }
+  .mobile-nav { display:block; }
+  .dash-body { padding:20px 14px 160px; }
+}
+
+.dash-body { max-width:1080px; margin:0 auto; padding:36px 28px; }
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* GOAL HERO */
+.goal-hero { background:linear-gradient(135deg,rgba(252,76,2,.18),rgba(252,76,2,.04)); border:1px solid rgba(252,76,2,.25); border-radius:20px; padding:32px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+.gh-left h2 { font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:6px; }
+.gh-left p { font-size:13px; color:var(--gray-light); }
+.gh-pace { display:inline-flex; align-items:center; gap:5px; background:rgba(252,76,2,.15); color:var(--orange); padding:4px 12px; border-radius:100px; font-family:'DM Mono',monospace; font-size:11px; margin-top:8px; }
+.gh-right { display:flex; gap:28px; align-items:center; flex-wrap:wrap; }
+.gh-metric-val { font-family:'DM Serif Display',serif; font-size:36px; color:var(--orange); line-height:1; }
+.gh-metric-lbl { font-size:11px; color:var(--gray); margin-top:3px; }
+.prog-wrap { position:relative; }
+.prog-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.prog-pct { font-family:'DM Serif Display',serif; font-size:20px; color:var(--orange); }
+.prog-lbl { font-size:9px; color:var(--gray); }
+
+/* STATS */
+.stats-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+@media(max-width:900px){.stats-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.stats-4{grid-template-columns:1fr}}
+.stat-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:20px; transition:all .25s; }
+.stat-card:hover { border-color:rgba(252,76,2,.2); transform:translateY(-2px); }
+.sc-label { font-size:10px; color:var(--gray); text-transform:uppercase; letter-spacing:1px; font-family:'DM Mono',monospace; margin-bottom:8px; }
+.sc-val { font-family:'DM Serif Display',serif; font-size:30px; margin-bottom:3px; }
+.sc-sub { font-size:11px; color:var(--gray); }
+.sc-trend { font-size:11px; font-weight:600; margin-top:6px; }
+.up{color:var(--green)} .warn{color:var(--yellow)} .dn{color:var(--red)}
+
+/* SECTION */
+.section-hd { font-family:'DM Serif Display',serif; font-size:20px; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+.section-hd::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.05); }
+
+/* ACTIVITY CARDS */
+.act-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:22px 26px; margin-bottom:12px; display:grid; grid-template-columns:1fr auto; gap:18px; transition:all .2s; }
+.act-card:hover { border-color:rgba(252,76,2,.15); }
+@media(max-width:600px){.act-card{grid-template-columns:1fr}}
+.act-date { font-size:11px; color:var(--orange); font-family:'DM Mono',monospace; margin-bottom:5px; }
+.act-name { font-family:'DM Serif Display',serif; font-size:18px; margin-bottom:12px; }
+.act-stats { display:flex; gap:20px; flex-wrap:wrap; }
+.as-val { font-family:'DM Mono',monospace; font-size:16px; }
+.as-lbl { font-size:10px; color:var(--gray); margin-top:2px; }
+.pace-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:100px; font-size:10px; font-family:'DM Mono',monospace; margin-top:8px; }
+.pb-good{background:rgba(39,174,96,.15);color:var(--green)}
+.pb-close{background:rgba(240,180,41,.15);color:var(--yellow)}
+.pb-slow{background:rgba(231,76,60,.15);color:var(--red)}
+.act-analysis { max-width:320px; background:rgba(252,76,2,.05); border:1px solid rgba(252,76,2,.12); border-radius:12px; padding:16px; }
+.aa-hd { font-size:11px; color:var(--orange); font-weight:600; margin-bottom:6px; }
+.aa-txt { font-size:12px; color:var(--gray-light); line-height:1.65; }
+.aa-txt h2 { font-size:13px; color:var(--orange); margin:10px 0 6px; font-family:'Pretendard',sans-serif; }
+.aa-txt h3 { font-size:12px; color:var(--white); margin:8px 0 4px; font-family:'Pretendard',sans-serif; }
+.aa-txt strong { color:var(--white); }
+.aa-txt ul, .aa-txt ol { padding-left:16px; margin:4px 0; }
+.aa-txt li { margin:3px 0; }
+.aa-txt hr { border:none; border-top:1px solid rgba(255,255,255,0.06); margin:8px 0; }
+.aa-txt table { width:100%; border-collapse:collapse; font-size:11px; margin:8px 0; }
+.aa-txt th { background:rgba(252,76,2,0.15); color:var(--orange); padding:6px; text-align:left; }
+.aa-txt td { padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.aa-txt p { margin:4px 0; }
+
+/* WEEKLY */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.chart-box { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:22px; }
+.cb-title { font-size:12px; color:var(--gray-light); font-weight:600; margin-bottom:16px; }
+.bar-row { display:flex; align-items:flex-end; gap:5px; height:90px; }
+.b-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+.b-bar { width:100%; border-radius:3px 3px 0 0; transition:height 1s ease; }
+.b-bar.fill { background:rgba(252,76,2,.3); }
+.b-bar.fill.cur { background:var(--orange); }
+.b-day { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; }
+.b-km { font-size:9px; color:var(--gray-light); }
+.trend-rows { display:flex; flex-direction:column; gap:8px; }
+.trend-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+.tr-week { color:var(--gray); }
+.tr-pace { font-family:'DM Mono',monospace; }
+.trend-row.now .tr-week { color:var(--orange); font-weight:600; }
+.trend-row.now .tr-pace { color:var(--orange); }
+
+/* COACH BOX */
+.coach-box { background:var(--dark2); border:1px solid rgba(252,76,2,.18); border-radius:18px; padding:26px; margin-bottom:24px; }
+.cb-hd { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+.cb-av { width:42px; height:42px; background:linear-gradient(135deg,var(--orange),var(--orange-light)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.cb-nm { font-weight:700; font-size:14px; }
+.cb-sb { font-size:11px; color:var(--gray); }
+.cb-msg { font-size:14px; color:var(--gray-light); line-height:1.8; border-left:3px solid var(--orange); padding-left:16px; margin-bottom:18px; }
+.tips-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+@media(max-width:640px){.tips-3{grid-template-columns:1fr}}
+.tip { background:var(--dark3); border-radius:10px; padding:14px; }
+.tip-icon { font-size:18px; margin-bottom:6px; }
+.tip-title { font-size:12px; font-weight:700; margin-bottom:3px; }
+.tip-desc { font-size:11px; color:var(--gray); line-height:1.5; }
+
+/* PLAN WEEK */
+.plan-week { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:24px; }
+@media(max-width:640px){.plan-week{grid-template-columns:repeat(4,1fr)}}
+.plan-d { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:12px; padding:12px 8px; text-align:center; cursor:pointer; transition:all .2s; }
+.plan-d.today { border-color:var(--orange); background:rgba(252,76,2,.08); }
+.plan-d.rest { opacity:.4; }
+.pd-name { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; margin-bottom:6px; }
+.pd-type { font-size:10px; font-weight:600; margin-bottom:3px; }
+.pd-km { font-family:'DM Serif Display',serif; font-size:16px; color:var(--orange); }
+.pd-km.rest { font-family:'Pretendard',sans-serif; font-size:10px; color:var(--gray); }
+
+/* SETTINGS */
+.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){
+  .settings-grid{grid-template-columns:1fr}
+  #p-settings { padding-bottom:40px; }
+}
+.settings-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:24px; }
+.sc-title { font-size:15px; font-weight:700; margin-bottom:3px; }
+.sc-sub-text { font-size:12px; color:var(--gray); margin-bottom:18px; }
+.settings-full { grid-column:1/-1; }
+.save-btn { background:var(--orange); border:none; color:white; padding:11px 24px; border-radius:9px; font-family:'Pretendard',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; margin-top:10px; }
+.save-btn:hover { background:var(--orange-light); }
+
+/* NEW DASHBOARD */
+.db-section { margin-bottom:20px; }
+.db-section-title { font-size:11px; color:var(--gray); text-transform:uppercase; letter-spacing:2px; font-family:'DM Mono',monospace; margin-bottom:12px; }
+
+/* 1단: 목표 카드 */
+.db-goal-card {
+  background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));
+  border:1px solid rgba(252,76,2,.3); border-radius:20px; padding:22px 26px;
+}
+.db-goal-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+.db-goal-name { font-family:'DM Serif Display',serif; font-size:20px; margin-bottom:4px; }
+.db-goal-sub { font-size:12px; color:var(--gray-light); display:flex; gap:12px; flex-wrap:wrap; }
+.db-goal-sub span { font-family:'DM Mono',monospace; }
+.db-goal-metrics { display:flex; gap:20px; flex-wrap:wrap; }
+.db-metric { text-align:center; min-width:60px; }
+.db-metric-val { font-family:'DM Mono',monospace; font-size:22px; color:var(--orange); line-height:1; }
+.db-metric-lbl { font-size:9px; color:var(--gray); margin-top:3px; letter-spacing:1px; text-transform:uppercase; }
+
+/* 2단: 마일리지 */
+.db-mileage-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:480px){.db-mileage-grid{grid-template-columns:1fr}}
+.db-mile-card { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:14px; padding:18px; }
+.db-mile-label { font-size:10px; color:var(--gray); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-family:'DM Mono',monospace; }
+.db-mile-nums { display:flex; align-items:baseline; gap:5px; margin-bottom:8px; }
+.db-mile-done { font-family:'DM Serif Display',serif; font-size:28px; color:var(--orange); }
+.db-mile-total { font-size:12px; color:var(--gray); }
+.db-mile-bar { height:5px; background:rgba(255,255,255,.08); border-radius:100px; overflow:hidden; }
+.db-mile-fill { height:100%; background:var(--orange); border-radius:100px; transition:width 1s ease; }
+
+/* 3단: 주간 캘린더 */
+.db-week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.db-day-card {
+  background:var(--dark2); border:1px solid rgba(255,255,255,.05);
+  border-radius:10px; padding:8px 4px; text-align:center; opacity:0.35;
+}
+.db-day-card.future { opacity:0.8; }
+.db-day-card.today {
+  border-color:var(--orange); background:rgba(252,76,2,.12);
+  opacity:1;
+}
+.db-day-card.done { opacity:0.25; }
+.db-day-name { font-size:9px; color:var(--gray); font-family:'DM Mono',monospace; margin-bottom:5px; }
+.db-day-type { font-size:8px; font-weight:700; color:var(--orange); min-height:22px; display:flex; align-items:center; justify-content:center; line-height:1.2; padding:0 2px; }
+.db-day-card.today .db-day-type { color:var(--white); }
+.db-day-card.done .db-day-type { color:var(--gray); }
+
+/* 4단: 최근 활동 */
+.db-last-act { background:var(--dark2); border:1px solid rgba(255,255,255,.05); border-radius:16px; padding:20px 22px; }
+.db-act-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+.db-act-name { font-family:'DM Serif Display',serif; font-size:17px; }
+.db-act-date { font-size:11px; color:var(--gray); font-family:'DM Mono',monospace; }
+.db-act-badge { display:inline-block; background:rgba(252,76,2,.15); color:var(--orange); padding:3px 10px; border-radius:100px; font-size:10px; font-family:'DM Mono',monospace; margin-bottom:10px; }
+.db-act-stats { display:flex; gap:16px; margin-bottom:12px; flex-wrap:wrap; }
+.db-act-analysis { font-size:12px; color:var(--gray-light); line-height:1.7; border-left:2px solid rgba(252,76,2,.3); padding-left:12px; }
+.db-act-analysis h2,.db-act-analysis h3 { font-size:12px; color:var(--orange); margin:8px 0 4px; font-family:'Pretendard',sans-serif; }
+.db-act-analysis strong { color:var(--white); }
+.db-act-analysis p { margin:3px 0; }
+.db-act-analysis ul { padding-left:14px; margin:4px 0; }
+
+/* CHAT */
+.chat-input-row { display:flex; gap:8px; }
+.chat-quick { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.cq-btn { background:var(--dark3); border:1px solid rgba(255,255,255,.07); color:var(--gray-light); padding:8px 12px; border-radius:7px; font-size:12px; cursor:pointer; font-family:'Pretendard',sans-serif; transition:all .2s; }
+.cq-btn:hover { border-color:rgba(252,76,2,.3); color:var(--orange); }
+.cq-btn.sel { border-color:var(--orange); background:rgba(252,76,2,.12); color:var(--orange); font-weight:700; }
+.chat-field { flex:1; background:var(--dark3); border:1px solid rgba(255,255,255,.07); border-radius:9px; padding:12px 16px; color:var(--white); font-family:'Pretendard',sans-serif; font-size:14px; outline:none; }
+.chat-field:focus { border-color:var(--orange); }
+.chat-send { background:var(--orange); border:none; color:white; padding:12px 20px; border-radius:9px; font-family:'Pretendard',sans-serif; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.chat-ans { display:none; background:rgba(252,76,2,.05); border:1px solid rgba(252,76,2,.15); border-radius:12px; padding:16px; margin-top:12px; }
+.ca-hd { font-size:11px; color:var(--orange); font-weight:600; margin-bottom:6px; }
+.ca-txt { font-size:13px; color:var(--gray-light); line-height:1.7; }
+
+/* RACES FILTER */
+.races-filter {
+  flex-shrink:0; padding:6px 14px; border-radius:20px;
+  border:1px solid rgba(255,255,255,.1); background:transparent;
+  color:var(--gray); font-size:12px; font-family:'Pretendard',sans-serif;
+  cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.races-filter.active { background:var(--orange); border-color:var(--orange); color:white; font-weight:600; }
+.races-filter:hover { border-color:rgba(252,76,2,.4); color:var(--orange-light); }
+
+/* RACE CARD */
+.race-card-baba {
+  background:var(--dark2); border:1px solid rgba(255,255,255,.05);
+  border-radius:14px; margin-bottom:10px; overflow:hidden;
+  display:flex; transition:all .2s; position:relative;
+}
+.race-card-baba:hover { border-color:rgba(252,76,2,.2); }
+.race-card-baba.open { border-color:rgba(39,174,96,.25); }
+.race-card-baba.race-ended { opacity:.4; pointer-events:none; }
+.race-card-baba.reg-closed { opacity:.7; }
+
+.rcard-left {
+  width:52px; flex-shrink:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; padding:12px 4px;
+  background:rgba(255,255,255,.04);
+}
+.rcard-left .r-day { font-family:'DM Serif Display',serif; font-size:22px; color:var(--white); line-height:1; }
+.rcard-left .r-dow { font-size:9px; color:var(--gray); margin-top:2px; font-family:'DM Mono',monospace; }
+.race-card-baba.open .rcard-left { background:rgba(39,174,96,.12); }
+.race-card-baba.open .rcard-left .r-day { color:var(--green); }
+
+.rcard-body { flex:1; padding:12px 14px; }
+.rcard-tags { display:flex; gap:5px; margin-bottom:6px; flex-wrap:wrap; }
+.rtag { font-size:9px; padding:2px 8px; border-radius:10px; font-weight:600; letter-spacing:.5px; }
+.rtag-dist { background:rgba(39,174,96,.15); color:var(--green); border:1px solid rgba(39,174,96,.2); }
+.rtag-type { background:rgba(252,76,2,.12); color:var(--orange); border:1px solid rgba(252,76,2,.2); }
+.rtag-practice { background:rgba(39,174,96,.1); color:#4ADE80; border:1px solid rgba(74,222,128,.2); }
+.rtag-course { background:rgba(59,130,246,.1); color:#60A5FA; border:1px solid rgba(96,165,250,.2); }
+.rtag-major { background:rgba(245,158,11,.15); color:#F59E0B; border:1px solid rgba(245,158,11,.2); }
+
+.rcard-name { font-family:'DM Serif Display',serif; font-size:15px; line-height:1.3; margin-bottom:5px; }
+.rcard-meta { font-size:11px; color:var(--gray); display:flex; gap:10px; flex-wrap:wrap; }
+.rcard-reg { margin-top:5px; font-size:10px; color:var(--gray); }
+
+.rbadge { position:absolute; top:10px; right:46px; font-size:10px; padding:3px 9px; border-radius:10px; font-weight:700; }
+.rbadge.open { background:rgba(39,174,96,.2); color:var(--green); border:1px solid rgba(39,174,96,.3); }
+.rbadge.reg-closed { background:rgba(245,158,11,.15); color:#F59E0B; border:1px solid rgba(245,158,11,.2); }
+.rbadge.race-ended { background:rgba(255,255,255,.06); color:var(--gray); }
+.rbadge.upcoming { background:rgba(59,130,246,.12); color:#60A5FA; border:1px solid rgba(96,165,250,.2); }
+
+.rcard-action { display:flex; align-items:center; justify-content:center; padding:0 12px; border-left:1px solid rgba(255,255,255,.05); flex-shrink:0; }
+.raction-btn { width:30px; height:30px; border-radius:50%; background:rgba(252,76,2,.15); color:var(--orange); display:flex; align-items:center; justify-content:center; font-size:14px; text-decoration:none; transition:all .2s; border:1px solid rgba(252,76,2,.2); }
+.raction-btn:hover { background:var(--orange); color:white; }
+.raction-btn.no-link { background:rgba(255,255,255,.04); color:var(--gray); border-color:transparent; cursor:default; pointer-events:none; }
+
+.races-month-label { display:flex; align-items:center; gap:10px; margin-bottom:12px; margin-top:20px; }
+.races-month-num { font-family:'DM Serif Display',serif; font-size:28px; color:var(--orange); line-height:1; }
+.races-month-kr { font-size:11px; color:var(--gray); }
+.races-month-label::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.06); }
+.toast { position:fixed; bottom:24px; right:24px; background:var(--dark2); border:1px solid rgba(252,76,2,.25); border-radius:12px; padding:14px 20px; font-size:13px; transform:translateY(80px); opacity:0; transition:all .3s; z-index:9999; max-width:300px; }
+.toast.show { transform:translateY(0); opacity:1; }
+
+/* LOADING */
+.loading-screen { position:fixed; inset:0; background:var(--black); display:flex; align-items:center; justify-content:center; z-index:10000; }
+.loading-logo { font-family:'DM Serif Display',serif; font-size:32px; animation:pulse 1.5s ease-in-out infinite; }
+.loading-logo em { font-style:normal; color:var(--orange); }
+@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">Run<em>AI</em></div>
+</div>
+
+<!-- LANDING -->
+<div id="screen-landing" class="screen">
+  <div class="landing-wrap">
+    <div class="bg-lines"></div>
+    <div class="bg-accent"></div>
+
+    <nav class="landing-nav">
+      <div class="logo">Baba<em>.</em>School</div>
+      <div class="nav-btns">
+        <button class="btn-ghost" onclick="openAuth('signup')">JOIN</button>
+        <button class="btn-orange" onclick="openAuth('login')">LOGIN</button>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="hero-eyebrow">AI Marathon Coaching</div>
+
+      <div class="hero-title">
+        <span class="brand">BaBa School</span>
+        <div class="for-line">
+          For&nbsp;<span class="rotating-word fade-in" id="rotatingWord">Alpha</span>
+        </div>
+      </div>
+
+      <p class="hero-sub">
+        Strava 기록을 AI가 분석해 일일·주간·월간 맞춤 코칭을 제공합니다.<br>
+        당신의 마라톤 목표, 함께 달성합니다.
+      </p>
+
+      <div class="hero-btns">
+        <button class="btn-hero" onclick="openAuth('login')">START NOW</button>
+        <button class="btn-hero-ghost" onclick="openAuth('signup')">JOIN</button>
+      </div>
+
+      <!-- 우측 스탯 -->
+      <div class="hero-stats">
+        <div class="hs-item">
+          <div class="hs-val">42.2</div>
+          <div class="hs-label">KM Full Course</div>
+        </div>
+        <div class="hs-item">
+          <div class="hs-val">AI</div>
+          <div class="hs-label">Personal Coach</div>
+        </div>
+        <div class="hs-item">
+          <div class="hs-val">24/7</div>
+          <div class="hs-label">Analysis</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 바 -->
+    <div class="hero-bottom">
+      <div class="hb-item"><div class="hb-dot"></div>Daily Analysis</div>
+      <div class="hb-item"><div class="hb-dot"></div>Weekly Report</div>
+      <div class="hb-item"><div class="hb-dot"></div>AI Coaching</div>
+      <div class="hb-item"><div class="hb-dot"></div>Telegram Alert</div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="modal-logo" style="font-family:'DM Mono',monospace;font-size:20px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
+    <div class="modal-sub">AI 마라톤 코치와 함께 시작하세요</div>
+    <div class="tab-sw">
+      <button class="tab-sw-btn active" id="loginTabBtn" onclick="switchAuthTab('login')">로그인</button>
+      <button class="tab-sw-btn" id="signupTabBtn" onclick="switchAuthTab('signup')">회원가입</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" type="email" id="loginEmail" placeholder="runner@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input class="form-input" type="password" id="loginPw" placeholder="••••••••">
+      </div>
+      <div class="form-error" id="loginError">이메일 또는 비밀번호를 확인해주세요.</div>
+      <button class="form-submit" onclick="doLogin()">로그인</button>
+    </div>
+    <!-- SIGNUP -->
+    <div id="signupForm" style="display:none">
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input class="form-input" type="text" id="signupName" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" type="email" id="signupEmail" placeholder="runner@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호 (8자 이상)</label>
+        <input class="form-input" type="password" id="signupPw" placeholder="••••••••">
+      </div>
+      <div class="form-error" id="signupError">모든 항목을 입력해주세요.</div>
+      <button class="form-submit" onclick="doSignup()">회원가입 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="screen-onboarding" class="screen">
+  <div class="ob-card">
+    <div class="step-dots">
+      <div class="step-dot done" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+      <div class="step-dot" id="dot4"></div>
+    </div>
+
+    <!-- STEP 1: 마라톤 목표 -->
+    <div class="ob-step active" id="step1">
+      <div class="ob-title">마라톤 목표 기록을<br>선택해주세요</div>
+      <div class="ob-sub">풀코스 마라톤(42.195km) 기준입니다</div>
+      <div class="goal-grid">
+        <div class="goal-card" onclick="selectGoal(this,'3:00:00','4:16')"><div class="gc-icon">⚡</div><div class="gc-title">서브 3</div><div class="gc-time">3:00:00</div><div class="gc-desc">페이스 4:16/km · 상위 2%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'3:30:00','4:58')"><div class="gc-icon">🔥</div><div class="gc-title">서브 3:30</div><div class="gc-time">3:30:00</div><div class="gc-desc">페이스 4:58/km · 상위 10%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card sel" id="defaultGoal" onclick="selectGoal(this,'3:50:00','5:27')"><div class="gc-icon">🎯</div><div class="gc-title">서브 3:50</div><div class="gc-time">3:50:00</div><div class="gc-desc">페이스 5:27/km · 상위 20%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'4:00:00','5:41')"><div class="gc-icon">🏅</div><div class="gc-title">서브 4</div><div class="gc-time">4:00:00</div><div class="gc-desc">페이스 5:41/km · 상위 35%</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'4:30:00','6:23')"><div class="gc-icon">🌟</div><div class="gc-title">서브 4:30</div><div class="gc-time">4:30:00</div><div class="gc-desc">페이스 6:23/km · 완주 목표</div><div class="gc-check">✓</div></div>
+        <div class="goal-card" onclick="selectGoal(this,'5:00:00','7:06')"><div class="gc-icon">🏃</div><div class="gc-title">완주 목표</div><div class="gc-time">5:00:00</div><div class="gc-desc">페이스 7:06/km · 첫 마라톤</div><div class="gc-check">✓</div></div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label class="input-label">직접 입력 (HH:MM:SS)</label>
+        <input class="input-field" type="text" id="customTime" placeholder="예: 3:45:00" style="max-width:220px">
+      </div>
+      <div class="ob-btns"><button class="btn-next" onclick="goStep(2)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 2: 레이스 정보 -->
+    <div class="ob-step" id="step2">
+      <div class="ob-title">레이스 정보를<br>알려주세요</div>
+      <div class="ob-sub">훈련 기간 계산에 사용됩니다</div>
+      <div class="form-grid">
+        <div><label class="input-label">레이스 이름</label><input class="input-field" type="text" id="raceName" placeholder="대회명을 입력하세요"></div>
+        <div><label class="input-label">레이스 날짜</label><input class="input-field" type="date" id="raceDate"></div>
+        <div><label class="input-label">현재 주간 달리기 거리</label><select class="input-field" id="weeklyKm"><option>20km 미만</option><option>20~40km</option><option selected>40~60km</option><option>60~80km</option><option>80km 이상</option></select></div>
+        <div><label class="input-label">주간 훈련 가능일</label><select class="input-field" id="trainDays"><option>주 3일</option><option>주 4일</option><option selected>주 5일</option><option>주 6일</option></select></div>
+      </div>
+      <div class="ob-btns"><button class="btn-back" onclick="goStep(1)">← 이전</button><button class="btn-next" onclick="goStep(3)">다음 →</button></div>
+    </div>
+
+    <!-- STEP 3: 트라이애슬론 목표 (선택) -->
+    <div class="ob-step" id="step3">
+      <div class="ob-title">트라이애슬론<br>목표가 있나요?</div>
+      <div class="ob-sub">없으면 건너뛰어도 돼요 · 나중에 설정에서 추가 가능해요</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div id="triNo" class="goal-card sel" onclick="selectTriOption(false)" style="text-align:center;padding:20px">
+          <div style="font-size:28px;margin-bottom:8px">🏃</div>
+          <div style="font-weight:700;font-size:14px">마라톤만</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px">트라이애슬론 없음</div>
+          <div class="gc-check">✓</div>
+        </div>
+        <div id="triYes" class="goal-card" onclick="selectTriOption(true)" style="text-align:center;padding:20px">
+          <div style="font-size:28px;margin-bottom:8px">🏊🚴🏃</div>
+          <div style="font-weight:700;font-size:14px">트라이애슬론 포함</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px">수영+자전거+러닝</div>
+          <div class="gc-check">✓</div>
+        </div>
+      </div>
+
+      <div id="triDetails" style="display:none">
+        <div style="background:var(--dark3);border-radius:14px;padding:20px;margin-bottom:20px">
+          <div style="margin-bottom:16px">
+            <label class="input-label">대회 종류</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+              <div id="triOlympic" class="goal-card" onclick="selectTriType('olympic')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">올림픽</div>
+                <div style="font-size:10px;color:var(--gray)">수1.5+자40+런10</div>
+              </div>
+              <div id="triHalf" class="goal-card" onclick="selectTriType('half')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">하프</div>
+                <div style="font-size:10px;color:var(--gray)">수1.9+자90+런21</div>
+              </div>
+              <div id="triFull" class="goal-card sel" onclick="selectTriType('full')" style="text-align:center;padding:12px">
+                <div style="font-size:11px;font-weight:700">풀 아이언맨</div>
+                <div style="font-size:10px;color:var(--gray)">수3.8+자180+런42</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div><label class="input-label">🏊 수영 목표</label><input class="input-field" type="text" id="triSwimTarget" placeholder="예: 1:10:00"></div>
+            <div><label class="input-label">🚴 자전거 목표</label><input class="input-field" type="text" id="triBikeTarget" placeholder="예: 6:00:00"></div>
+            <div><label class="input-label">🏃 러닝 목표</label><input class="input-field" type="text" id="triRunTarget" placeholder="예: 4:30:00"></div>
+            <div><label class="input-label">🏁 전체 목표</label><input class="input-field" type="text" id="triTotalTarget" placeholder="예: 12:00:00"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-btns">
+        <button class="btn-back" onclick="goStep(2)">← 이전</button>
+        <button class="btn-next" onclick="goStep(4)">다음 →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: 개인 기록 PR -->
+    <div class="ob-step" id="step4">
+      <div class="ob-title">개인 최고 기록을<br>알려주세요</div>
+      <div class="ob-sub">기록 기반으로 더 정확한 AI 코칭을 제공합니다 · 없으면 비워두세요</div>
+
+      <div class="form-grid">
+        <div><label class="input-label">풀코스 (42.195km)</label><input class="input-field" type="text" id="prFull" placeholder="예: 3:52:00"></div>
+        <div><label class="input-label">하프코스 (21.0975km)</label><input class="input-field" type="text" id="prHalf" placeholder="예: 1:48:00"></div>
+        <div><label class="input-label">10K</label><input class="input-field" type="text" id="prTenK" placeholder="예: 48:30"></div>
+        <div><label class="input-label">5K</label><input class="input-field" type="text" id="prFiveK" placeholder="예: 23:00"></div>
+      </div>
+
+      <div id="triPrSection" style="display:none">
+        <div style="border-top:1px solid rgba(255,255,255,.06);margin:16px 0;padding-top:16px">
+          <div style="font-size:12px;color:var(--orange);font-weight:600;margin-bottom:12px">🏊🚴🏃 트라이애슬론 기록</div>
+          <div class="form-grid">
+            <div><label class="input-label">수영 PR</label><input class="input-field" type="text" id="prSwim" placeholder="예: 1:05:00"></div>
+            <div><label class="input-label">자전거 PR</label><input class="input-field" type="text" id="prBike" placeholder="예: 5:45:00"></div>
+            <div><label class="input-label">트라이애슬론 PR</label><input class="input-field" type="text" id="prTri" placeholder="예: 11:30:00"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:12px;padding:16px;margin-bottom:24px;font-size:13px;color:var(--gray-light);line-height:1.6">
+        💡 기록을 입력하면 AI 코치가 현재 실력을 정확히 파악해 <strong>목표 달성을 위한 맞춤 훈련 계획</strong>을 제공합니다.<br>
+        <span style="color:var(--gray);font-size:11px;margin-top:4px;display:block">텔레그램 알림 설정과 Strava 연동은 대시보드 → 설정에서 할 수 있어요</span>
+      </div>
+
+      <div class="ob-btns">
+        <button class="btn-back" onclick="goStep(3)">← 이전</button>
+        <button class="btn-next" onclick="finishOnboarding()">🚀 시작하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen">
+  <nav class="dash-nav">
+    <div class="dash-logo" style="font-family:'DM Mono',monospace;font-size:14px;letter-spacing:2px">BABA<em style="font-style:normal;color:var(--orange)">.</em>SCHOOL</div>
+    <div class="dash-tabs">
+      <button class="dash-tab active" onclick="switchPanel(this,'p-dashboard')">대시보드</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-daily')">일간 분석</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-weekly')">주간 리포트</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-monthly')">월간 리포트</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-coach')">🏁 레이싱 전략</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-races')">📅 대회 일정</button>
+      <button class="dash-tab" onclick="switchPanel(this,'p-settings')">설정</button>
+    </div>
+    <div class="dash-user">
+      <div class="user-av" id="userInitial">J</div>
+      <span class="user-nm" id="userName">-</span>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </nav>
+
+  <!-- 모바일 하단 탭바 -->
+  <div class="mobile-nav">
+    <div class="mobile-nav-tabs">
+      <button class="mobile-tab active" onclick="switchPanelMobile(this,'p-dashboard')">
+        <span class="mobile-tab-icon">🏠</span>홈
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-daily')">
+        <span class="mobile-tab-icon">📊</span>일간
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-weekly')">
+        <span class="mobile-tab-icon">📅</span>주간
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-monthly')">
+        <span class="mobile-tab-icon">📈</span>월간
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-coach')">
+        <span class="mobile-tab-icon">🏁</span>레이싱
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-races')">
+        <span class="mobile-tab-icon">📅</span>대회
+      </button>
+      <button class="mobile-tab" onclick="switchPanelMobile(this,'p-settings')">
+        <span class="mobile-tab-icon">⚙️</span>설정
+      </button>
+    </div>
+  </div>
+
+  <div class="dash-body">
+
+    <!-- ══════════ 대시보드 ══════════ -->
+    <div class="tab-panel active" id="p-dashboard">
+
+      <!-- 1단: 목표 카드 -->
+      <div class="db-section">
+        <div class="db-goal-card">
+          <div class="db-goal-top">
+            <div>
+              <div class="db-goal-name" id="db-race-name">🎯 서울 마라톤</div>
+              <div class="db-goal-sub">
+                <span>🏁 <span id="db-target-time">3:50:00</span></span>
+                <span>⚡ <span id="db-target-pace">5:27</span>/km</span>
+                <span>📅 D-<span id="db-days">--</span></span>
+              </div>
+            </div>
+            <div class="db-goal-metrics">
+              <div class="db-metric">
+                <div class="db-metric-val" id="db-achieve-rate">--%</div>
+                <div class="db-metric-lbl">훈련달성률</div>
+              </div>
+              <div class="db-metric">
+                <div class="db-metric-val" id="db-goal-prob">--%</div>
+                <div class="db-metric-lbl">목표가능성</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2단: 마일리지 -->
+      <div class="db-section">
+        <div class="db-mileage-grid">
+          <div class="db-mile-card">
+            <div class="db-mile-label">📅 이번 주</div>
+            <div class="db-mile-nums">
+              <div class="db-mile-done" id="db-week-done">0</div>
+              <div class="db-mile-total">/ <span id="db-week-target">50</span>km</div>
+            </div>
+            <div class="db-mile-bar"><div class="db-mile-fill" id="db-week-bar" style="width:0%"></div></div>
+          </div>
+          <div class="db-mile-card">
+            <div class="db-mile-label">📈 이번 달</div>
+            <div class="db-mile-nums">
+              <div class="db-mile-done" id="db-month-done">0</div>
+              <div class="db-mile-total">/ <span id="db-month-target">200</span>km</div>
+            </div>
+            <div class="db-mile-bar"><div class="db-mile-fill" id="db-month-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3단: 오늘의 훈련 / 다음 훈련 -->
+      <div class="db-section">
+        <div class="db-section-title">오늘의 코치</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="db-today-training">
+
+          <!-- 오늘 훈련 -->
+          <div style="background:linear-gradient(135deg,rgba(252,76,2,.18),rgba(252,76,2,.04));border:1px solid rgba(252,76,2,.3);border-radius:16px;padding:18px">
+            <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">오늘 훈련</div>
+            <div id="db-today-type" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:6px">-</div>
+            <div id="db-today-detail" style="font-size:12px;color:var(--gray-light);line-height:1.7">주간 계획을 불러오는 중...</div>
+          </div>
+
+          <!-- 다음 훈련 -->
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+            <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">다음 훈련</div>
+            <div id="db-next-type" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:6px">-</div>
+            <div id="db-next-detail" style="font-size:12px;color:var(--gray);line-height:1.7">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4단: 컨디션 기반 조정 제안 -->
+      <div class="db-section" id="db-condition-section" style="display:none">
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+          <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">🤖 코치 제안</div>
+          <div id="db-condition-advice" style="font-size:13px;color:var(--gray-light);line-height:1.8"></div>
+        </div>
+      </div>
+
+      <!-- 4.5단: 선수 약점 프로파일 -->
+      <div class="db-section" id="db-athlete-section" style="display:none">
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace">🧬 나의 약점 프로파일</div>
+            <a id="db-athlete-refresh" onclick="refreshAthleteProfile()" style="font-size:11px;color:var(--orange);cursor:pointer">🔄 갱신</a>
+          </div>
+          <div id="db-athlete-body" style="font-size:13px;color:var(--gray-light);line-height:1.7"></div>
+          <div id="db-athlete-updated" style="font-size:10px;color:var(--gray);margin-top:10px"></div>
+        </div>
+      </div>
+
+      <!-- 5단: 최근 활동 -->
+      <div class="db-section">
+        <div class="db-section-title">최근 활동</div>
+        <div class="db-last-act" id="db-last-activity">
+          <div style="text-align:center;color:var(--gray);padding:20px;font-size:13px">
+            Strava 연동 후 활동이 표시됩니다
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 일간 분석 ══════════ -->
+    <div class="tab-panel" id="p-daily">
+
+      <!-- 상단 3카드 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px" id="daily-top-cards">
+
+        <!-- 카드1: 최근 훈련 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">최근 훈련</div>
+          <div id="daily-card1-plan" style="font-size:11px;color:var(--gray);margin-bottom:6px">계획</div>
+          <div id="daily-card1-type" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card1-actual" style="font-size:11px;color:var(--orange)">-</div>
+        </div>
+
+        <!-- 카드2: 훈련 평가 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">훈련 강도</div>
+          <div id="daily-card2-stars" style="font-size:18px;margin-bottom:6px">-</div>
+          <div id="daily-card2-label" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card2-detail" style="font-size:11px;color:var(--gray)">-</div>
+        </div>
+
+        <!-- 카드3: 다음 훈련 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">다음 훈련</div>
+          <div id="daily-card3-day" style="font-size:11px;color:var(--gray);margin-bottom:6px">-</div>
+          <div id="daily-card3-type" style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:4px">-</div>
+          <div id="daily-card3-detail" style="font-size:11px;color:var(--orange)">-</div>
+        </div>
+      </div>
+
+      <!-- 이번 주 요약 -->
+      <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="daily-week-summary">
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--orange)" id="daily-sum-km">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">이번 주 km</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-count">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">운동 횟수</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-pace">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">평균 페이스</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--white)" id="daily-sum-time">-</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:3px">총 시간</div>
+        </div>
+      </div>
+
+      <!-- 활동 목록 -->
+      <div class="section-hd">최근 7일 활동</div>
+      <div id="activitiesList">
+        <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+          Strava 연동 후 활동이 표시됩니다
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 주간 리포트 ══════════ -->
+    <div class="tab-panel" id="p-weekly">
+
+      <!-- 1단: 이번 주 코칭 카드 3개 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+
+        <!-- 이번 주 진행 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 주</div>
+          <div class="db-metric-val" id="wk-done-km" style="font-size:24px">0</div>
+          <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="wk-target-km">--</span>km 목표</div>
+          <div class="db-mile-bar" style="margin-top:8px">
+            <div class="db-mile-fill" id="wk-progress-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="wk-sessions">0</span>회 · <span id="wk-phase">--</span></div>
+        </div>
+
+        <!-- 핵심 집중 포인트 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 주 핵심</div>
+          <div id="wk-focus" style="font-size:13px;color:var(--white);line-height:1.7">주간 리포트 생성 후 표시됩니다</div>
+        </div>
+
+        <!-- 목표 페이스 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">훈련 페이스</div>
+          <div id="wk-pace-guide" style="font-size:11px;color:var(--gray-light);line-height:1.9">
+            <div>인터벌 <span id="wk-pace-interval" style="color:var(--orange);font-family:'DM Mono',monospace">--:--</span>/km</div>
+            <div>템포 <span id="wk-pace-tempo" style="color:var(--white);font-family:'DM Mono',monospace">--:--</span>/km</div>
+            <div>LSD <span id="wk-pace-lsd" style="color:var(--gray);font-family:'DM Mono',monospace">--:--</span>/km</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1.5단: 이번 주 훈련 현황 캘린더 -->
+      <div class="db-section">
+        <div class="db-section-title">이번 주 훈련 현황</div>
+        <div id="wk-this-week-calendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+          <!-- JS로 채워짐 -->
+        </div>
+        <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>✅</span> 완료</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>🔄</span> 대체</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>❌</span> 미완료</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>⏳</span> 예정</div>
+          <div style="font-size:10px;color:var(--gray);display:flex;align-items:center;gap:4px"><span>💤</span> 휴식</div>
+        </div>
+      </div>
+
+      <!-- 2단: 다음 주 훈련 계획 -->
+      <div class="db-section">
+        <div class="db-section-title">다음 주 훈련 계획</div>
+        <div id="wk-next-plan" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+          <!-- JS로 채워짐 -->
+        </div>
+      </div>
+
+      <!-- 3단: 데이터 분석 -->
+      <div class="db-section">
+        <div class="two-col">
+          <div class="chart-box">
+            <div class="cb-title">이번 주 일별 거리 (km)</div>
+            <div class="bar-row" id="wk-daily-bars">
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">월</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">화</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">수</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">목</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">금</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">토</div></div>
+              <div class="b-col"><div class="b-km">-</div><div class="b-bar fill" style="height:2%"></div><div class="b-day">일</div></div>
+            </div>
+          </div>
+          <div class="chart-box">
+            <div class="cb-title">최근 8주 마일리지 트렌드</div>
+            <div class="trend-rows" id="wk-8weeks">
+              <div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터 로딩 중...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 훈련 구성 비교 -->
+      <div class="db-section">
+        <div class="two-col">
+          <div class="chart-box">
+            <div class="cb-title">이번 주 훈련 구성</div>
+            <div id="wk-this-week-types" style="margin-bottom:12px"></div>
+            <div id="wk-this-ratio" style="font-size:11px;color:var(--gray)"></div>
+          </div>
+          <div class="chart-box">
+            <div class="cb-title">지난 주 훈련 구성</div>
+            <div id="wk-last-week-types" style="margin-bottom:12px"></div>
+            <div id="wk-last-ratio" style="font-size:11px;color:var(--gray)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4단: AI 주간 리포트 -->
+      <div class="db-section">
+        <div class="section-hd">AI 주간 리포트</div>
+        <div id="weeklyReport">
+          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+            매주 월요일 오전 8시에 자동으로 업데이트됩니다
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 월간 리포트 ══════════ -->
+    <div class="tab-panel" id="p-monthly">
+
+      <!-- 1단: 이달의 코칭 3카드 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+
+        <!-- 이번 달 km -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">이번 달</div>
+          <div class="db-metric-val" id="mn-done-km" style="font-size:24px">0</div>
+          <div style="font-size:11px;color:var(--gray);margin:4px 0">/ <span id="mn-target-km">--</span>km 목표</div>
+          <div class="db-mile-bar" style="margin-top:8px">
+            <div class="db-mile-fill" id="mn-progress-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:6px"><span id="mn-sessions">0</span>회 훈련</div>
+        </div>
+
+        <!-- 목표 달성 가능성 -->
+        <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">목표 가능성</div>
+          <div id="mn-prob-val" style="font-family:'DM Serif Display',serif;font-size:32px;color:var(--orange);line-height:1">--%</div>
+          <div id="mn-prob-label" style="font-size:11px;color:var(--gray-light);margin-top:6px">월간 리포트 생성 후 표시</div>
+        </div>
+
+        <!-- D-day -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:10px">레이스까지</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:32px;color:var(--white);line-height:1">D-<span id="mn-dday">--</span></div>
+          <div id="mn-phase" style="font-size:11px;color:var(--gray);margin-top:6px">--</div>
+          <div id="mn-race-name" style="font-size:10px;color:var(--orange);margin-top:4px">--</div>
+        </div>
+      </div>
+
+      <!-- 2단: 이달의 미션 -->
+      <div class="db-section">
+        <div class="db-section-title">이달의 핵심 미션</div>
+        <div id="mn-missions" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">🎯</div>
+            <div style="font-size:11px;color:var(--gray)">월간 리포트</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">생성 후 표시</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">💪</div>
+            <div style="font-size:11px;color:var(--gray)">매월 2일</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">오전 8시 업데이트</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:6px">🏆</div>
+            <div style="font-size:11px;color:var(--gray)">훈련 완료 시</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">가능성 % 상승</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3단: 훈련 종류별 현황 -->
+      <div class="db-section">
+        <div class="db-section-title">이번 달 훈련 구성</div>
+        <div class="chart-box">
+          <div id="mn-workout-types" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
+          <div id="mn-ratio" style="padding-top:12px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:var(--gray-light)"></div>
+        </div>
+      </div>
+
+      <!-- 4단: 6개월 마일리지 -->
+      <div class="db-section">
+        <div class="db-section-title">최근 6개월 마일리지</div>
+        <div class="chart-box">
+          <div class="trend-rows" id="mn-6months"></div>
+        </div>
+      </div>
+
+      <!-- 5단: 레이스 로드맵 -->
+      <div class="db-section">
+        <div class="db-section-title">레이스까지 훈련 로드맵</div>
+        <div id="mn-roadmap" class="chart-box">
+          <div style="color:var(--gray);font-size:12px">목표 대회 날짜를 설정하면 로드맵이 생성됩니다</div>
+        </div>
+      </div>
+
+      <!-- 6단: AI 월간 리포트 -->
+      <div class="db-section">
+        <div class="section-hd">AI 월간 리포트</div>
+        <div id="monthlyReport">
+          <div style="text-align:center;color:var(--gray);padding:40px;font-size:13px">
+            매월 2일 오전 8시에 자동으로 업데이트됩니다
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 레이싱 전략 ══════════ -->
+    <div class="tab-panel" id="p-coach">
+
+      <!-- 헤더 -->
+      <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:16px;padding:20px;margin-bottom:20px">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:8px">🏁 레이스 전략</div>
+        <div id="race-strategy-title" style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px">--</div>
+        <div id="race-strategy-date" style="font-size:12px;color:var(--gray)">매월 1일 자동 업데이트 · 레이스 1주일 전 최종 갱신</div>
+        <button onclick="refreshRaceStrategy()" id="strategy-refresh-btn"
+          style="margin-top:12px;background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          🔄 지금 생성하기
+        </button>
+      </div>
+
+      <!-- 현재 체력 분석 카드 -->
+      <div id="training-analysis-section" style="display:none;background:var(--dark2);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:12px">📊 현재 체력 분석 (최근 3개월)</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px">
+          <div style="background:var(--dark3);border-radius:10px;padding:12px">
+            <div style="font-size:9px;color:var(--gray);margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase">현재 체력 페이스</div>
+            <div id="ta-fitness-pace" style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--orange)">--:--</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">/km 가중 평균</div>
+          </div>
+          <div style="background:var(--dark3);border-radius:10px;padding:12px">
+            <div style="font-size:9px;color:var(--gray);margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase">훈련 완성도</div>
+            <div id="ta-completeness" style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--white)">--</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">/ 100점</div>
+          </div>
+          <div style="background:var(--dark3);border-radius:10px;padding:12px">
+            <div style="font-size:9px;color:var(--gray);margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase">주간 평균 거리</div>
+            <div id="ta-weekly-avg" style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--white)">--</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">km/주</div>
+          </div>
+          <div style="background:var(--dark3);border-radius:10px;padding:12px">
+            <div style="font-size:9px;color:var(--gray);margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase">최장 LSD</div>
+            <div id="ta-longest-lsd" style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--white)">--</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">km</div>
+          </div>
+        </div>
+        <div id="ta-assessment" style="font-size:12px;color:var(--gray-light);line-height:1.75;border-left:2px solid rgba(252,76,2,.3);padding-left:12px"></div>
+      </div>
+
+      <!-- 목표 타당성 평가 -->
+      <div id="goal-feasibility-section" style="display:none;background:linear-gradient(135deg,rgba(252,76,2,.08),rgba(252,76,2,.02));border:1px solid rgba(252,76,2,.2);border-radius:14px;padding:16px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:8px">🎯 사용자 목표 타당성</div>
+        <div id="goal-feasibility-text" style="font-size:13px;color:var(--white);line-height:1.75"></div>
+      </div>
+
+      <!-- 전략 A / B 탭 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="tab-strat-a" onclick="switchStrategy('A')"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--orange);background:rgba(252,76,2,.12);color:var(--orange);font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          전략 A · 90% 목표 (안전)
+        </button>
+        <button id="tab-strat-b" onclick="switchStrategy('B')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          전략 B · 80% 목표 (도전)
+        </button>
+      </div>
+
+      <!-- 전략 A -->
+      <div id="strategy-A">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--dark2);border:1px solid rgba(252,76,2,.2);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">목표 기록</div>
+            <div id="a-target-time" style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--white)">--:--:--</div>
+            <div id="a-target-pace" style="font-size:12px;color:var(--orange);margin-top:4px">--:--/km</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">달성 가능성</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--orange)">90%</div>
+            <div id="a-key-point" style="font-size:11px;color:var(--gray-light);margin-top:4px;line-height:1.5">--</div>
+          </div>
+        </div>
+
+        <!-- 페이스 전략 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:10px">⚡ 레이스 페이스 전략</div>
+          <div id="a-description" style="font-size:12px;color:var(--gray-light);line-height:1.8;margin-bottom:10px">--</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;text-align:center">
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">전반 (0~21K)</div>
+              <div id="a-pace-first" style="color:var(--orange);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">중반 (21~32K)</div>
+              <div id="a-pace-mid" style="color:var(--white);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">후반 (32~42K)</div>
+              <div id="a-pace-last" style="color:var(--green,#22C55E);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5K 구간 차트 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">📊 5K 구간별 목표</div>
+          <div id="a-splits" style="overflow-x:auto">
+            <div style="color:var(--gray);font-size:12px">전략 생성 후 표시됩니다</div>
+          </div>
+        </div>
+
+        <!-- 에너지젤 전략 -->
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">🧃 에너지젤 보급 전략</div>
+          <div id="a-gels" style="font-size:12px;color:var(--gray)">전략 생성 후 표시됩니다</div>
+        </div>
+      </div>
+
+      <!-- 전략 B -->
+      <div id="strategy-B" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div style="background:var(--dark2);border:1px solid rgba(0,212,170,.2);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:#00D4AA;text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">목표 기록</div>
+            <div id="b-target-time" style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--white)">--:--:--</div>
+            <div id="b-target-pace" style="font-size:12px;color:#00D4AA;margin-top:4px">--:--/km</div>
+          </div>
+          <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;font-family:'DM Mono',monospace;margin-bottom:8px">달성 가능성</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:28px;color:#00D4AA">80%</div>
+            <div id="b-key-point" style="font-size:11px;color:var(--gray-light);margin-top:4px;line-height:1.5">--</div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:10px">⚡ 레이스 페이스 전략</div>
+          <div id="b-description" style="font-size:12px;color:var(--gray-light);line-height:1.8;margin-bottom:10px">--</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;text-align:center">
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">전반 (0~21K)</div>
+              <div id="b-pace-first" style="color:#00D4AA;font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">중반 (21~32K)</div>
+              <div id="b-pace-mid" style="color:var(--white);font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+            <div style="background:var(--dark3);border-radius:8px;padding:10px">
+              <div style="color:var(--gray);margin-bottom:4px">후반 (32~42K)</div>
+              <div id="b-pace-last" style="color:#00D4AA;font-family:'DM Mono',monospace;font-weight:700">--:--</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">📊 5K 구간별 목표</div>
+          <div id="b-splits">
+            <div style="color:var(--gray);font-size:12px">전략 생성 후 표시됩니다</div>
+          </div>
+        </div>
+
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px">
+          <div style="font-size:11px;color:var(--gray);font-weight:600;margin-bottom:12px">🧃 에너지젤 보급 전략</div>
+          <div id="b-gels" style="font-size:12px;color:var(--gray)">전략 생성 후 표시됩니다</div>
+        </div>
+      </div>
+
+      <!-- 핵심 훈련 조언 -->
+      <div id="training-advice-section" style="display:none;background:var(--dark2);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-top:16px">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:10px">💡 남은 훈련 핵심 조언</div>
+        <div id="training-advice-text" style="font-size:13px;color:var(--gray-light);line-height:1.8;border-left:2px solid rgba(252,76,2,.3);padding-left:12px"></div>
+      </div>
+    </div>
+
+    <!-- ══════════ 대회 일정 ══════════ -->
+    <div class="tab-panel" id="p-races">
+
+      <!-- 헤더 -->
+      <div style="background:linear-gradient(135deg,rgba(252,76,2,.15),rgba(252,76,2,.03));border:1px solid rgba(252,76,2,.25);border-radius:16px;padding:20px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:2px;font-family:'DM Mono',monospace;margin-bottom:6px">🐢 일산호수마라톤클럽</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px">2025~2026 대회 일정</div>
+        <div style="font-size:12px;color:var(--gray)">접수일 · 대회일 · 연유추천 한눈에</div>
+      </div>
+
+      <!-- 필터 -->
+      <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;margin-bottom:12px" id="races-filter-bar">
+        <button class="races-filter active" data-filter="전체" onclick="racesFilter(this)">전체</button>
+        <button class="races-filter" data-filter="접수중" onclick="racesFilter(this)">✅ 접수중</button>
+        <button class="races-filter" data-filter="접수예정" onclick="racesFilter(this)">📅 접수예정</button>
+        <button class="races-filter" data-filter="마감" onclick="racesFilter(this)">🔒 마감</button>
+        <button class="races-filter" data-filter="연습" onclick="racesFilter(this)">🏃 연습</button>
+        <button class="races-filter" data-filter="코스" onclick="racesFilter(this)">🗺 코스</button>
+        <button class="races-filter" data-filter="메이저" onclick="racesFilter(this)">🏆 메이저</button>
+        <button class="races-filter" data-filter="풀" onclick="racesFilter(this)">풀마라톤</button>
+        <button class="races-filter" data-filter="하프" onclick="racesFilter(this)">하프</button>
+        <button class="races-filter" data-filter="트레일" onclick="racesFilter(this)">트레일</button>
+      </div>
+
+      <!-- 안내 -->
+      <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;gap:10px;align-items:center">
+        <span style="font-size:16px">📋</span>
+        <div style="font-size:11px;color:var(--gray);line-height:1.6">
+          <strong style="color:var(--white)">접수일과 대회일이 달라요!</strong><br>
+          인기 대회는 접수 시작 즉시 마감될 수 있어요
+        </div>
+      </div>
+
+      <!-- 대회 목록 -->
+      <div id="races-content">
+        <div style="text-align:center;padding:40px;color:var(--gray);font-size:13px">
+          <div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--orange);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+          대회 일정을 불러오는 중...
+        </div>
+      </div>
+
+      <div id="races-update-time" style="text-align:center;font-size:10px;color:var(--gray);padding:20px;letter-spacing:1px"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab-panel" id="p-settings">
+      <div class="section-hd">설정</div>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <div class="sc-title">개인 정보</div>
+          <div class="sc-sub-text">기본 프로필을 수정하세요</div>
+          <label class="input-label">이름</label>
+          <input class="input-field" type="text" id="settingName" style="margin-bottom:10px">
+          <label class="input-label">이메일</label>
+          <input class="input-field" type="email" id="settingEmail" style="margin-bottom:10px">
+          <button class="save-btn" onclick="saveProfile()">저장</button>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">목표 기록 변경</div>
+          <div class="sc-sub-text">마라톤 목표를 수정하세요</div>
+          <label class="input-label">목표 기록</label>
+          <input class="input-field" type="text" id="settingGoal" style="margin-bottom:10px">
+          <label class="input-label">레이스 날짜</label>
+          <input class="input-field" type="date" id="settingRaceDate" style="margin-bottom:10px">
+          <label class="input-label">레이스 이름</label>
+          <input class="input-field" type="text" id="settingRaceName" style="margin-bottom:10px">
+          <button class="save-btn" onclick="saveGoal()">목표 업데이트</button>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">Strava 연동</div>
+          <div class="sc-sub-text">각자의 Strava 계정을 연결하세요</div>
+          <div id="stravaConnected" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px">
+              <span style="color:var(--green);font-size:18px">✓</span>
+              <div><div style="font-size:13px;font-weight:600">연결됨</div><div style="font-size:11px;color:var(--gray)" id="stravaStatus">Strava 계정 연동 완료</div></div>
+            </div>
+            <button class="save-btn" style="background:var(--dark3);border:1px solid rgba(255,255,255,.1);color:var(--gray-light);margin-bottom:8px" onclick="connectStrava()">재연결</button>
+            <button class="save-btn" onclick="syncStrava()">지금 동기화</button>
+          </div>
+          <div id="stravaDisconnected" style="display:block">
+            <div style="padding:12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--gray-light)">
+              Strava 계정이 연결되지 않았어요. 연동하면 운동 기록이 자동으로 분석됩니다.
+            </div>
+            <button class="save-btn" onclick="connectStrava()" style="display:flex;align-items:center;gap:8px;justify-content:center;width:100%">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+              Strava 연동하기
+            </button>
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="sc-title">텔레그램 알림</div>
+          <div class="sc-sub-text">분석 결과 수신 설정</div>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 <strong style="color:var(--orange)">Chat ID 찾는 방법</strong><br>
+            텔레그램에서 <strong>@reddino_strava_bot</strong> 검색<br>
+            → <strong>/start</strong> 입력하면 Chat ID가 자동으로 나와요!
+          </div>
+          <label class="input-label">텔레그램 Chat ID</label>
+          <input class="input-field" type="text" id="settingTelegram" placeholder="Chat ID 입력" style="margin-bottom:10px">
+          <label class="input-label">주간 리포트 요일</label>
+          <select class="input-field" style="margin-bottom:10px"><option selected>월요일 오전 8시</option><option>일요일 저녁 8시</option></select>
+          <button class="save-btn" onclick="saveTelegram()">저장</button>
+        </div>
+
+
+        <div class="settings-card settings-full">
+          <div class="sc-title">🏊🚴🏃 트라이애슬론 목표</div>
+          <div class="sc-sub-text">트라이애슬론 목표가 있으면 입력하세요 · AI 코치가 종목별 맞춤 분석을 제공합니다</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="input-label">대회 종류</label>
+              <select class="input-field" id="settingTriType">
+                <option value="">없음 (마라톤만)</option>
+                <option value="olympic">올림픽 (수1.5+자40+런10)</option>
+                <option value="half">하프 아이언맨 (수1.9+자90+런21)</option>
+                <option value="full">풀 아이언맨 (수3.8+자180+런42)</option>
+              </select>
+            </div>
+            <div>
+              <label class="input-label">🏁 전체 목표 시간</label>
+              <input class="input-field" type="text" id="settingTriTotal" placeholder="예: 12:00:00">
+            </div>
+            <div>
+              <label class="input-label">🏊 수영 목표</label>
+              <input class="input-field" type="text" id="settingTriSwim" placeholder="예: 1:10:00">
+            </div>
+            <div>
+              <label class="input-label">🚴 자전거 목표</label>
+              <input class="input-field" type="text" id="settingTriBike" placeholder="예: 6:00:00">
+            </div>
+            <div>
+              <label class="input-label">🏃 러닝 목표</label>
+              <input class="input-field" type="text" id="settingTriRun" placeholder="예: 4:30:00">
+            </div>
+          </div>
+          <button class="save-btn" onclick="saveTriathlon()">트라이애슬론 목표 저장</button>
+        </div>
+
+        <!-- 컨디션/부상 입력 -->
+        <div class="settings-card settings-full">
+          <div class="sc-title">💪 오늘 컨디션 & 부상 현황</div>
+          <div class="sc-sub-text">AI 코치가 분석 시 반영합니다 · 매일 업데이트 권장</div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">오늘 컨디션</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+              <div id="condGood" class="goal-card" onclick="selectCondition('좋음')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">⚡</div>
+                <div style="font-size:12px;font-weight:700">좋음</div>
+              </div>
+              <div id="condNormal" class="goal-card sel" onclick="selectCondition('보통')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">😊</div>
+                <div style="font-size:12px;font-weight:700">보통</div>
+              </div>
+              <div id="condTired" class="goal-card" onclick="selectCondition('피로')" style="text-align:center;padding:14px">
+                <div style="font-size:24px;margin-bottom:4px">😴</div>
+                <div style="font-size:12px;font-weight:700">피로</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">부상 부위</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <button id="inj-없음" class="cq-btn sel" onclick="selectInjury('없음')">없음</button>
+              <button id="inj-무릎" class="cq-btn" onclick="selectInjury('무릎')">무릎</button>
+              <button id="inj-발목" class="cq-btn" onclick="selectInjury('발목')">발목</button>
+              <button id="inj-종아리" class="cq-btn" onclick="selectInjury('종아리')">종아리</button>
+              <button id="inj-허벅지" class="cq-btn" onclick="selectInjury('허벅지')">허벅지</button>
+              <button id="inj-허리" class="cq-btn" onclick="selectInjury('허리')">허리</button>
+              <button id="inj-기타" class="cq-btn" onclick="selectInjury('기타')">기타</button>
+            </div>
+          </div>
+
+          <div id="injuryLevelSection" style="display:none;margin-bottom:16px">
+            <label class="input-label">부상 정도</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="injlv-경미" class="cq-btn sel" onclick="selectInjuryLevel('경미')">경미 (훈련 가능)</button>
+              <button id="injlv-중간" class="cq-btn" onclick="selectInjuryLevel('중간')">중간 (주의 필요)</button>
+              <button id="injlv-심각" class="cq-btn" onclick="selectInjuryLevel('심각')">심각 (휴식 권장)</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <label class="input-label">메모 (선택)</label>
+            <input class="input-field" type="text" id="conditionMemo" placeholder="예: 어제 무리했음, 수면 부족 등" style="margin-top:6px">
+          </div>
+
+          <div id="conditionSaveStatus" style="display:none;font-size:12px;color:var(--green);margin-bottom:8px"></div>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.12);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 컨디션을 반영하면 <strong style="color:var(--white)">오늘 맞춤 훈련 코칭</strong>을 즉시 받을 수 있어요.<br>
+            <span style="font-size:11px;color:var(--gray)">부상이 있으면 대체 훈련을, 피로하면 강도 조절을 제안해드려요.</span>
+          </div>
+          <div id="conditionCoaching" style="display:none;background:var(--dark3);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;margin-bottom:14px">
+            <div style="font-size:10px;color:var(--orange);font-weight:600;margin-bottom:8px">🤖 오늘의 맞춤 코칭</div>
+            <div id="conditionCoachingText" style="font-size:12px;color:var(--gray-light);line-height:1.8"></div>
+          </div>
+          <button class="save-btn" onclick="saveCondition()" id="conditionSaveBtn">💪 컨디션 반영하기</button>
+        </div>
+
+        <div class="settings-card settings-full">
+          <div class="sc-title">📥 과거 데이터 불러오기</div>
+          <div class="sc-sub-text">Strava의 과거 1년치 활동을 가져와 차트와 분석에 활용합니다</div>
+          <div style="background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.15);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray-light);line-height:1.7">
+            💡 처음 한 번만 실행하면 돼요. 이미 저장된 활동은 중복 저장되지 않아요.<br>
+            데이터 불러오기 후 마일리지 차트와 훈련 분석이 더 정확해져요.
+          </div>
+          <div id="importStatus" style="display:none;padding:12px;background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.2);border-radius:10px;margin-bottom:12px;font-size:13px;color:var(--green)"></div>
+          <button class="save-btn" onclick="importHistory()" id="importBtn">
+            📥 과거 1년 데이터 불러오기
+          </button>
+        </div>
+
+        <div class="settings-card settings-full">
+          <div class="sc-title">🏆 개인 최고 기록 (PR)</div>
+          <div class="sc-sub-text">기록 갱신 시 업데이트하세요. AI 코치가 이 기록을 기반으로 분석합니다.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <!-- 풀코스 -->
+            <div>
+              <label class="input-label">풀코스 (42.195km)</label>
+              <div id="prFullAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFullAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFullAutoDate"></span> · <a onclick="editAutoPR('prFullAuto','settingPrFull')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
+              </div>
+              <input class="input-field" type="text" id="settingPrFull" placeholder="예: 3:52:00">
+            </div>
+            <!-- 하프코스 -->
+            <div>
+              <label class="input-label">하프코스 (21.0975km)</label>
+              <div id="prHalfAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prHalfAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prHalfAutoDate"></span> · <a onclick="editAutoPR('prHalfAuto','settingPrHalf')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
+              </div>
+              <input class="input-field" type="text" id="settingPrHalf" placeholder="예: 1:48:00">
+            </div>
+            <!-- 10K -->
+            <div>
+              <label class="input-label">10K</label>
+              <div id="prTenKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prTenKAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prTenKAutoDate"></span> · <a onclick="editAutoPR('prTenKAuto','settingPrTenK')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
+              </div>
+              <input class="input-field" type="text" id="settingPrTenK" placeholder="예: 48:30">
+            </div>
+            <!-- 5K -->
+            <div>
+              <label class="input-label">5K</label>
+              <div id="prFiveKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFiveKAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFiveKAutoDate"></span> · <a onclick="editAutoPR('prFiveKAuto','settingPrFiveK')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
+              </div>
+              <input class="input-field" type="text" id="settingPrFiveK" placeholder="예: 23:00">
+            </div>
+          </div>
+          <button class="save-btn" onclick="savePR()">기록 업데이트</button>
+        </div>
+
+        <div class="settings-card settings-full">
+          <div class="sc-title">❤️ 심박 설정</div>
+          <div class="sc-sub-text">훈련 심박 구간 계산에 쓰여요. 약점 분석과 AI 코칭이 이 구간으로 강도를 평가합니다.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <label class="input-label">최대심박</label>
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <button type="button" id="hrModeAuto" onclick="setHrMaxMode('auto')" style="flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent">🤖 자동</button>
+                <button type="button" id="hrModeManual" onclick="setHrMaxMode('manual')" style="flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent">✏️ 직접 입력</button>
+              </div>
+              <div id="hrMaxAutoBox" style="background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)"><span id="hrMaxAutoVal">--</span> <span style="font-size:12px">bpm</span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px;line-height:1.5" id="hrMaxAutoBasis">러닝 심박 기록을 분석하면 표시돼요</div>
+              </div>
+              <input class="input-field" type="number" inputmode="numeric" id="settingHrMax" placeholder="예: 188" min="120" max="230" style="display:none" oninput="updateHrZonesPreview()">
+            </div>
+            <div>
+              <label class="input-label">안정시 심박 (선택)</label>
+              <div style="height:38px"></div>
+              <input class="input-field" type="number" inputmode="numeric" id="settingHrRest" placeholder="예: 55" min="30" max="110" oninput="updateHrZonesPreview()">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);line-height:1.6;margin-bottom:12px">
+            💡 최대심박은 대회 막판 스퍼트나 측정 테스트 기록을 알면 직접 입력이 더 정확해요.<br>
+            💡 안정시 심박은 아침에 일어나 누운 채 1분 측정(며칠 평균)하거나 워치에 표시되는 값을 쓰세요. 입력하면 여유심박 방식으로 더 개인에 맞는 구간이 계산돼요.
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--white);cursor:pointer;margin-bottom:4px">
+            <input type="checkbox" id="hrWatchToggle" onchange="toggleWatchZones()" style="width:16px;height:16px;accent-color:var(--orange)">
+            <span>⌚ 시계 심박 구간 사용</span>
+          </label>
+          <div style="font-size:11px;color:var(--gray);margin:0 0 10px 24px">시계가 계산한 구간이 있으면 위 계산보다 우선 적용돼요</div>
+          <div id="hrWatchBox" style="display:none;background:var(--dark3);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--gray);margin-bottom:10px;line-height:1.6">시계(젖산역치 기반 등)에 표시되는 각 구간의 <b style="color:var(--white)">시작값</b>을 입력하세요.</div>
+            <div id="hrWatchInputs"></div>
+          </div>
+          <div id="hrZonesBox" style="display:none;background:var(--dark3);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
+          <button class="save-btn" onclick="saveHeartRate()">심박 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SERVICE WORKER 등록 ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW error:', err));
   });
-  return res.json();
 }
 
-async function sbPost(table, data) {
-  await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify(data)
+// ── ROTATING WORDS ──
+const words = ['Alpha', 'BaBa', 'Hero', 'One_Star', 'Reason'];
+let wordIdx = 0;
+function rotateWord() {
+  const el = document.getElementById('rotatingWord');
+  if (!el) return;
+  el.classList.remove('fade-in');
+  el.classList.add('fade-out');
+  setTimeout(() => {
+    wordIdx = (wordIdx + 1) % words.length;
+    el.textContent = words[wordIdx];
+    el.classList.remove('fade-out');
+    el.classList.add('fade-in');
+  }, 300);
+}
+setInterval(rotateWord, 2000);
+
+// ── SUPABASE CONFIG (서버에서 가져오기) ──
+const { createClient } = supabase;
+let sb;
+
+async function initSupabase() {
+  const res = await fetch('/api/config');
+  const config = await res.json();
+  sb = createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+    }
   });
 }
 
-async function sbPatch(table, filter, data) {
-  await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
-    method: 'PATCH',
-    headers: {
-      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify(data)
+// ── STATE ──
+let currentUser = null;
+let userGoal = { time: '3:50:00', pace: '5:27' };
+let obStep = 1;
+let selectedCondition = '보통';
+let selectedInjury = '없음';
+let selectedInjuryLevel = '경미';
+let allRaces = [];
+
+// ── INIT ──
+window.addEventListener('load', async () => {
+  try {
+    await initSupabase();
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadUserData();
+      showScreen('dashboard');
+    } else {
+      showScreen('landing');
+    }
+  } catch (error) {
+    console.error('Init error:', error);
+    showScreen('landing');
+  } finally {
+    document.getElementById('loadingScreen').style.display = 'none';
+  }
+});
+
+
+
+// ── SCREENS ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+  });
+  const target = document.getElementById('screen-' + id);
+  if (target) target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ── AUTH ──
+function openAuth(tab) {
+  document.getElementById('authModal').classList.add('open');
+  switchAuthTab(tab);
+}
+function closeAuth() {
+  document.getElementById('authModal').classList.remove('open');
+}
+function switchAuthTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signupForm').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('loginTabBtn').classList.toggle('active', tab === 'login');
+  document.getElementById('signupTabBtn').classList.toggle('active', tab === 'signup');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  if (!email || !pw) { showErr('loginError', true); return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) { showErr('loginError', true); return; }
+  currentUser = data.user;
+  closeAuth();
+  await loadUserData();
+  showScreen('dashboard');
+  toast('👋 다시 오셨네요!');
+}
+
+async function doSignup() {
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pw = document.getElementById('signupPw').value;
+  if (!name || !email || !pw || pw.length < 8) { showErr('signupError', true); return; }
+  const { data, error } = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
+  if (error) { document.getElementById('signupError').textContent = error.message; showErr('signupError', true); return; }
+  currentUser = data.user;
+  // Save profile
+  await sb.from('profiles').upsert({ id: currentUser.id, name, email });
+  closeAuth();
+  showScreen('onboarding');
+  toast('🎉 가입 완료! 목표를 설정해볼게요.');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  showScreen('landing');
+  toast('👋 로그아웃 됐습니다.');
+}
+
+function showErr(id, show) {
+  document.getElementById(id).style.display = show ? 'block' : 'none';
+}
+
+// ── ONBOARDING ──
+function goStep(n) {
+  document.getElementById('step' + obStep).classList.remove('active');
+  obStep = n;
+  document.getElementById('step' + n).classList.add('active');
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('dot' + i).classList.toggle('done', i <= n);
+  }
+  if (n === 2) {
+    const today = new Date().toISOString().split('T')[0];
+    const raceDateEl = document.getElementById('raceDate');
+    if (!raceDateEl.value) raceDateEl.value = today;
+  }
+  // 트라이애슬론 선택 시 PR 섹션 표시
+  if (n === 4) {
+    document.getElementById('triPrSection').style.display = triSelected ? 'block' : 'none';
+  }
+}
+
+// 트라이애슬론 선택
+let triSelected = false;
+let triType = 'full';
+
+function selectTriOption(hasTri) {
+  triSelected = hasTri;
+  document.getElementById('triYes').classList.toggle('sel', hasTri);
+  document.getElementById('triNo').classList.toggle('sel', !hasTri);
+  document.getElementById('triDetails').style.display = hasTri ? 'block' : 'none';
+}
+
+function selectTriType(type) {
+  triType = type;
+  ['triOlympic','triHalf','triFull'].forEach(id => document.getElementById(id).classList.remove('sel'));
+  const map = { olympic: 'triOlympic', half: 'triHalf', full: 'triFull' };
+  document.getElementById(map[type]).classList.add('sel');
+}
+
+function connectStravaOnboarding() {
+  if (!currentUser) return;
+  // 먼저 onboarding 데이터 저장
+  finishOnboarding(true).then(() => {
+    connectStrava();
   });
 }
 
-async function sbUpsert(table, data, onConflict) {
-  await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal'
-    },
-    body: JSON.stringify(data)
-  });
+function selectGoal(el, time, pace) {
+  document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  userGoal = { time, pace };
 }
 
-// ── 헬퍼 함수 ──
-function calcPace(movingTime, distance) {
-  if (!distance || distance === 0) return '-';
-  const sec = movingTime / (distance / 1000);
-  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+function selectLevel(el) {
+  document.querySelectorAll('.level-opt').forEach(o => o.classList.remove('sel'));
+  el.classList.add('sel');
 }
 
-function paceToSec(paceStr) {
-  if (!paceStr || paceStr === '-') return 999;
-  const [m, s] = paceStr.split(':').map(Number);
-  return m * 60 + s;
+function toggleNotif(el) {
+  el.classList.toggle('sel');
+  el.querySelector('.notif-chk').textContent = el.classList.contains('sel') ? '✓' : '';
 }
 
-function calcPaceOffset(targetPace, offsetSecs) {
-  const total = paceToSec(targetPace) - offsetSecs;
-  return `${Math.floor(total / 60)}:${String(Math.abs(total % 60)).padStart(2, '0')}`;
+async function finishOnboarding(skipRedirect = false) {
+  const customTime = document.getElementById('customTime').value;
+  if (customTime) userGoal.time = customTime;
+
+  const goalData = {
+    user_id: currentUser.id,
+    race_name: document.getElementById('raceName').value,
+    race_date: document.getElementById('raceDate').value,
+    target_time: userGoal.time,
+    target_pace: userGoal.pace,
+    weekly_km: document.getElementById('weeklyKm').value,
+    train_days: document.getElementById('trainDays').value,
+    level: '고급자',
+    pr_full: document.getElementById('prFull').value || null,
+    pr_half: document.getElementById('prHalf').value || null,
+    pr_10k: document.getElementById('prTenK').value || null,
+    pr_5k: document.getElementById('prFiveK').value || null,
+    goal_type: triSelected ? 'both' : 'marathon',
+    tri_type: triSelected ? triType : null,
+    tri_swim_target: triSelected ? document.getElementById('triSwimTarget').value || null : null,
+    tri_bike_target: triSelected ? document.getElementById('triBikeTarget').value || null : null,
+    tri_run_target: triSelected ? document.getElementById('triRunTarget').value || null : null,
+    tri_total_target: triSelected ? document.getElementById('triTotalTarget').value || null : null,
+  };
+
+  await sb.from('goals').insert(goalData);
+
+  if (!skipRedirect) {
+    showScreen('dashboard');
+    await loadUserData();
+    toast('🎉 설정 완료! 설정에서 Strava 연동과 텔레그램을 연결해주세요.');
+  }
 }
 
-function getTrainingPhase(raceDate) {
+// ── LOAD USER DATA ──
+async function loadUserData() {
+  if (!currentUser) return;
+
+  // Profile
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  const name = profile?.name || currentUser.email?.split('@')[0] || 'Runner';
+  document.getElementById('userInitial').textContent = name[0].toUpperCase();
+  document.getElementById('userName').textContent = name;
+  document.getElementById('settingName').value = name;
+  document.getElementById('settingEmail').value = currentUser.email || '';
+  if (profile?.telegram_chat_id) document.getElementById('settingTelegram').value = profile.telegram_chat_id;
+  applyHeartRateSettings(profile);
+
+  // Latest goal
+  const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  const g = goals?.[0];
+
+  if (g) {
+    // 대시보드 1단: 목표 카드
+    document.getElementById('db-race-name').textContent = '🎯 ' + (g.race_name || '마라톤');
+    document.getElementById('db-target-time').textContent = g.target_time || '--:--:--';
+    document.getElementById('db-target-pace').textContent = g.target_pace || '--:--';
+
+    // D-day
+    const daysLeft = g.race_date ? Math.ceil((new Date(g.race_date) - new Date()) / 86400000) : '--';
+    document.getElementById('db-days').textContent = daysLeft;
+
+    // 설정 탭
+    document.getElementById('settingGoal').value = g.target_time || '';
+    document.getElementById('settingRaceDate').value = g.race_date || '';
+    document.getElementById('settingRaceName').value = g.race_name || '';
+    // PR — 자동 갱신 여부에 따라 UI 전환
+    function applyPrField(key, autoId, autoValId, autoDateId, inputId, placeholder) {
+      const val = g[key];
+      const updatedAt = g[`${key}_updated_at`];
+      if (val) {
+        document.getElementById(inputId).value = val; // "수정" 전환 시를 위해 항상 채워둠
+        if (updatedAt) {
+          // 자동 갱신된 경우: 읽기 전용 표시
+          document.getElementById(autoValId).textContent = val;
+          document.getElementById(autoDateId).textContent =
+            new Date(updatedAt).toLocaleDateString('ko-KR');
+          document.getElementById(autoId).style.display = 'block';
+          document.getElementById(inputId).style.display = 'none';
+        } else {
+          // 수동 입력된 경우: 입력 필드에 값 채움
+          document.getElementById(inputId).value = val;
+        }
+      }
+    }
+    applyPrField('pr_full', 'prFullAuto', 'prFullAutoVal', 'prFullAutoDate', 'settingPrFull');
+    applyPrField('pr_half', 'prHalfAuto', 'prHalfAutoVal', 'prHalfAutoDate', 'settingPrHalf');
+    applyPrField('pr_10k',  'prTenKAuto',  'prTenKAutoVal',  'prTenKAutoDate',  'settingPrTenK');
+    applyPrField('pr_5k',   'prFiveKAuto', 'prFiveKAutoVal', 'prFiveKAutoDate', 'settingPrFiveK');
+
+    // 트라이애슬론 설정 로드
+    if (g.tri_type) document.getElementById('settingTriType').value = g.tri_type;
+    if (g.tri_swim_target) document.getElementById('settingTriSwim').value = g.tri_swim_target;
+    if (g.tri_bike_target) document.getElementById('settingTriBike').value = g.tri_bike_target;
+    if (g.tri_run_target) document.getElementById('settingTriRun').value = g.tri_run_target;
+    if (g.tri_total_target) document.getElementById('settingTriTotal').value = g.tri_total_target;
+
+    // 주간 탭 목표 카드
+    const phase = getPhase(g.race_date);
+    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    const monthlyTarget = weeklyTarget * 4;
+    if (document.getElementById('wk-target-km')) document.getElementById('wk-target-km').textContent = weeklyTarget;
+    if (document.getElementById('wk-target-pace')) document.getElementById('wk-target-pace').textContent = g.target_pace || '--:--';
+    if (document.getElementById('wk-phase')) document.getElementById('wk-phase').textContent = phase;
+    document.getElementById('db-week-target').textContent = weeklyTarget;
+    document.getElementById('db-month-target').textContent = monthlyTarget;
+  }
+
+  // Strava 연동 상태
+  updateStravaUI(!!profile?.strava_access_token);
+  if (profile?.strava_athlete_id) {
+    document.getElementById('stravaStatus').textContent = `Strava ID: ${profile.strava_athlete_id}`;
+  }
+
+  // Activities (최근 7일)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const { data: acts } = await sb.from('activities')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .gte('start_date', sevenDaysAgo.toISOString())
+    .order('start_date', { ascending: false })
+    .limit(50);
+
+  if (acts && acts.length > 0) {
+    // 일간 탭 렌더링
+    renderActivities(acts);
+    if (acts.length > 0) renderLastActivity(acts[0]);
+  }
+
+  // 대시보드 2단: 마일리지 계산 (별도 쿼리)
+  const now = new Date();
+  const weekStart = new Date(now);
+  const day = weekStart.getDay();
+  weekStart.setDate(weekStart.getDate() - (day === 0 ? 6 : day - 1));
+  weekStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const { data: allActs } = await sb.from('activities')
+    .select('distance, start_date')
+    .eq('user_id', currentUser.id)
+    .gte('start_date', `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`)
+    .order('start_date', { ascending: false });
+
+  const weekKm = (allActs || []).filter(a => new Date(a.start_date) >= weekStart).reduce((s, a) => s + a.distance, 0) / 1000;
+  const monthKm = (allActs || []).reduce((s, a) => s + a.distance, 0) / 1000;
+
+  const weekTarget = parseInt(document.getElementById('db-week-target').textContent) || 50;
+  const monthTarget = parseInt(document.getElementById('db-month-target').textContent) || 200;
+
+  document.getElementById('db-week-done').textContent = weekKm.toFixed(1);
+  document.getElementById('db-month-done').textContent = monthKm.toFixed(1);
+  document.getElementById('db-week-bar').style.width = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0) + '%';
+  document.getElementById('db-month-bar').style.width = Math.min(100, (monthKm / monthTarget * 100)).toFixed(0) + '%';
+
+  // 훈련 달성률
+  const achieveRate = Math.min(100, (weekKm / weekTarget * 100)).toFixed(0);
+  document.getElementById('db-achieve-rate').textContent = achieveRate + '%';
+
+  // 목표 가능성
+  const probPct = Math.round(40 + Math.min(100, (monthKm / monthTarget * 100)) * 0.5);
+  document.getElementById('db-goal-prob').textContent = probPct + '%';
+
+  // 대시보드 3단: 주간 캘린더
+  await loadWeeklyPlan();
+
+  // 데일리 상단 3카드
+  const { data: dailyPlans } = await sb.from('weekly_plans')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('week_start', { ascending: false })
+    .limit(1);
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  if (acts && acts.length > 0) renderDailyTopCards(acts, dailyPlans?.[0], todayIdx);
+
+  // 주간/월간 리포트
+  await loadReports();
+  await loadWeeklyCards();
+  await loadMonthlyCards();
+
+  // 푸시 알림 상태 + 컨디션
+  await loadUserDataExtra();
+}
+
+function getPhase(raceDate) {
   if (!raceDate) return '기초체력기';
   const d = Math.ceil((new Date(raceDate) - new Date()) / 86400000);
   if (d > 140) return '기초체력기';
@@ -69,1763 +2103,1892 @@ function getTrainingPhase(raceDate) {
   return '레이스준비기';
 }
 
-function getWeeklyTarget(phase) {
-  return phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+async function loadUserDataExtra() {
+  // 푸시 알림 상태 확인
+  // 오늘 컨디션 불러오기
+  await loadTodayCondition();
+  // 레이스 전략 불러오기
+  await loadRaceStrategy();
+  // 선수 약점 프로파일 (실패해도 다른 화면에 영향 없도록 분리)
+  loadAthleteProfile().catch(e => console.error('athlete profile', e));
 }
 
-// ── 운동 종류 구분 ──
-function getSportType(activity) {
-  const type = activity.sport_type || activity.type || '';
-  if (type === 'TrailRun') return '트레일런';
-  if (type === 'Run' || type === 'VirtualRun') return '러닝';
-  if (type === 'Walk' || type === 'Hike') return '워킹/하이킹';
-  if (type === 'Swim') return '수영';
-  if (type === 'Ride' || type === 'VirtualRide' || type === 'EBikeRide') return '자전거';
-  if (type === 'WeightTraining' || type === 'Workout') return '근력훈련';
-  return type || '기타';
+// ── 선수 약점 프로파일 ──
+function escapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function isCrossTraining(sportType) {
-  return ['워킹/하이킹', '수영', '자전거', '근력훈련', '기타'].includes(sportType);
-}
-
-// ── 트레일런 고도 환산 페이스 ──
-function calcAdjustedPace(movingTime, distance, elevation) {
-  if (!distance || distance === 0) return '-';
-  // 고도 100m 상승 = +1분/km 추가
-  const elevationBonus = (elevation || 0) / 100 * 60; // 초 단위
-  const adjustedTime = movingTime + elevationBonus;
-  const sec = adjustedTime / (distance / 1000);
-  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
-}
-
-// ── 언덕 강도 분류 ──
-function classifyHill(distance, elevation) {
-  if (!distance || distance === 0) return null;
-  const elevPerKm = (elevation || 0) / (distance / 1000);
-  if (elevPerKm < 5)  return null;
-  if (elevPerKm < 15) return { level: '저강도 언덕', desc: '살짝 굴곡 있음', icon: '🏃', elevPerKm };
-  if (elevPerKm < 25) return { level: '중강도 언덕', desc: '업다운이 계속 느껴짐', icon: '⛰️', elevPerKm };
-  if (elevPerKm < 40) return { level: '고강도 언덕', desc: '페이스 유지가 부담됨', icon: '🏔️', elevPerKm };
-  return { level: '매우 고강도 언덕', desc: '트레일/산악 느낌', icon: '🗻', elevPerKm };
-}
-
-// ── 훈련 종류 자동 분류 ──
-function classifyWorkout(activity, targetPace, sportType) {
-  if (isCrossTraining(sportType)) return sportType;
-
-  const km = activity.distance / 1000;
-  const elevation = activity.total_elevation_gain || 0;
-
-  if (sportType !== '트레일런') {
-    const hill = classifyHill(activity.distance, elevation);
-    if (hill && hill.elevPerKm >= 15) return '언덕훈련';
+function renderAthleteProfile(p) {
+  const body = document.getElementById('db-athlete-body');
+  const weak = p.weaknesses || [], strong = p.strengths || [], caution = p.cautions || [];
+  let html = '';
+  if (weak.length === 0 && strong.length === 0 && caution.length === 0) {
+    html = '<div style="color:var(--gray)">아직 판단할 데이터가 부족해요. 러닝 기록이 쌓이면 자동으로 분석돼요.</div>';
   }
-
-  const pace = sportType === '트레일런'
-    ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
-    : calcPace(activity.moving_time, activity.distance);
-
-  const paceSec = paceToSec(pace);
-  const targetSec = paceToSec(targetPace);
-  const diff = paceSec - targetSec;
-
-  if (km < 3) return '이지런';
-  if (diff <= -25 && km <= 12) return '인터벌';
-  if (diff <= -10 && km <= 15) return '템포런';
-  if (diff <= 10 && km >= 8) return '페이스주';
-  if (km >= 20) return 'LSD';
-  if (km >= 15) return '롱런';
-  return '이지런';
-}
-
-// ── 웜업/주훈련/쿨다운 구간 분석 ──
-function analyzePhases(laps, targetPace) {
-  if (!laps || laps.length < 3) return null;
-
-  const targetSec = paceToSec(targetPace);
-  const phases = { warmup: [], main: [], cooldown: [] };
-
-  laps.forEach((lap, i) => {
-    const lapPaceSec = lap.moving_time / (lap.distance / 1000);
-    const diff = lapPaceSec - targetSec;
-
-    if (i < 2 && diff > 30) {
-      phases.warmup.push(lap);
-    } else if (i >= laps.length - 2 && diff > 20) {
-      phases.cooldown.push(lap);
-    } else {
-      phases.main.push(lap);
-    }
+  weak.forEach(w => {
+    const color = w.severity === 'high' ? 'var(--orange)' : '#f5a623';
+    const tag = w.severity === 'high' ? '집중 개선' : '개선 필요';
+    html += `<div style="border-left:3px solid ${color};padding:6px 0 6px 12px;margin-bottom:12px">
+      <div style="font-weight:600;color:var(--white,#fff)">${escapeHtml(w.label)}
+        <span style="font-size:10px;color:${color};border:1px solid ${color};border-radius:6px;padding:1px 6px;margin-left:6px">${tag}</span></div>
+      <div style="font-size:11px;color:var(--gray);margin:3px 0">📊 ${escapeHtml(w.evidence)}</div>
+      <div style="font-size:12px">💡 ${escapeHtml(w.advice)}</div>
+    </div>`;
   });
-
-  const warmupKm = (phases.warmup.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
-  const mainKm = (phases.main.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
-  const cooldownKm = (phases.cooldown.reduce((s, l) => s + l.distance, 0) / 1000).toFixed(1);
-
-  const mainPaceSec = phases.main.length > 0
-    ? phases.main.reduce((s, l) => s + l.moving_time / (l.distance / 1000), 0) / phases.main.length
-    : 0;
-  const mainPace = mainPaceSec > 0
-    ? `${Math.floor(mainPaceSec / 60)}:${String(Math.round(mainPaceSec % 60)).padStart(2, '0')}`
-    : '-';
-
-  return { warmupKm, mainKm, cooldownKm, mainPace };
-}
-
-// ── 주간 시작일 (월요일 기준) ──
-function getWeekStart(date = new Date()) {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=일, 1=월 ... 6=토
-  // 일요일(0)은 -6, 월요일(1)은 0, 화요일(2)은 -1 ... 토요일(6)은 -5
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-// ── 날짜 컨텍스트 계산 (오늘 기준) ──
-function getDateContext() {
-  const KST_OFFSET = 9 * 60 * 60 * 1000;
-  const now = new Date(Date.now() + KST_OFFSET);
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-  const dayNamesEn = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  const todayDow = now.getUTCDay(); // 0=일~6=토 (KST 기준)
-
-  // 이번 주 월요일
-  const weekMonday = new Date(now);
-  const diffToMon = todayDow === 0 ? -6 : 1 - todayDow;
-  weekMonday.setUTCDate(weekMonday.getUTCDate() + diffToMon);
-  weekMonday.setUTCHours(0, 0, 0, 0);
-
-  // 이번 주 일요일
-  const weekSunday = new Date(weekMonday);
-  weekSunday.setUTCDate(weekMonday.getUTCDate() + 6);
-
-  // 이번 주 몇 번째 날 (월=1, 화=2 ... 일=7)
-  const weekDayNum = todayDow === 0 ? 7 : todayDow;
-
-  // 남은 요일 목록 (오늘 포함 X, 일요일까지)
-  const remainingDays = [];
-  for (let i = todayDow + 1; i <= 7; i++) {
-    const dow = i === 7 ? 0 : i;
-    remainingDays.push(dayNames[dow]);
+  if (strong.length) {
+    html += `<div style="margin-top:4px"><div style="font-size:11px;color:var(--gray);margin-bottom:6px">💪 강점</div>
+      ${strong.map(s => `<div style="font-size:12px;margin-bottom:4px"><span style="color:var(--green)">✓</span> ${escapeHtml(s.label)} <span style="color:var(--gray);font-size:11px">· ${escapeHtml(s.evidence)}</span></div>`).join('')}</div>`;
   }
-
-  // 월간: 이번 달 1일 ~ 말일
-  const monthStart = new Date(now.getUTCFullYear(), now.getUTCMonth(), 1);
-  const monthEnd   = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0);
-
-  // 이번 달 몇 주차
-  const weekOfMonth = Math.ceil(now.getUTCDate() / 7);
-
-  const fmt = (d) =>
-    `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
-
-  return {
-    today: fmt(now),
-    todayLabel: `${now.getUTCMonth()+1}월 ${now.getUTCDate()}일 (${dayNames[todayDow]})`,
-    todayDow,
-    todayDowName: dayNames[todayDow],
-    weekDayNum,            // 주의 몇 번째 날 (1~7)
-    weekStart: fmt(weekMonday),
-    weekEnd:   fmt(weekSunday),
-    weekRange: `${now.getUTCMonth()+1}월 ${weekMonday.getUTCDate()}일(월) ~ ${weekSunday.getUTCMonth()+1}월 ${weekSunday.getUTCDate()}일(일)`,
-    remainingDays,         // 남은 요일 한글 배열 (오늘 제외)
-    remainingDaysCount: remainingDays.length,
-    hasSundayLeft: remainingDays.includes('일'),
-    monthStart: fmt(monthStart),
-    monthEnd:   fmt(monthEnd),
-    monthLabel: `${now.getUTCMonth()+1}월`,
-    weekOfMonth,
-    nowTs: Math.floor((Date.now()) / 1000)  // UTC 타임스탬프 (Strava API용)
-  };
-}
-
-// ── 날씨 데이터 가져오기 ──
-async function fetchWeather(lat, lng, activityDate) {
-  try {
-    if (!lat || !lng || !process.env.OPENWEATHER_API_KEY) return null;
-
-    const date = new Date(activityDate);
-    const now = new Date();
-    const diffHours = (now - date) / (1000 * 60 * 60);
-
-    let url;
-    if (diffHours < 48) {
-      // 최근 48시간: 현재 날씨
-      url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=kr`;
-    } else {
-      return null; // 과거 날씨는 유료
-    }
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (data.main) {
-      return {
-        temp: Math.round(data.main.temp),
-        feels_like: Math.round(data.main.feels_like),
-        humidity: data.main.humidity,
-        weather: data.weather?.[0]?.description || '',
-        wind_speed: data.wind?.speed || 0,
-        is_rain: data.rain != null || (data.weather?.[0]?.main === 'Rain'),
-        is_snow: data.snow != null || (data.weather?.[0]?.main === 'Snow')
-      };
-    }
-    return null;
-  } catch(e) {
-    console.error('Weather fetch error:', e);
-    return null;
+  if (caution.length) {
+    html += `<div style="margin-top:10px;font-size:12px;color:#f5a623">⚠️ 주의 부위: ${caution.map(c => `${escapeHtml(c.part)} (최근 6개월 ${c.count}회)`).join(', ')}</div>`;
   }
+  body.innerHTML = html;
+  document.getElementById('db-athlete-updated').textContent =
+    p.updated_at ? `${new Date(p.updated_at).toLocaleDateString('ko-KR')} 분석 · 매주 주간 리포트 때 자동 갱신` : '';
+  document.getElementById('db-athlete-section').style.display = 'block';
+  setHrAutoInfo(p.metrics || {});
 }
 
-// ── 날씨 영향 분석 ──
-function analyzeWeatherImpact(weather) {
-  if (!weather) return null;
-  const impacts = [];
-
-  // 기온
-  if (weather.temp >= 30) impacts.push(`🌡️ 고온(${weather.temp}°C) - 페이스 5~10% 저하, 심박 상승 예상`);
-  else if (weather.temp >= 25) impacts.push(`🌡️ 고온(${weather.temp}°C) - 체감온도 ${weather.feels_like}°C, 수분 보충 필수`);
-  else if (weather.temp <= 0) impacts.push(`🥶 영하(${weather.temp}°C) - 준비운동 충분히, 근육 경직 주의`);
-  else if (weather.temp <= 5) impacts.push(`❄️ 한랭(${weather.temp}°C) - 워밍업 10분 이상 권장`);
-  else if (weather.temp >= 15 && weather.temp <= 22) impacts.push(`✅ 최적 기온(${weather.temp}°C) - 최상의 러닝 컨디션`);
-
-  // 습도
-  if (weather.humidity >= 80) impacts.push(`💧 고습도(${weather.humidity}%) - 체감온도 높음, 탈수 주의`);
-
-  // 강수
-  if (weather.is_rain) impacts.push(`🌧️ 강우 - 미끄럼 주의, 페이스 조절 필요`);
-  if (weather.is_snow) impacts.push(`❄️ 강설 - 안전 최우선, 강도 낮추기 권장`);
-
-  // 바람
-  if (weather.wind_speed >= 10) impacts.push(`💨 강풍(${weather.wind_speed}m/s) - 역풍 구간 페이스 손실 고려`);
-
-  return impacts.length > 0 ? impacts.join('\n') : `🌤️ ${weather.temp}°C, 날씨 양호`;
-}
-
-// ── 컨디션 가져오기 ──
-async function fetchUserCondition(userId, activityDate) {
-  try {
-    const date = activityDate.split('T')[0];
-    const conditions = await sbGet('conditions',
-      `user_id=eq.${userId}&date=eq.${date}&select=condition,injury_part,injury_level,memo`
-    );
-    return conditions?.[0] || null;
-  } catch(e) {
-    return null;
-  }
-}
-async function fetchActivityDetails(activityId, accessToken) {
-  try {
-    // 랩 데이터
-    const lapsRes = await fetch(
-      `https://www.strava.com/api/v3/activities/${activityId}/laps`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const laps = await lapsRes.json();
-
-    // 스트림 데이터 (심박수, 케이던스, 고도)
-    const streamsRes = await fetch(
-      `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=heartrate,cadence,altitude&key_by_type=true`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const streams = await streamsRes.json();
-
-    return { laps: Array.isArray(laps) ? laps : [], streams };
-  } catch (e) {
-    console.error('Activity details error:', e);
-    return { laps: [], streams: {} };
-  }
-}
-
-// ── Claude API 호출 ──
-async function callClaude(prompt, maxTokens) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || '분석을 불러올 수 없습니다.';
-}
-
-// ── 마크다운 → 텔레그램 HTML ──
-function mdToTelegram(text) {
-  return text
-    .replace(/#{1,3} (.+)/g, '\n<b>$1</b>')
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\|.+\|/g, '')
-    .replace(/[-]{3,}/g, '─────────')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-async function sendTelegram(chatId, title, analysis) {
-  if (!chatId || !process.env.TELEGRAM_BOT_TOKEN) return;
-  const msg = `${title}\n─────────\n${mdToTelegram(analysis)}`;
-  const truncated = msg.length > 4096 ? msg.substring(0, 4090) + '...' : msg;
-  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: truncated, parse_mode: 'HTML' })
-  });
-}
-
-// ── 토큰 갱신 (공용 키 사용) ──
-async function refreshToken(profile, userId) {
-  const res = await fetch('https://www.strava.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      refresh_token: profile.strava_refresh_token,
-      grant_type: 'refresh_token'
-    })
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    await sbPatch('profiles', `id=eq.${userId}`, {
-      strava_access_token: data.access_token,
-      strava_refresh_token: data.refresh_token
-    });
-    return data.access_token;
-  }
-  return profile.strava_access_token;
-}
-
-// ══════════════════════════════════════
-// 일일 분석 (1000자 이내) — A1+S3 통합
-// ══════════════════════════════════════
-async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition, coachingNote, currentFitnessPace, athleteNote) {
-  const km = (activity.distance / 1000).toFixed(1);
-  const pace = calcPace(activity.moving_time, activity.distance);
-  const targetPace = goal?.target_pace || '5:27';
-  const trainingPhase = getTrainingPhase(goal?.race_date);
-  const weeklyTarget = getWeeklyTarget(trainingPhase);
-  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
-  const isCross = isCrossTraining(sportType);
-  const isTrail = sportType === '트레일런';
-  const adjustedPace = isTrail ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain) : pace;
-
-  const ctx = getDateContext();
-  const weekKm = (recentActivities
-    .filter(a => a.start_date >= ctx.weekStart)
-    .reduce((s, a) => s + a.distance, 0) / 1000 + parseFloat(km)).toFixed(1);
-
-  // 심박수/케이던스 요약
-  const hrData = details?.streams?.heartrate?.data || [];
-  const cadData = details?.streams?.cadence?.data || [];
-  const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
-  const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null; // 양발 기준
-
-  // 구간 분석
-  const phaseInfo = phases ? `
-웜업: ${phases.warmupKm}km
-주훈련: ${phases.mainKm}km @ ${phases.mainPace}/km
-쿨다운: ${phases.cooldownKm}km` : '구간 데이터 없음';
-
-  // 날씨 영향 분석
-  const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
-
-  // 컨디션 정보
-  const conditionInfo = condition ? `
-컨디션: ${condition.condition || '보통'}
-부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}
-${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
-
-  // S3: 페이스 갭 계산
-  const targetSec = paceToSec(targetPace);
-  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
-  const paceGapSec = fitnessSec ? fitnessSec - targetSec : null;
-
-  const prompt = `마라톤 코치로서 간결한 일일 분석을 작성하세요.
-
-📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | 이번 주: ${ctx.weekRange}
-남은 요일: ${ctx.remainingDaysCount > 0 ? ctx.remainingDays.join(', ') : '없음 (오늘이 일요일)'}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}
-${coachingNote ? `\n📝 최근 코치 조언: ${coachingNote}\n` : ''}${athleteNoteBlock(athleteNote)}
-선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
-PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
-${currentFitnessPace ? `현재 체력 추정 페이스: ${currentFitnessPace}/km (목표 대비 ${(paceGapSec||0) > 0 ? '+' + paceGapSec : paceGapSec}초/km)` : ''}
-
-오늘 운동:
-- 종류: ${sportType} [${workoutType}]
-- 거리: ${km}km | 시간: ${Math.floor(activity.moving_time / 60)}분
-- 페이스: ${pace}/km ${isTrail ? `(고도 환산: ${adjustedPace}/km)` : ''}
-- 고도: ${activity.total_elevation_gain || 0}m
-${avgHR ? `- 평균 심박수: ${avgHR}bpm` : ''}
-${avgCad ? `- 케이던스: ${avgCad}spm (권장: 170~180spm)` : ''}
-- 구간: ${phaseInfo}
-${weatherImpact ? `\n날씨 환경:\n${weatherImpact}` : ''}
-${conditionInfo ? `\n선수 컨디션:${conditionInfo}` : ''}
-
-이번 주: ${weekKm}km / ${weeklyTarget}km 목표
-최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`).join(', ') || '없음'}
-
-훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
-
-1000자 이내로 작성:
-
-**오늘 평가**
-${isCross ? '크로스트레이닝 관점에서 마라톤 훈련에 미치는 영향 평가' : isTrail ? '트레일런 강도를 고도 환산 페이스 기준으로 평가' : '목표 페이스 대비 평가, 웜업/주훈련/쿨다운 구성 평가'}
-${avgHR ? '심박수 기반 강도 평가 포함' : ''}
-${avgCad ? '케이던스 평가 및 개선 방향 포함' : ''}
-${weatherImpact ? '날씨가 페이스/심박에 미친 영향 분석 포함' : ''}
-${condition?.injury_part && condition.injury_part !== '없음' ? `⚠️ ${condition.injury_part} 부상(${condition.injury_level}) 고려한 조언 포함` : ''}
-${condition?.condition === '피로' ? '⚠️ 피로 컨디션 고려한 회복 조언 포함' : ''}
-
-**이번 주 영향**
-(주간 목표 달성에 미치는 영향 1문장)
-
-**남은 훈련 처방**
-남은 요일(${ctx.remainingDaysCount > 0 ? ctx.remainingDays.join('/') : '없음'})에 맞춰 구체적 훈련을 처방하세요.${ctx.hasSundayLeft ? '\n- 일요일은 일산호수마라톤 일요정모 LSD(장거리 조깅)가 고정입니다. 반드시 포함하세요.' : ''}${condition?.injury_part && condition.injury_part !== '없음' ? '\n- 부상 고려한 처방 필수' : ''}
-각 훈련마다 날짜(요일), 거리, 페이스를 명시하세요.`;
-
-  return callClaude(prompt, 800);
-}
-
-// ══════════════════════════════════════
-// 주간 분석 (2000자 이내) — S2+S3+S5+A1 통합
-// ══════════════════════════════════════
-async function analyzeWeekly(userId, goal, accessToken) {
-  const targetPace = goal?.target_pace || '5:27';
-  const trainingPhase = getTrainingPhase(goal?.race_date);
-  const weeklyTarget = getWeeklyTarget(trainingPhase);
-  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
-  const ctx = getDateContext();
-
-  // 이번 주 (월요일 00:00 KST ~ 현재)
-  const thisWeekAfter = Math.floor(new Date(ctx.weekStart + 'T00:00:00+09:00').getTime() / 1000);
-  const thisWeekRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${thisWeekAfter}&per_page=30`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-  const thisWeekActs = Array.isArray(thisWeekRes) ? thisWeekRes : [];
-  const thisWeekKm = (thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-
-  // 지난 주 (저번 주 월요일 ~ 일요일)
-  const lastWeekEnd   = thisWeekAfter;
-  const lastWeekStart = lastWeekEnd - 7 * 24 * 60 * 60;
-  const lastWeekRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=20`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-  const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
-  const lastWeekKm = (lastWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-
-  // A1: 이전 주 코칭 메모 불러오기
-  const prevCoachingNote = await fetchCoachingNote(userId, 'weekly');
-  const athleteNote = await fetchAthleteNote(userId);
-
-  // S2: 계획 대비 실행 비교
-  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
-
-  // S3: 현재 체력 추정 페이스
-  const currentFitnessPace = await calcCurrentFitnessPace(accessToken);
-  const targetSec = paceToSec(targetPace);
-  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
-  const paceGap = fitnessSec ? fitnessSec - targetSec : null; // 양수 = 목표보다 느림
-
-  // S5: 주간 KPI
-  const kpi = calcWeeklyKPI(thisWeekActs, weeklyTarget, targetPace);
-
-  // 이번 주 훈련 요약
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-  const thisWeekSummary = thisWeekActs.map(a => {
-    const st = getSportType(a);
-    const wt = classifyWorkout(a, targetPace, st);
-    const dow = dayNames[new Date(a.start_date).getDay()];
-    return `- [${dow}] [${st}/${wt}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km 고도${a.total_elevation_gain||0}m`;
-  }).join('\n') || '이번 주 기록 없음';
-
-  const lastWeekSummary = lastWeekActs.map(a => {
-    const st = getSportType(a);
-    const wt = classifyWorkout(a, targetPace, st);
-    const adjustedPace = st === '트레일런'
-      ? `(환산 ${calcAdjustedPace(a.moving_time, a.distance, a.total_elevation_gain)}/km)`
-      : '';
-    return `- [${st}/${wt}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km ${adjustedPace} 고도${a.total_elevation_gain||0}m`;
-  }).join('\n') || '기록 없음';
-
-  const remainingStr = ctx.remainingDaysCount > 0
-    ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}`
-    : '없음 (오늘이 일요일)';
-
-  const prompt = `마라톤 코치로서 주간 리포트를 작성하세요.
-${athleteNoteBlock(athleteNote)}
-📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
-남은 요일: ${remainingStr}
-
-선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
-PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
-훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
-
-📊 이번 주 KPI:
-${kpi.summary}${planComparison ? `\n계획 이행률: ${planComparison.completedCount}/${planComparison.totalCount} (${planComparison.rate}%)` : ''}
-
-🏃 현재 체력 페이스: ${currentFitnessPace || '데이터 부족'}${paceGap !== null ? ` (목표 대비 ${paceGap > 0 ? '+' + paceGap : paceGap}초/km ${paceGap > 0 ? '느림' : '빠름'})` : ''}
-
-${planComparison ? `📋 이번 주 계획 vs 실행 (월~${ctx.todayDowName}):\n${planComparison.text}\n` : ''}
-이번 주 완료된 훈련 (월~${ctx.todayDowName}):
-${thisWeekSummary}
-
-지난 주 기록 (총 ${lastWeekKm}km / 목표 ${weeklyTarget}km):
-${lastWeekSummary}
-${prevCoachingNote ? `\n📝 지난 주 코치 핵심 조언 (follow-up 필요):\n${prevCoachingNote}\n` : ''}
-2000자 이내로 작성:
-
-**지난 주 평가**
-(훈련량, 강도, 종류 구성 평가. ${prevCoachingNote ? '지난 주 코치 조언 이행 여부 반드시 언급.' : ''} 3-4문장)
-
-**이번 주 현황 & 남은 훈련 처방**
-오늘(${ctx.todayLabel})까지 ${thisWeekKm}km 완료 (목표 ${weeklyTarget}km의 ${kpi.distRate}%).${planComparison ? ` 계획 이행률 ${planComparison.rate}%.` : ''}
-${currentFitnessPace ? `현재 체력 페이스 ${currentFitnessPace}/km — 목표까지 ${Math.abs(paceGap || 0)}초/km ${(paceGap||0) > 0 ? '개선' : '여유'} 필요.` : ''}
-남은 요일(${ctx.remainingDays.join('/')})에 맞춰 처방:
-${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고정 (반드시 포함)' : ''}
-각 요일별 훈련 종류, 거리, 페이스를 구체적으로 작성.
-
-**다음 주 훈련 계획 (목표 ${weeklyTarget}km)**
-
-| 요일 | 훈련 | 거리 | 페이스 |
-|------|------|------|--------|
-| 월 | | | |
-| 화 | | | |
-| 수 | | | |
-| 목 | | | |
-| 금 | 휴식 | - | - |
-| 토 | | | |
-| 일 | LSD (일산호수 일요정모) | | |
-
-**핵심 훈련 상세**
-1. [가장 중요한 훈련 - 웜업/주훈련/쿨다운 구간 포함]
-2. [두 번째 훈련]
-
-**이번 주 핵심 포인트**
-(집중할 2-3가지 — 현재 체력 페이스 기반 구체적 개선 방향 포함)`;
-
-  const analysis = await callClaude(prompt, 1800);
-
-  // A1: 이번 주 코칭 노트 저장 (다음 주에 활용)
-  await saveCoachingNote(userId, 'weekly', ctx.weekStart, analysis);
-  await saveWeeklyPlan(userId, analysis, goal);
-  return analysis;
-}
-
-// ── 주간 계획 저장 ──
-async function saveWeeklyPlan(userId, analysis, goal) {
-  const parsePrompt = `아래 주간 훈련 계획에서 요일별 훈련 종류만 추출해서 JSON으로 반환하세요.
-훈련 종류는 인터벌/템포런/페이스주/롱런/LSD/이지런/트레일런/수영/자전거/휴식 중 하나로만 표현하세요.
-
-${analysis.substring(0, 2000)}
-
-반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 절대 포함하지 마세요:
-{"mon":"","tue":"","wed":"","thu":"","fri":"휴식","sat":"","sun":""}`;
-
-  try {
-    const jsonStr = await callClaude(parsePrompt, 200);
-    const clean = jsonStr.replace(/```json|```/g, '').replace(/[\n\r]/g, '').trim();
-    const jsonMatch = clean.match(/\{[^}]+\}/);
-    if (!jsonMatch) throw new Error('No JSON found');
-    const plan = JSON.parse(jsonMatch[0]);
-    const weekStart = getWeekStart();
-    await sbUpsert('weekly_plans', {
-      user_id: userId, week_start: weekStart,
-      mon: plan.mon || '', tue: plan.tue || '', wed: plan.wed || '',
-      thu: plan.thu || '', fri: plan.fri || '휴식',
-      sat: plan.sat || '', sun: plan.sun || ''
-    }, 'user_id,week_start');
-  } catch (e) {
-    console.error('Weekly plan parse error:', e.message);
-  }
-}
-
-// ══════════════════════════════════════
-// 월간 분석 (4000자 이내)
-// ══════════════════════════════════════
-async function analyzeMonthly(userId, goal, accessToken) {
-  const athleteNote = await fetchAthleteNote(userId);
-  const targetPace = goal?.target_pace || '5:27';
-  const trainingPhase = getTrainingPhase(goal?.race_date);
-  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
-  const ctx = getDateContext();
-
-  // 이번 달: 1일 00:00 KST ~ 현재
-  const thisMonthAfter = Math.floor(new Date(ctx.monthStart + 'T00:00:00+09:00').getTime() / 1000);
-  const thisMonthRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${thisMonthAfter}&per_page=50`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-  const thisMonthActs = Array.isArray(thisMonthRes) ? thisMonthRes : [];
-  const thisMonthKm = (thisMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-
-  // 지난 달: 저번 달 1일 ~ 말일
-  const lastMonthEnd   = thisMonthAfter;
-  const prevMonthDate  = new Date(ctx.monthStart + 'T00:00:00+09:00');
-  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-  const lastMonthStart = Math.floor(prevMonthDate.getTime() / 1000);
-  const lastMonthRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${lastMonthStart}&before=${lastMonthEnd}&per_page=30`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-
-  const lastMonthActs = Array.isArray(lastMonthRes) ? lastMonthRes : [];
-  const lastMonthKm = (lastMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-
-  // 이번 달 운동 종류별 집계
-  const sportCounts = {};
-  const sportKm = {};
-  thisMonthActs.forEach(a => {
-    const st = getSportType(a);
-    const wt = classifyWorkout(a, targetPace, st);
-    const key = `${st}/${wt}`;
-    sportCounts[key] = (sportCounts[key] || 0) + 1;
-    sportKm[key] = (sportKm[key] || 0) + a.distance / 1000;
-  });
-
-  const sportSummary = Object.entries(sportCounts)
-    .map(([k, v]) => `${k}: ${v}회 (${sportKm[k].toFixed(1)}km)`)
-    .join('\n') || '기록 없음';
-
-  // 지난 달 운동 종류별 집계
-  const lastSportCounts = {};
-  const lastSportKm = {};
-  lastMonthActs.forEach(a => {
-    const st = getSportType(a);
-    const wt = classifyWorkout(a, targetPace, st);
-    const key = `${st}/${wt}`;
-    lastSportCounts[key] = (lastSportCounts[key] || 0) + 1;
-    lastSportKm[key] = (lastSportKm[key] || 0) + a.distance / 1000;
-  });
-  const lastSportSummary = Object.entries(lastSportCounts)
-    .map(([k, v]) => `${k}: ${v}회 (${lastSportKm[k].toFixed(1)}km)`)
-    .join('\n') || '기록 없음';
-
-  // 레이스까지 남은 월 목록 계산
-  let monthRoadmap = '';
-  if (goal?.race_date) {
-    const raceDate = new Date(goal.race_date);
-    const nowDate  = new Date(ctx.today);
-    const roadmapMonths = [];
-    let cur = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
-    const raceYM = new Date(raceDate.getFullYear(), raceDate.getMonth(), 1);
-    while (cur <= raceYM) {
-      const isNow  = cur.getMonth() === nowDate.getMonth() && cur.getFullYear() === nowDate.getFullYear();
-      const isRace = cur.getMonth() === raceDate.getMonth() && cur.getFullYear() === raceDate.getFullYear();
-      roadmapMonths.push(`${cur.getMonth()+1}월${isNow ? '(현재)' : ''}${isRace ? '(레이스)' : ''}`);
-      cur.setMonth(cur.getMonth() + 1);
-    }
-    monthRoadmap = roadmapMonths.join(' → ');
-  }
-
-  const prompt = `마라톤 전문 코치로서 월간 종합 리포트를 작성하세요.
-${athleteNoteBlock(athleteNote)}
-📅 오늘: ${ctx.todayLabel} | ${ctx.monthLabel} ${ctx.weekOfMonth}주차
-이번 달(${ctx.monthStart} ~ ${ctx.monthEnd}) 현재까지: ${thisMonthKm}km / ${thisMonthActs.length}회
-
-선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
-PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'} / 10K ${goal?.pr_10k || '-'}
-훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
-${monthRoadmap ? `레이스까지 월별 로드맵: ${monthRoadmap}` : ''}
-
-이번 달 현재까지 (${ctx.monthStart} ~ ${ctx.today}):
-- 총 거리: ${thisMonthKm}km | 총 ${thisMonthActs.length}회
-- 운동 구성:
-${sportSummary}
-
-지난 달 (전월 전체):
-- 총 거리: ${lastMonthKm}km | 총 ${lastMonthActs.length}회
-- 운동 구성:
-${lastSportSummary}
-
-4000자 이내로 작성:
-
-## 지난 달 종합 평가
-
-**훈련량 분석**
-(달성률, 러닝/크로스트레이닝 비율, 강점/약점 3-4문장)
-
-**훈련 질 분석**
-(페이스 트렌드, 종류 구성 적절성, 트레일런/크로스트레이닝 마라톤 기여도 2-3문장)
-
-**현재 목표 달성 가능성: X%**
-(솔직한 평가 2문장)
-
----
-
-## 다음 달 훈련 로드맵
-
-**다음 달 목표**
-- 월간 목표 거리: Xkm
-- 핵심 목표: (3가지)
-
-**주차별 계획**
-1주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
-2주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
-3주차 (Xkm): 핵심훈련 [구체적 훈련/페이스/거리]
-4주차 (Xkm): 핵심훈련 [회복 위주]
-
-**레이스까지 월별 로드맵**
-순서: ${monthRoadmap || '(레이스 날짜 미설정)'}
-위 순서대로 각 월의 핵심 훈련 테마를 한 줄씩 작성하세요.
-
-**다음 달 미션 완료 시 달성 가능성: X%**
-(상승 근거 2-3문장)
-
-**코치 한마디**
-(동기부여 1-2문장)`;
-
-  return callClaude(prompt, 3500);
-}
-
-// ══════════════════════════════════════
-// 트라이애슬론 일일 분석
-// ══════════════════════════════════════
-async function analyzeTriathlonDaily(activities, goal, recentActivities, athleteNote) {
-  const targetPace = goal?.target_pace || '5:27';
-  const triType = goal?.tri_type || 'full';
-  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
-  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
-
-  // 오늘 운동들 요약
-  const todaySummary = activities.map(a => {
-    const st = getSportType(a);
-    const km = (a.distance / 1000).toFixed(1);
-    const pace = calcPace(a.moving_time, a.distance);
-    const hrs = Math.floor(a.moving_time / 3600);
-    const mins = Math.floor((a.moving_time % 3600) / 60);
-    const timeStr = hrs > 0 ? `${hrs}시간 ${mins}분` : `${mins}분`;
-
-    if (st === '수영') return `🏊 수영 ${km}km (${timeStr})`;
-    if (st === '자전거') return `🚴 자전거 ${km}km @ ${pace}/km (${timeStr})`;
-    return `🏃 러닝 ${km}km @ ${pace}/km (${timeStr})`;
-  }).join('\n');
-
-  // 총 훈련 시간
-  const totalMins = Math.floor(activities.reduce((s, a) => s + a.moving_time, 0) / 60);
-  const runActs = activities.filter(a => getSportType(a) === '러닝' || getSportType(a) === '트레일런');
-  const swimActs = activities.filter(a => getSportType(a) === '수영');
-  const bikeActs = activities.filter(a => getSportType(a) === '자전거');
-
-  // 벽돌훈련 감지 (자전거 + 러닝 같은 날)
-  const isBrick = bikeActs.length > 0 && runActs.length > 0;
-
-  const prompt = `트라이애슬론 전문 코치로서 오늘 훈련을 분석하세요.
-${athleteNoteBlock(athleteNote)}
-선수 목표:
-- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
-- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'}
-- D-${daysLeft || '?'}
-- PR: 풀마라톤 ${goal?.pr_full || '-'} / 트라이애슬론 ${goal?.pr_10k || '-'}
-
-오늘 훈련 (총 ${totalMins}분):
-${todaySummary}
-${isBrick ? '⚡ 벽돌훈련 감지 (자전거→러닝)' : ''}
-
-최근 활동: ${recentActivities.slice(0,3).map(a => `${getSportType(a)} ${(a.distance/1000).toFixed(1)}km`).join(', ') || '없음'}
-
-트라이애슬론 목표 기준:
-- 수영 목표: ${goal?.tri_swim_target || '-'}
-- 자전거 목표: ${goal?.tri_bike_target || '-'}
-- 러닝 목표: ${goal?.tri_run_target || '-'}
-
-1000자 이내로 작성:
-
-**오늘 훈련 평가**
-${isBrick ? '벽돌훈련 효과와 자전거→러닝 전환 품질 평가' : '각 종목별 강도와 품질 평가'}
-수영/자전거가 마라톤 러닝 능력에 미치는 긍정적 영향 언급
-
-**종목별 피드백**
-(오늘 한 종목들에 대한 구체적 피드백)
-
-**내일/이번 주 권장 훈련**
-(종목 균형과 회복을 고려한 처방)`;
-
-  return callClaude(prompt, 800);
-}
-
-// ══════════════════════════════════════
-// 트라이애슬론 주간 분석
-// ══════════════════════════════════════
-async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
-  const targetPace = goal?.target_pace || '5:27';
-  const triType = goal?.tri_type || 'full';
-  const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
-  const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
-  const ctx = getDateContext();
-
-  // 이번 주 (월요일 00:00 KST ~ 현재)
-  const thisWeekAfter = Math.floor(new Date(ctx.weekStart + 'T00:00:00+09:00').getTime() / 1000);
-  const thisWeekRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${thisWeekAfter}&per_page=30`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-  const thisWeekActs = Array.isArray(thisWeekRes) ? thisWeekRes : [];
-
-  // 지난 주 (저번 주 월~일)
-  const lastWeekEnd   = thisWeekAfter;
-  const lastWeekStart = lastWeekEnd - 7 * 24 * 60 * 60;
-  const lastWeekRes = await fetch(
-    `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=30`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  ).then(r => r.json());
-
-  const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
-
-  // 이번 주 종목별 집계
-  const thisSwimKm = (thisWeekActs.filter(a => getSportType(a) === '수영').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-  const thisBikeKm = (thisWeekActs.filter(a => getSportType(a) === '자전거').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-  const thisRunKm  = (thisWeekActs.filter(a => ['러닝','트레일런'].includes(getSportType(a))).reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-
-  // 지난 주 종목별 집계
-  const swimKm = (lastWeekActs.filter(a => getSportType(a) === '수영').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-  const bikeKm = (lastWeekActs.filter(a => getSportType(a) === '자전거').reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-  const runKm  = (lastWeekActs.filter(a => ['러닝','트레일런'].includes(getSportType(a))).reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-  const totalMins = Math.floor(lastWeekActs.reduce((s, a) => s + a.moving_time, 0) / 60);
-  const brickSessions = lastWeekActs.filter(a => getSportType(a) === '자전거').length;
-
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-  const thisWeekSummary = thisWeekActs.map(a => {
-    const st = getSportType(a);
-    const dow = dayNames[new Date(a.start_date).getDay()];
-    return `- [${dow}] [${st}] ${(a.distance/1000).toFixed(1)}km / ${Math.floor(a.moving_time/60)}분`;
-  }).join('\n') || '이번 주 기록 없음';
-
-  const lastWeekSummary = lastWeekActs.map(a => {
-    const st = getSportType(a);
-    return `- [${st}] ${(a.distance/1000).toFixed(1)}km / ${Math.floor(a.moving_time/60)}분`;
-  }).join('\n') || '기록 없음';
-
-  // A1: 이전 코칭 노트
-  const prevCoachingNote = await fetchCoachingNote(userId, 'weekly_tri');
-  const athleteNote = await fetchAthleteNote(userId);
-
-  // S2: 계획 대비 실행
-  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
-
-  // S3: 현재 체력 페이스
-  const currentFitnessPace = await calcCurrentFitnessPace(accessToken);
-  const targetSec = paceToSec(targetPace);
-  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
-  const paceGap = fitnessSec ? fitnessSec - targetSec : null;
-
-  // S5: 주간 KPI
-  const totalThisKm = parseFloat(thisRunKm) + parseFloat(thisBikeKm) + parseFloat(thisSwimKm);
-  const triWeeklyTarget = 80; // 트라이애슬론 주간 목표
-  const kpiSummary = `러닝 ${thisRunKm}km | 자전거 ${thisBikeKm}km | 수영 ${thisSwimKm}km${planComparison ? ` | 계획이행 ${planComparison.rate}%` : ''}`;
-
-  const remainingStr = ctx.remainingDaysCount > 0
-    ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}`
-    : '없음 (오늘이 일요일)';
-
-  const prompt = `트라이애슬론 전문 코치로서 주간 리포트를 작성하세요.
-${athleteNoteBlock(athleteNote)}
-📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
-📊 이번 주 KPI: ${kpiSummary}
-🏃 현재 러닝 체력 페이스: ${currentFitnessPace || '데이터 부족'}${paceGap !== null ? ` (목표 대비 ${paceGap > 0 ? '+' + paceGap : paceGap}초/km)` : ''}
-남은 요일: ${remainingStr}
-${planComparison ? `\n📋 계획 vs 실행 (월~${ctx.todayDowName}):\n${planComparison.text}\n` : ''}
-
-선수 목표:
-- 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
-- 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'} | D-${daysLeft || '?'}
-- 수영목표 ${goal?.tri_swim_target || '-'} / 자전거목표 ${goal?.tri_bike_target || '-'} / 러닝목표 ${goal?.tri_run_target || '-'}
-
-이번 주 완료된 훈련 (월~${ctx.todayDowName}):
-${thisWeekSummary}
-
-지난 주 훈련 (전주 전체):
-- 수영: ${swimKm}km | 자전거: ${bikeKm}km | 러닝: ${runKm}km
-- 총 훈련시간: ${Math.floor(totalMins/60)}시간 ${totalMins%60}분
-- 벽돌훈련: ${brickSessions}회
-${lastWeekSummary}
-${prevCoachingNote ? `\n📝 지난 주 코치 핵심 조언 (follow-up):\n${prevCoachingNote}\n` : ''}
-2000자 이내로 작성:
-
-**지난 주 평가**
-(종목별 볼륨 평가, 균형 분석. ${prevCoachingNote ? '지난 코치 조언 이행 여부 반드시 언급.' : ''} 3-4문장)
-
-**이번 주 현황 & 남은 훈련 처방**
-오늘(${ctx.todayLabel})까지 완료. 남은 요일(${ctx.remainingDays.join('/')})에 맞춰 처방:
-${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고정' : ''}
-${currentFitnessPace ? `러닝 체력 페이스 ${currentFitnessPace}/km — 목표까지 ${Math.abs(paceGap || 0)}초 개선 필요.` : ''}
-
-**다음 주 훈련 계획**
-
-| 요일 | 훈련 | 거리/시간 | 강도 |
-|------|------|---------|------|
-| 월 | | | |
-| 화 | | | |
-| 수 | | | |
-| 목 | | | |
-| 금 | 휴식 | - | - |
-| 토 | 벽돌훈련(자전거+러닝) | | |
-| 일 | LSD (일산호수 일요정모) | | |
-
-**핵심 훈련 상세**
-1. [벽돌훈련 - 자전거 거리/강도 → 러닝 거리/페이스]
-2. [장거리 수영 or 자전거]
-3. [마라톤 페이스런]
-
-**이번 주 핵심 포인트**
-(트라이애슬론과 마라톤 병행 관련 2-3가지)`;
-
-  const analysis = await callClaude(prompt, 1800);
-
-  // A1: 코칭 노트 저장
-  await saveCoachingNote(userId, 'weekly_tri', ctx.weekStart, analysis);
-  await saveWeeklyPlan(userId, analysis, goal);
-  return analysis;
-}
-
-// ══════════════════════════════════════
-// A1: 코칭 메모리 — 저장/불러오기
-// coaching_notes 테이블 필요:
-//   user_id text, type text, week_start text,
-//   advice_summary text, created_at timestamptz default now()
-//   PRIMARY KEY (user_id, type)  → upsert on conflict
-// ══════════════════════════════════════
-async function fetchCoachingNote(userId, type) {
-  try {
-    const rows = await sbGet('coaching_notes',
-      `user_id=eq.${userId}&type=eq.${type}&order=created_at.desc&limit=1`);
-    return rows?.[0]?.advice_summary || null;
-  } catch (e) {
-    console.error('fetchCoachingNote error:', e.message);
-    return null;
-  }
-}
-
-async function saveCoachingNote(userId, type, weekStart, summary) {
-  try {
-    // summary에서 핵심 조언 400자 이내로 추출 (AI 호출 없이 앞부분 사용)
-    const brief = summary.replace(/#{1,3}\s+/g, '').replace(/\*{1,2}/g, '').trim().slice(0, 400);
-    await sbUpsert('coaching_notes',
-      { user_id: userId, type, week_start: weekStart, advice_summary: brief, created_at: new Date().toISOString() },
-      'user_id,type'
-    );
-  } catch (e) {
-    console.error('saveCoachingNote error:', e.message);
-  }
-}
-
-// ══════════════════════════════════════
-// S3: 현재 체력 추정 페이스 계산
-// 최근 4주 러닝 활동 평균 페이스 → 목표 페이스 대비 갭
-// ══════════════════════════════════════
-async function calcCurrentFitnessPace(accessToken) {
-  try {
-    const fourWeeksAgo = Math.floor(Date.now() / 1000) - 28 * 24 * 60 * 60;
-    const res = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${fourWeeksAgo}&per_page=50`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    ).then(r => r.json());
-    const runs = Array.isArray(res)
-      ? res.filter(a => ['러닝', '트레일런'].includes(getSportType(a)) && a.distance >= 3000)
-      : [];
-    if (runs.length === 0) return null;
-
-    // 5km 이상 LSD/이지런 제외(너무 느린 것), 최근 페이스 가중
-    const paces = runs.map(a => ({
-      sec: a.moving_time / (a.distance / 1000),
-      dist: a.distance,
-      date: new Date(a.start_date)
-    })).filter(p => p.sec > 200 && p.sec < 500); // 3:20~8:20/km 범위만
-
-    if (paces.length === 0) return null;
-
-    // 최근 2주 가중 2배
-    const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
-    let totalWeightedSec = 0, totalWeight = 0;
-    paces.forEach(p => {
-      const w = p.date.getTime() > twoWeeksAgo ? 2 : 1;
-      totalWeightedSec += p.sec * w;
-      totalWeight += w;
-    });
-    const avgSec = totalWeightedSec / totalWeight;
-    const mm = Math.floor(avgSec / 60);
-    const ss = String(Math.round(avgSec % 60)).padStart(2, '0');
-    return `${mm}:${ss}`;
-  } catch (e) {
-    console.error('calcCurrentFitnessPace error:', e.message);
-    return null;
-  }
-}
-
-// ══════════════════════════════════════
-// S2: 계획 대비 실행 비교
-// weekly_plans 테이블에서 이번 주 계획 가져와서 실제와 대조
-// ══════════════════════════════════════
-async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, targetPace) {
-  try {
-    const plans = await sbGet('weekly_plans', `user_id=eq.${userId}&week_start=eq.${weekStart}`);
-    if (!plans || plans.length === 0) return null;
-
-    const plan = plans[0];
-    const dayMap = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
-    const dayLabel = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토', sun: '일' };
-
-    // 오늘까지만 비교 (미래 요일은 제외)
-    const KST_OFFSET = 9 * 60 * 60 * 1000;
-    const nowKST = new Date(Date.now() + KST_OFFSET);
-    const todayDow = nowKST.getUTCDay(); // 0=일, 1=월 ... 6=토
-
-    // 완료된 요일별 활동 맵
-    const doneByDay = {};
-    thisWeekActs.forEach(a => {
-      const actDate = new Date(a.start_date);
-      const dow = actDate.getDay();
-      const key = dayMap[dow];
-      if (!doneByDay[key]) doneByDay[key] = [];
-      doneByDay[key].push(`${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`);
-    });
-
-    // 월~오늘까지만 비교
-    const daysToCheck = ['mon','tue','wed','thu','fri','sat','sun'];
-    const dowOrder = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 };
-    const comparisons = [];
-
-    for (const day of daysToCheck) {
-      const planDow = dowOrder[day];
-      // 오늘(todayDow) 포함, 이미 지난 요일만 비교
-      const isPast = planDow === 0
-        ? todayDow === 0 || todayDow > 0 // 일요일: 오늘이 일요일이면 포함
-        : planDow <= todayDow;
-      if (!isPast) continue;
-
-      const planned = plan[day] || '';
-      if (!planned || planned === '') continue;
-
-      const done = doneByDay[day] || [];
-      const isRest = planned === '휴식';
-      const isCompleted = isRest ? true : done.length > 0;
-
-      comparisons.push(
-        `- ${dayLabel[day]}: 계획[${planned}] → ${isCompleted ? `✅ ${done.join(', ')}` : '❌ 미완료'}`
-      );
-    }
-
-    if (comparisons.length === 0) return null;
-
-    const completedCount = comparisons.filter(l => l.includes('✅')).length;
-    const totalCount = comparisons.length;
-    const rate = Math.round(completedCount / totalCount * 100);
-
-    return {
-      text: comparisons.join('\n'),
-      completedCount,
-      totalCount,
-      rate
-    };
-  } catch (e) {
-    console.error('fetchWeeklyPlanComparison error:', e.message);
-    return null;
-  }
-}
-
-// ══════════════════════════════════════
-// S5: 훈련 완료율 KPI 계산
-// LSD 완료율, 주간 거리 달성률, 강도훈련 횟수
-// ══════════════════════════════════════
-function calcWeeklyKPI(thisWeekActs, weeklyTarget, targetPace) {
-  const runActs = thisWeekActs.filter(a =>
-    ['러닝', '트레일런'].includes(getSportType(a))
-  );
-
-  // 거리 달성률
-  const totalKm = thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000;
-  const distRate = Math.round(totalKm / weeklyTarget * 100);
-
-  // LSD 완료 여부 (10km 이상 이지런/LSD)
-  const lsdActs = runActs.filter(a => a.distance >= 10000);
-  const lsdCount = lsdActs.length;
-
-  // 강도훈련 횟수 (인터벌/템포: 목표페이스보다 빠른 활동)
-  const targetSec = paceToSec(targetPace);
-  const intensityActs = runActs.filter(a => {
-    const paceSec = a.moving_time / (a.distance / 1000);
-    return paceSec < (targetSec + 10) && a.distance >= 3000; // 목표페이스 ±10초 이내
-  });
-  const intensityCount = intensityActs.length;
-
-  return {
-    totalKm: totalKm.toFixed(1),
-    weeklyTarget,
-    distRate,
-    lsdCount,
-    intensityCount,
-    summary: `거리 ${totalKm.toFixed(1)}km/${weeklyTarget}km(${distRate}%) | LSD ${lsdCount}회 | 강도훈련 ${intensityCount}회`
-  };
-}
-
-// ── 오늘 같은 날 활동 묶기 ──
-function groupActivitiesByDay(activities) {
-  const groups = {};
-  activities.forEach(a => {
-    const day = a.start_date.split('T')[0];
-    if (!groups[day]) groups[day] = [];
-    groups[day].push(a);
-  });
-  return groups;
-}
-// ══════════════════════════════════════
-// A2: 선수 약점 프로파일 — 규칙 기반 판정 (주간 리포트 때 갱신)
-// 결과는 athlete_profiles에 저장되고, 모든 AI 코칭 프롬프트에 주입됨
-// ══════════════════════════════════════
-const RUN_SPORTS = `sport_type=in.(${encodeURIComponent('러닝')},${encodeURIComponent('트레일런')})`;
-
-function parseLaps(laps) {
-  if (!laps) return [];
-  try {
-    const arr = typeof laps === 'string' ? JSON.parse(laps) : laps;
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) { return []; }
-}
-
-function median(arr) {
-  if (arr.length === 0) return null;
-  const s = [...arr].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-
-function uniqueByStravaId(rows) {
-  const seen = new Set();
-  return (Array.isArray(rows) ? rows : []).filter(a => {
-    if (seen.has(a.strava_id)) return false;
-    seen.add(a.strava_id);
-    return true;
-  });
-}
-
-// 랩을 전반(앞 절반)/후반으로 나눠 페이스·심박 비교 (500m 미만 자투리 랩 제외)
-function splitLapHalves(laps, lateFraction = 0.5) {
-  const valid = laps.filter(l => l.distance >= 500 && l.moving_time > 0);
-  if (valid.length < 10) return null;
-  const n = valid.length;
-  const first = valid.slice(0, Math.floor(n / 2));
-  const late = valid.slice(Math.floor(n * (1 - lateFraction)));
-  const agg = (ls) => {
-    const d = ls.reduce((s, l) => s + l.distance, 0);
-    const t = ls.reduce((s, l) => s + l.moving_time, 0);
-    const hrLaps = ls.filter(l => l.average_heartrate > 0);
-    const hr = hrLaps.length === ls.length
-      ? hrLaps.reduce((s, l) => s + l.average_heartrate * l.moving_time, 0) / t
-      : null;
-    return { pace: t / (d / 1000), speed: d / t, hr };
-  };
-  return { first: agg(first), late: agg(late) };
-}
-
-// 최대심박 자동 추정: 최근 1년 러닝 최고 심박 중 센서가 튄 값(다음 값보다 8bpm 넘게 높음)을 제외한 최고값
-function estimateHrMax(values) {
-  const v = values.filter(x => x > 120 && x < 230).map(Math.round).sort((a, b) => b - a);
-  if (v.length < 10) return null;
-  const removed = [];
-  while (v.length >= 2 && v[0] - v[1] > 8 && removed.length < 2) removed.push(v.shift());
-  return {
-    value: v[0],
-    basis: `최근 1년 러닝 ${values.length}회 중 최고 심박${removed.length ? ` (튀는 값 ${removed.join(', ')} 제외)` : ''}`
-  };
-}
-
-// 훈련 심박 구간 (Daniels 기준). 같은 강도가 두 방식에서 대응되도록 방식별 %를 다르게 적용
-// - 안정시 심박 있음: 여유심박(카르보넨) %  /  없음: 최대심박 %
+// ── 심박 설정 ──
+// 서버(strava-sync.js)의 HR_ZONE_PCT와 같은 기준(Daniels). 둘 중 하나를 바꾸면 함께 바꿀 것
 const HR_ZONE_PCT = {
   max: { easy: [0.65, 0.79], marathon: [0.80, 0.87], threshold: [0.88, 0.92], interval: [0.93, 1.00] },
   hrr: { easy: [0.59, 0.74], marathon: [0.75, 0.82], threshold: [0.83, 0.88], interval: [0.89, 1.00] },
 };
-const HR_ZONE_LABEL = { easy: '이지', marathon: '마라톤(페이스주)', threshold: '역치(템포)', interval: '인터벌' };
+const HR_ZONE_INFO = [
+  { key: 'easy',      label: '이지',           use: '이지런·롱런·회복', color: '#27AE60' },
+  { key: 'marathon',  label: '마라톤',         use: '페이스주',         color: '#2D9CDB' },
+  { key: 'threshold', label: '역치',           use: '템포런',           color: '#f5a623' },
+  { key: 'interval',  label: '인터벌',         use: '인터벌',           color: '#FC4C02' },
+];
+let hrMaxMode = 'auto';
+let hrMaxAutoValue = null;
 
-function calcHrZones(hrMax, hrRest) {
-  const useRest = hrRest && hrRest < hrMax;
+// 시계 구간 (시작값 5개). 앱 훈련 분류와의 연결: 유산소 지구력=이지런, 유산소 파워=페이스주, 젖산역치=템포런, 무산소=인터벌
+const WATCH_ZONES = [
+  { key: 'z1', label: '유산소 지구력', use: '이지런·롱런', color: '#27AE60', ph: 137 },
+  { key: 'z2', label: '유산소 파워',   use: '페이스주',   color: '#2D9CDB', ph: 155 },
+  { key: 'z3', label: '젖산역치',      use: '템포런',     color: '#f5a623', ph: 163 },
+  { key: 'z4', label: '무산소 지구력', use: '인터벌',     color: '#FC4C02', ph: 175 },
+  { key: 'z5', label: '무산소 파워',   use: '전력 질주',  color: '#c0392b', ph: 181 },
+];
+
+function buildWatchInputs() {
+  const box = document.getElementById('hrWatchInputs');
+  if (box.dataset.built) return;
+  box.innerHTML = WATCH_ZONES.map(z => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+      <span style="font-size:13px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}</span>
+      <input class="input-field" type="number" inputmode="numeric" id="hrW_${z.key}" placeholder="${z.ph}"
+        min="80" max="230" style="width:110px;padding:9px 12px;text-align:right" oninput="updateHrZonesPreview()">
+    </div>`).join('');
+  box.dataset.built = '1';
+}
+
+function toggleWatchZones() {
+  buildWatchInputs();
+  document.getElementById('hrWatchBox').style.display =
+    document.getElementById('hrWatchToggle').checked ? 'block' : 'none';
+  updateHrZonesPreview();
+}
+
+// 체크 안 함 → null, 값이 비었거나 잘못됨 → 'invalid', 정상 → {z1..z5}
+function readWatchZones() {
+  if (!document.getElementById('hrWatchToggle').checked) return null;
+  const v = WATCH_ZONES.map(z => parseInt(document.getElementById(`hrW_${z.key}`).value, 10));
+  if (v.some(x => !(x >= 80 && x <= 230))) return 'invalid';
+  for (let i = 1; i < v.length; i++) if (v[i] < v[i - 1]) return 'invalid';
+  return { z1: v[0], z2: v[1], z3: v[2], z4: v[3], z5: v[4] };
+}
+
+function setHrMaxMode(mode) {
+  hrMaxMode = mode;
+  const on = 'border:1px solid var(--orange);color:var(--orange)';
+  const off = 'border:1px solid rgba(255,255,255,.12);color:var(--gray)';
+  const base = 'flex:1;padding:7px 0;border-radius:8px;font-size:12px;cursor:pointer;background:transparent;';
+  document.getElementById('hrModeAuto').style.cssText = base + (mode === 'auto' ? on : off);
+  document.getElementById('hrModeManual').style.cssText = base + (mode === 'manual' ? on : off);
+  document.getElementById('hrMaxAutoBox').style.display = mode === 'auto' ? 'block' : 'none';
+  document.getElementById('settingHrMax').style.display = mode === 'manual' ? 'block' : 'none';
+  if (mode === 'manual' && !document.getElementById('settingHrMax').value && hrMaxAutoValue) {
+    document.getElementById('settingHrMax').value = hrMaxAutoValue; // 자동 추정값에서 출발
+  }
+  updateHrZonesPreview();
+}
+
+function setHrAutoInfo(m) {
+  hrMaxAutoValue = m.hrMaxAuto || null;
+  document.getElementById('hrMaxAutoVal').textContent = hrMaxAutoValue || '--';
+  document.getElementById('hrMaxAutoBasis').textContent = hrMaxAutoValue
+    ? `🤖 ${m.hrMaxAutoBasis || '러닝 기록 기반 추정'}`
+    : '심박 기록이 부족해 추정할 수 없어요. 직접 입력해주세요.';
+  updateHrZonesPreview();
+}
+
+function applyHeartRateSettings(profile) {
+  document.getElementById('settingHrRest').value = profile?.hr_rest || '';
+  document.getElementById('settingHrMax').value = profile?.hr_max || '';
+  buildWatchInputs();
+  const wz = profile?.hr_watch_zones;
+  document.getElementById('hrWatchToggle').checked = !!wz;
+  WATCH_ZONES.forEach(z => { document.getElementById(`hrW_${z.key}`).value = wz?.[z.key] || ''; });
+  document.getElementById('hrWatchBox').style.display = wz ? 'block' : 'none';
+  setHrMaxMode(profile?.hr_max ? 'manual' : 'auto');
+}
+
+function currentHrValues() {
+  const max = hrMaxMode === 'manual'
+    ? parseInt(document.getElementById('settingHrMax').value, 10) || null
+    : hrMaxAutoValue;
+  const rest = parseInt(document.getElementById('settingHrRest').value, 10) || null;
+  return { max, rest };
+}
+
+function updateHrZonesPreview() {
+  const box = document.getElementById('hrZonesBox');
+  const watch = readWatchZones();
+  if (watch && watch !== 'invalid') {
+    const ranges = [`${watch.z1}–${watch.z2 - 1}`, `${watch.z2}–${watch.z3 - 1}`, `${watch.z3}–${watch.z4 - 1}`, `${watch.z4}–${watch.z5}`, `${watch.z5}+`];
+    box.innerHTML =
+      `<div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">내 훈련 심박 구간 · ⌚ 시계 구간 기준</div>` +
+      WATCH_ZONES.map((z, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:4px 0">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}
+            <span style="color:var(--gray);font-size:11px"> · ${z.use}</span></span>
+          <span style="font-family:'DM Mono',monospace">${ranges[i]}</span>
+        </div>`).join('');
+    box.style.display = 'block';
+    return;
+  }
+  if (watch === 'invalid') {
+    box.innerHTML = '<div style="font-size:12px;color:#f5a623">⌚ 시계 구간 시작값 5개를 낮은 값부터 순서대로 입력해주세요</div>';
+    box.style.display = 'block';
+    return;
+  }
+  const { max, rest } = currentHrValues();
+  if (!max || max < 120 || max > 230) { box.style.display = 'none'; return; }
+  const useRest = rest && rest >= 30 && rest < max - 20;
   const pct = useRest ? HR_ZONE_PCT.hrr : HR_ZONE_PCT.max;
-  const at = (p) => Math.round(useRest ? hrRest + p * (hrMax - hrRest) : p * hrMax);
-  const zones = { method: useRest ? 'karvonen' : 'max' };
-  for (const k of Object.keys(pct)) zones[k] = [at(pct[k][0]), at(pct[k][1])];
-  return zones;
+  const at = (p) => Math.round(useRest ? rest + p * (max - rest) : p * max);
+  box.innerHTML =
+    `<div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">
+       내 훈련 심박 구간 · ${useRest ? '여유심박(안정시 반영)' : '최대심박 %'} 기준</div>` +
+    HR_ZONE_INFO.map(z => `
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:4px 0">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}
+          <span style="color:var(--gray);font-size:11px"> · ${z.use}</span></span>
+        <span style="font-family:'DM Mono',monospace">${at(pct[z.key][0])}–${at(pct[z.key][1])}</span>
+      </div>`).join('');
+  box.style.display = 'block';
 }
 
-function hrZonesText(z) {
-  return Object.keys(HR_ZONE_LABEL).map(k => `${HR_ZONE_LABEL[k]} ${z[k][0]}-${z[k][1]}`).join(' / ');
+async function saveHeartRate() {
+  const rawMax = document.getElementById('settingHrMax').value.trim();
+  const rawRest = document.getElementById('settingHrRest').value.trim();
+  const hr_max = hrMaxMode === 'manual' ? parseInt(rawMax, 10) : null;
+  const hr_rest = rawRest ? parseInt(rawRest, 10) : null;
+
+  if (hrMaxMode === 'manual' && !(hr_max >= 120 && hr_max <= 230)) { toast('⚠️ 최대심박은 120~230 사이로 입력해주세요'); return; }
+  if (hr_rest !== null && !(hr_rest >= 30 && hr_rest <= 110)) { toast('⚠️ 안정시 심박은 30~110 사이로 입력해주세요'); return; }
+  const maxForCheck = hr_max || hrMaxAutoValue;
+  if (hr_rest !== null && maxForCheck && hr_rest >= maxForCheck - 20) { toast('⚠️ 안정시 심박이 최대심박에 비해 너무 높아요'); return; }
+
+  const watch = readWatchZones();
+  if (watch === 'invalid') { toast('⚠️ 시계 구간 시작값 5개를 낮은 값부터 순서대로 입력해주세요'); return; }
+  const hr_watch_zones = watch; // 체크 해제 시 null로 저장 → 계산 방식으로 복귀
+
+  const { error } = await sb.from('profiles').update({ hr_max, hr_rest, hr_watch_zones }).eq('id', currentUser.id);
+  if (error) { toast('⚠️ 저장 실패: ' + error.message); return; }
+  toast('✅ 심박 설정을 저장했어요. 약점 분석을 새 기준으로 다시 계산할게요');
+  // 새 심박 기준으로 약점 프로파일 재계산 → 다음 코칭부터 반영
+  try {
+    const fresh = await requestAthleteProfile();
+    if (fresh) renderAthleteProfile(fresh);
+  } catch (e) { console.error('athlete profile refresh', e); }
 }
 
-async function buildAthleteProfile(userId, goal, userProfile) {
-  const now = Date.now();
-  const iso = (days) => new Date(now - days * 86400000).toISOString();
-  const weeksAgo = (w) => now - w * 7 * 86400000;
-  // 처방 기준 페이스: 목표 페이스와 풀코스 PR 페이스 중 느린 쪽 (현재 실력보다 빠른 처방 방지)
-  const goalPaceSec = paceToSec(goal?.target_pace || '5:27');
-  const prSec = prTimeToSec(goal?.pr_full);
-  const refSec = Math.round(Math.max(goalPaceSec, prSec === Infinity ? 0 : prSec / 42.195));
-  const targetPace = `${Math.floor(refSec / 60)}:${String(refSec % 60).padStart(2, '0')}`;
-  const cols = 'strava_id,distance,moving_time,start_date,avg_heartrate,max_heartrate,avg_cadence,workout_type,sport_type';
+async function requestAthleteProfile() {
+  const { data } = await sb.auth.getSession();
+  const token = data?.session?.access_token;
+  const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=profile`, {
+    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const result = await res.json();
+  return result?.success ? result.profile : null;
+}
 
-  // 최근 6개월 러닝 (랩 제외 — 가벼운 조회)
-  const runs = uniqueByStravaId(await sbGet('activities',
-    `user_id=eq.${userId}&${RUN_SPORTS}&start_date=gte.${iso(182)}&select=${cols}&order=start_date.desc&limit=600`));
-  // 15km 이상은 랩 포함 (유산소 디커플링·레이스 후반 분석용), 레이스 판단 위해 12개월
-  const longRuns = uniqueByStravaId(await sbGet('activities',
-    `user_id=eq.${userId}&${RUN_SPORTS}&distance=gte.15000&start_date=gte.${iso(365)}&select=${cols},laps&order=start_date.desc&limit=80`));
-  const conditions = await sbGet('conditions',
-    `user_id=eq.${userId}&date=gte.${iso(182).slice(0, 10)}&select=date,injury_part,injury_level&order=date.desc`);
+async function loadAthleteProfile() {
+  if (!currentUser) return;
+  const { data } = await sb.from('athlete_profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
+  if (data) renderAthleteProfile(data);
+  // 없거나 7일 이상 지났으면 새로 분석 (화면은 기존 값 먼저 보여주고 갱신)
+  const stale = !data || (Date.now() - new Date(data.updated_at).getTime()) > 7 * 86400000;
+  if (stale) {
+    const fresh = await requestAthleteProfile();
+    if (fresh) renderAthleteProfile(fresh);
+  }
+}
 
-  const metrics = { runs6m: runs.length };
-  const weaknesses = [];
-  const strengths = [];
+async function refreshAthleteProfile() {
+  if (!currentUser) return;
+  const btn = document.getElementById('db-athlete-refresh');
+  btn.textContent = '⏳ 분석 중...';
+  try {
+    const fresh = await requestAthleteProfile();
+    if (fresh) { renderAthleteProfile(fresh); toast('🧬 약점 프로파일을 갱신했어요'); }
+    else toast('❌ 프로파일 분석에 실패했어요');
+  } catch (e) {
+    toast('❌ 프로파일 분석에 실패했어요');
+  } finally {
+    btn.textContent = '🔄 갱신';
+  }
+}
 
-  // 심박 기준 — 최대심박: 직접 입력 우선, 없으면 자동 추정 / 안정시 심박: 직접 입력
-  const hrRows = uniqueByStravaId(await sbGet('activities',
-    `user_id=eq.${userId}&${RUN_SPORTS}&max_heartrate=gt.0&start_date=gte.${iso(365)}&select=strava_id,max_heartrate&limit=1000`));
-  const autoMax = estimateHrMax(hrRows.map(a => a.max_heartrate));
-  const hrMax = userProfile?.hr_max || autoMax?.value || null;
-  const hrRest = userProfile?.hr_rest || null;
-  const zones = hrMax ? calcHrZones(hrMax, hrRest) : null;
-  metrics.hrMax = hrMax;
-  metrics.hrMaxSource = userProfile?.hr_max ? 'manual' : (autoMax ? 'auto' : null);
-  metrics.hrMaxAuto = autoMax?.value ?? null;
-  metrics.hrMaxAutoBasis = autoMax?.basis ?? null;
-  metrics.hrRest = hrRest;
-  metrics.hrZones = zones;
+async function loadWeeklyPlan() {
+  try {
+    const today = new Date();
+    const day = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
 
-  // ① 이지런 강도 — 이지런 평균 심박이 이지 구간 상한을 넘은 비율
-  if (zones) {
-    const easy = runs.filter(a => a.workout_type === '이지런' && a.avg_heartrate > 0);
-    if (easy.length >= 8) {
-      const limit = zones.easy[1];
-      const pct = Math.round(easy.filter(a => a.avg_heartrate > limit).length / easy.length * 100);
-      metrics.easyTooHardPct = pct;
-      if (pct >= 30) {
-        weaknesses.push({
-          key: 'easy_intensity', label: '이지런 강도 과다', severity: pct >= 50 ? 'high' : 'medium',
-          evidence: `이지런 ${easy.length}회 중 ${pct}%가 이지 구간 상한(${limit}bpm) 초과`,
-          advice: `이지런은 이지 구간(${zones.easy[0]}-${zones.easy[1]}bpm), 대화 가능한 강도로. 쉬는 날을 확실히 쉬어야 강한 날이 강해집니다.`
-        });
-      } else if (pct <= 10) {
-        strengths.push({ key: 'easy_intensity', label: '이지런 강도 조절', evidence: `이지런의 ${100 - pct}%를 이지 구간 안에서 소화` });
+    const { data: plans } = await sb.from('weekly_plans')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('week_start', weekStartStr)
+      .limit(1);
+
+    const plan = plans?.[0];
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dayNames = ['월','화','수','목','금','토','일'];
+    const todayIdx = day === 0 ? 6 : day - 1;
+
+    // 오늘 훈련
+    const todayWorkout = plan?.[days[todayIdx]] || '휴식';
+    const todayEl = document.getElementById('db-today-type');
+    const todayDetailEl = document.getElementById('db-today-detail');
+
+    if (todayEl) {
+      const workoutEmoji = {
+        '인터벌': '⚡', '템포런': '🔥', '페이스주': '🎯',
+        '롱런': '🏃', 'LSD': '🌅', '이지런': '😊',
+        '트레일런': '🏔️', '수영': '🏊', '자전거': '🚴',
+        '휴식': '💤', '-': '💤'
+      };
+      const emoji = workoutEmoji[todayWorkout] || '🏃';
+      todayEl.textContent = `${emoji} ${todayWorkout}`;
+
+      // 훈련 세부 처방
+      const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+      const detail = getWorkoutDetail(todayWorkout, targetPace);
+      if (todayDetailEl) todayDetailEl.innerHTML = detail;
+    }
+
+    // 다음 훈련 찾기
+    let nextWorkout = null;
+    let nextDay = null;
+    for (let i = todayIdx + 1; i < 7; i++) {
+      const w = plan?.[days[i]];
+      if (w && w !== '휴식' && w !== '-') {
+        nextWorkout = w;
+        nextDay = dayNames[i];
+        break;
       }
     }
-  }
 
-  // ② 유산소 기반 — 롱런 전반 대비 후반의 속도/심박 효율 저하(디커플링)
-  const decouples = longRuns
-    .filter(a => a.distance < 38000 && new Date(a.start_date).getTime() > weeksAgo(26))
-    .map(a => splitLapHalves(parseLaps(a.laps)))
-    .filter(h => h && h.first.hr && h.late.hr)
-    .slice(0, 10)
-    .map(h => ((h.first.speed / h.first.hr) / (h.late.speed / h.late.hr) - 1) * 100);
-  if (decouples.length >= 4) {
-    const avg = Math.round(decouples.reduce((s, v) => s + v, 0) / decouples.length * 10) / 10;
-    metrics.aerobicDecouplingPct = avg;
-    metrics.aerobicSamples = decouples.length;
-    if (avg > 5) {
-      weaknesses.push({
-        key: 'aerobic_base', label: '유산소 기반 부족', severity: avg > 8 ? 'high' : 'medium',
-        evidence: `롱런 ${decouples.length}회 평균, 후반에 같은 속도 대비 심박이 ${avg}% 더 오름`,
-        advice: '롱런은 페이스보다 심박 유지에 집중하세요. 후반 심박이 오르면 속도를 낮추는 게 맞습니다. 낮은 강도의 볼륨을 늘리는 것이 핵심.'
-      });
-    } else if (avg < 3) {
-      strengths.push({ key: 'aerobic_base', label: '탄탄한 유산소 기반', evidence: `롱런 후반 심박 상승 ${avg}%로 안정적` });
+    const nextTypeEl = document.getElementById('db-next-type');
+    const nextDetailEl = document.getElementById('db-next-detail');
+    if (nextTypeEl) {
+      if (nextWorkout) {
+        nextTypeEl.textContent = `${nextDay}요일 · ${nextWorkout}`;
+        if (nextDetailEl) {
+          const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+          nextDetailEl.innerHTML = getWorkoutDetail(nextWorkout, targetPace);
+        }
+      } else {
+        nextTypeEl.textContent = '이번 주 훈련 완료!';
+        if (nextDetailEl) nextDetailEl.textContent = '잘 하셨어요 🎉';
+      }
     }
+
+    // 컨디션 기반 조정 제안
+    await loadConditionAdvice(todayWorkout, plan, todayIdx, days, dayNames);
+
+  } catch(e) {
+    console.log('Weekly plan load error:', e);
   }
+}
 
-  // ③ 스피드/품질 훈련 — 최근 8주 인터벌·템포·페이스주 횟수
-  const recent8w = runs.filter(a => new Date(a.start_date).getTime() > weeksAgo(8));
-  const quality = recent8w.filter(a => ['인터벌', '템포런', '페이스주'].includes(a.workout_type)).length;
-  metrics.qualitySessions8w = quality;
-  if (recent8w.length >= 8) {
-    if (quality < 2) {
-      weaknesses.push({
-        key: 'speed_work', label: '스피드 훈련 부족', severity: quality === 0 ? 'high' : 'medium',
-        evidence: `최근 8주 인터벌·템포·페이스주 ${quality}회`,
-        advice: `주 1회 템포런(${calcPaceOffset(targetPace, 15)}/km) 또는 인터벌(${calcPaceOffset(targetPace, 30)}/km)을 넣으세요. 나머지는 확실히 천천히.`
-      });
-    } else if (quality >= 6) {
-      strengths.push({ key: 'speed_work', label: '꾸준한 품질 훈련', evidence: `최근 8주 품질 훈련 ${quality}회` });
-    }
-  }
-
-  // ④ 훈련 일관성 — 최근 12주 주간 거리
-  const weekKm = Array(12).fill(0);
-  runs.forEach(a => {
-    const w = Math.floor((now - new Date(a.start_date).getTime()) / (7 * 86400000));
-    if (w >= 0 && w < 12) weekKm[w] += a.distance / 1000;
-  });
-  const activeWeeks = weekKm.filter(k => k > 0).length;
-  const avgKm = weekKm.reduce((s, v) => s + v, 0) / 12;
-  const cv = avgKm > 0
-    ? Math.round(Math.sqrt(weekKm.reduce((s, v) => s + (v - avgKm) ** 2, 0) / 12) / avgKm * 100)
-    : null;
-  metrics.activeWeeks12 = activeWeeks;
-  metrics.weeklyKmAvg12 = Math.round(avgKm * 10) / 10;
-  metrics.weeklyCvPct = cv;
-  const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
-  if (runs.length >= 8) {
-    if (activeWeeks < 10 || (cv !== null && cv > 55)) {
-      weaknesses.push({
-        key: 'consistency', label: '훈련 일관성 부족', severity: activeWeeks < 8 ? 'high' : 'medium',
-        evidence: `최근 12주 중 러닝한 주 ${activeWeeks}주, 주간 거리 변동 ${cv}%`,
-        advice: isTri
-          ? '종목 배분과 별개로 러닝은 매주 최소 2~3회 유지하세요. 몰아서 뛰기보다 꾸준함이 우선.'
-          : '몰아서 많이 뛰는 주와 쉬는 주의 차이를 줄이세요. 매주 최소 3회, 주간 거리 증가는 10% 이내로.'
-      });
-    } else if (activeWeeks === 12 && cv !== null && cv <= 30) {
-      strengths.push({ key: 'consistency', label: '꾸준한 훈련', evidence: `12주 연속 훈련, 주간 거리 변동 ${cv}%` });
-    }
-  }
-
-  // ⑤ 장거리 — 최근 6주 20km 이상 횟수 (기초체력기에는 판정 생략)
-  const phase = getTrainingPhase(goal?.race_date);
-  const raceAhead = goal?.race_date && new Date(goal.race_date).getTime() > now;
-  const long6w = longRuns.filter(a => a.distance >= 20000 && a.distance < 38000 &&
-    new Date(a.start_date).getTime() > weeksAgo(6)).length;
-  metrics.longRuns20k6w = long6w;
-  if (runs.length >= 8 && !isTri && phase !== '기초체력기' && raceAhead) {
-    if (long6w === 0) {
-      weaknesses.push({
-        key: 'long_run', label: '장거리 훈련 부족', severity: 'high',
-        evidence: `${phase}인데 최근 6주 20km 이상 러닝 0회`,
-        advice: `일요일 일산호수 LSD를 20km 이상으로 점진적으로 늘리세요 (${calcPaceOffset(targetPace, -60)}/km 내외).`
-      });
-    } else if (long6w >= 4) {
-      strengths.push({ key: 'long_run', label: '충분한 장거리 훈련', evidence: `최근 6주 20km+ ${long6w}회` });
-    }
-  }
-
-  // ⑥ 케이던스 — 로드 러닝 중앙값 (저장값은 양발 기준 spm)
-  const cads = runs.filter(a => a.sport_type === '러닝' && a.avg_cadence > 100).map(a => a.avg_cadence);
-  if (cads.length >= 10) {
-    const cad = Math.round(median(cads));
-    metrics.cadenceMedian = cad;
-    if (cad < 170) {
-      weaknesses.push({
-        key: 'cadence', label: '낮은 케이던스', severity: cad < 162 ? 'high' : 'medium',
-        evidence: `러닝 케이던스 중앙값 ${cad}spm`,
-        advice: '보폭을 조금 줄이고 발걸음 수를 늘리는 방향으로. 급격히 바꾸면 부상 위험이 있으니 한 번에 5% 이내로 천천히 올리세요.'
-      });
-    } else if (cad >= 180) {
-      strengths.push({ key: 'cadence', label: '효율적인 케이던스', evidence: `케이던스 중앙값 ${cad}spm` });
-    }
-  }
-
-  // ⑦ 레이스 후반 저하 — 최근 1년 풀코스 거리(38km+) 러닝의 마지막 1/4 vs 전반
-  //    (DB에 레이스 표시가 없어 거리로 판별 — 38km 이상 훈련도 포함될 수 있음)
-  const raceFades = longRuns.filter(a => a.distance >= 38000)
-    .map(a => ({ date: a.start_date.slice(0, 10), h: splitLapHalves(parseLaps(a.laps), 0.25) }))
-    .filter(r => r.h)
-    .slice(0, 3)
-    .map(r => ({ date: r.date, fadePct: Math.round((r.h.late.pace / r.h.first.pace - 1) * 1000) / 10 }));
-  if (raceFades.length > 0) {
-    const latest = raceFades[0];
-    metrics.raceFade = raceFades;
-    if (latest.fadePct > 5) {
-      weaknesses.push({
-        key: 'race_fade', label: '레이스 후반 페이스 저하', severity: latest.fadePct > 10 ? 'high' : 'medium',
-        evidence: `최근 풀코스(${latest.date}) 마지막 1/4 구간이 전반보다 ${latest.fadePct}% 느려짐`,
-        advice: '레이스 초반을 목표 페이스보다 5~10초 느리게 시작하고, 30km 이후를 대비한 보급과 롱런 후반 페이스 연습을 하세요.'
-      });
-    } else if (latest.fadePct <= 1) {
-      strengths.push({ key: 'race_fade', label: '레이스 페이스 운영', evidence: `최근 풀코스 후반 변화 ${latest.fadePct}% (이븐/네거티브)` });
-    }
-  }
-
-  // ⑧ 반복 부상 부위 — 최근 6개월 컨디션 기록에서 같은 부위 2회 이상
-  const partCount = {};
-  (Array.isArray(conditions) ? conditions : []).forEach(c => {
-    const p = (c.injury_part || '').trim();
-    if (!p || p === '없음') return;
-    if (!partCount[p]) partCount[p] = { part: p, count: 0, lastDate: c.date, lastLevel: c.injury_level };
-    partCount[p].count++;
-  });
-  const cautions = Object.values(partCount).filter(c => c.count >= 2).sort((a, b) => b.count - a.count);
-
-  // 심각도 순 정렬, 상위 3개를 핵심 약점으로
-  const sevRank = { high: 0, medium: 1 };
-  weaknesses.sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
-
-  // 코칭 프롬프트용 요약
-  const lines = [];
-  if (zones) {
-    const src = metrics.hrMaxSource === 'manual' ? '직접 입력' : '데이터 추정';
-    lines.push(`심박 기준: 최대 ${hrMax}bpm(${src})${hrRest ? `, 안정시 ${hrRest}bpm(여유심박 방식)` : ''} → ${hrZonesText(zones)}. 심박 평가는 이 구간 기준으로 할 것.`);
-  }
-  if (weaknesses.length) {
-    lines.push('약점(우선순위순):');
-    weaknesses.slice(0, 3).forEach((w, i) => lines.push(`${i + 1}. ${w.label} — ${w.evidence}. 처방: ${w.advice}`));
-  }
-  if (strengths.length) lines.push(`강점: ${strengths.map(s => `${s.label}(${s.evidence})`).join(', ')}`);
-  if (cautions.length) lines.push(`주의 부위: ${cautions.map(c => `${c.part} ${c.count}회(최근 ${c.lastDate})`).join(', ')} — 이 부위에 부담 주는 처방은 피하거나 강도를 낮출 것`);
-  const summary = lines.length ? lines.join('\n') : '';
-
-  const profile = {
-    user_id: userId, metrics, weaknesses, strengths, cautions, summary,
-    updated_at: new Date().toISOString()
+function getWorkoutDetail(workoutType, targetPace) {
+  const paceToSec = (p) => {
+    const [m, s] = p.split(':').map(Number);
+    return m * 60 + s;
   };
-  await sbUpsert('athlete_profiles', profile, 'user_id');
-  return profile;
+  const secToPace = (s) => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+  const targetSec = paceToSec(targetPace);
+
+  const details = {
+    '인터벌': `${secToPace(targetSec - 30)}/km × 6~8세트<br>400m 반복 · 세트 간 휴식 90초`,
+    '템포런': `${secToPace(targetSec - 15)}/km 유지<br>워밍업 2km → 주훈련 8km → 쿨다운 2km`,
+    '페이스주': `${targetPace}/km 목표 페이스<br>일정 페이스 유지에 집중`,
+    '롱런': `${secToPace(targetSec + 30)}/km 이하<br>심박수 Zone 2~3 유지`,
+    'LSD': `${secToPace(targetSec + 60)}/km 이하<br>편안한 대화 가능 페이스`,
+    '이지런': `${secToPace(targetSec + 45)}/km 이하<br>회복 중심 · 심박 낮게 유지`,
+    '트레일런': `고도 환산 페이스 적용<br>심박수 Zone 2~3 유지`,
+    '수영': `유산소 크로스트레이닝<br>러닝 심폐 기능 강화`,
+    '자전거': `유산소 크로스트레이닝<br>하체 근력 및 지구력 향상`,
+    '휴식': `완전 휴식 또는 스트레칭<br>근육 회복에 집중`,
+    '-': `오늘은 휴식일이에요<br>스트레칭으로 마무리`
+  };
+  return details[workoutType] || '훈련 계획을 확인해주세요';
 }
 
-async function fetchAthleteNote(userId) {
-  try {
-    const rows = await sbGet('athlete_profiles', `user_id=eq.${userId}&select=summary`);
-    return rows?.[0]?.summary || '';
-  } catch (e) { return ''; }
-}
+async function loadConditionAdvice(todayWorkout, plan, todayIdx, days, dayNames) {
+  if (!currentUser) return;
 
-function athleteNoteBlock(note) {
-  return note
-    ? `\n🧬 선수 약점 프로파일 (데이터 기반 — 평가·처방에 반드시 반영하고, 해당되는 약점이 오늘/이번 주 훈련에 드러났다면 구체적으로 짚어줄 것):\n${note}\n`
-    : '';
-}
+  const today = new Date().toISOString().split('T')[0];
+  const { data: condition } = await sb.from('conditions')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .eq('date', today)
+    .maybeSingle();
 
-// ══════════════════════════════════════
-// PR 자동 갱신 — Strava best_efforts(구간 최고기록) 기반
-// 새 러닝 활동이 저장될 때마다 goals의 PR과 비교해 더 빠르면 갱신
-// ══════════════════════════════════════
-const PR_EFFORTS = {
-  'Marathon':      { key: 'pr_full', label: '풀코스' },
-  'Half-Marathon': { key: 'pr_half', label: '하프코스' },
-  '10K':           { key: 'pr_10k',  label: '10K' },
-  '5K':            { key: 'pr_5k',   label: '5K' },
-};
+  const section = document.getElementById('db-condition-section');
+  const adviceEl = document.getElementById('db-condition-advice');
+  if (!section || !adviceEl) return;
 
-function prTimeToSec(t) {
-  if (!t || typeof t !== 'string') return Infinity;
-  const p = t.trim().split(':').map(Number);
-  if (p.some(isNaN)) return Infinity;
-  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
-  if (p.length === 2) return p[0] * 60 + p[1];
-  return Infinity;
-}
+  const advices = [];
 
-function prSecToTime(s) {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.round(s % 60);
-  return h > 0
-    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-    : `${m}:${String(sec).padStart(2, '0')}`;
-}
-
-async function checkAndUpdatePR(userId, activity, goal, accessToken, chatId) {
-  try {
-    if (!goal?.id) return;
-    // 실외 러닝만 (트레드밀 VirtualRun은 거리 정확도 문제로 제외)
-    const st = activity.sport_type || activity.type;
-    if (st !== 'Run' && st !== 'TrailRun') return;
-    if ((activity.distance || 0) < 4900) return;
-
-    // 요약 활동에는 best_efforts가 없으므로 상세 조회
-    let efforts = activity.best_efforts;
-    if (!Array.isArray(efforts)) {
-      const r = await fetch(`https://www.strava.com/api/v3/activities/${activity.id}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } });
-      const detail = await r.json();
-      efforts = Array.isArray(detail.best_efforts) ? detail.best_efforts : [];
+  if (condition) {
+    // 컨디션 기반
+    if (condition.condition === '피로') {
+      advices.push(`😴 <strong>피로 감지</strong> → 오늘 ${todayWorkout}을 이지런으로 대체하거나 강도를 낮추세요`);
+    } else if (condition.condition === '좋음') {
+      advices.push(`⚡ <strong>컨디션 최상</strong> → 오늘 ${todayWorkout} 목표 페이스에 도전해보세요!`);
     }
 
-    const updates = {};
-    const improved = [];
-    const now = new Date().toISOString();
-    for (const e of efforts) {
-      const map = PR_EFFORTS[e.name];
-      if (!map || !e.elapsed_time) continue;
-      const current = prTimeToSec(goal[map.key]);
-      if (e.elapsed_time < current) {
-        const newTime = prSecToTime(e.elapsed_time);
-        updates[map.key] = newTime;
-        updates[`${map.key}_updated_at`] = now;
-        improved.push(`🏅 <b>${map.label}</b>: ${goal[map.key] || '-'} → <b>${newTime}</b>`);
+    // 부상 기반
+    if (condition.injury_part && condition.injury_part !== '없음') {
+      const injuryAdvice = {
+        '경미': `⚠️ <strong>${condition.injury_part} 경미 부상</strong> → 훈련 가능하지만 통증 시 즉시 중단`,
+        '중간': `🚨 <strong>${condition.injury_part} 중간 부상</strong> → 수영/자전거 등 대체 훈련 권장`,
+        '심각': `🛑 <strong>${condition.injury_part} 심각 부상</strong> → 완전 휴식 필요, 전문의 상담 권장`
+      };
+      advices.push(injuryAdvice[condition.injury_level] || '');
+      if (condition.memo) advices.push(`📝 ${condition.memo}`);
+    }
+  }
+
+  if (advices.length === 0) {
+    section.style.display = 'none';
+  } else {
+    section.style.display = 'block';
+    adviceEl.innerHTML = advices.filter(Boolean).join('<br><br>');
+  }
+}
+
+function toggleWeeklyDetail() {
+  const summary = document.getElementById('weekly-summary');
+  const detail = document.getElementById('weekly-detail');
+  const btn = document.getElementById('weekly-toggle-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
+}
+
+function toggleMonthlyDetail() {
+  const summary = document.getElementById('monthly-summary');
+  const detail = document.getElementById('monthly-detail');
+  const btn = document.getElementById('monthly-toggle-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
+}
+
+async function loadReports() {
+  try {
+    // 주간 리포트 최신 1개
+    const { data: weeklyReports } = await sb.from('reports')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'weekly')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const weeklyEl = document.getElementById('weeklyReport');
+    if (weeklyReports && weeklyReports.length > 0) {
+      const r = weeklyReports[0];
+      const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      const summary = getAnalysisSummary(r.content);
+      weeklyEl.innerHTML = `
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:12px">📅 ${date} 생성</div>
+        ${summary ? `<div id="weekly-summary" style="font-size:13px;color:var(--gray-light);line-height:1.8;margin-bottom:12px">${summary}</div>` : ''}
+        <div id="weekly-detail" style="display:none" class="aa-txt">${marked.parse(r.content)}</div>
+        <button onclick="toggleWeeklyDetail()" id="weekly-toggle-btn"
+          style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:12px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          상세보기 ▼
+        </button>
+      `;
+
+      // 핵심 포인트 추출해서 카드에 표시
+      const focusEl = document.getElementById('wk-focus');
+      if (focusEl && summary) {
+        focusEl.textContent = summary.split('.')[0] + '.';
       }
     }
-    if (improved.length === 0) return;
 
-    await sbPatch('goals', `id=eq.${goal.id}`, updates);
-    Object.assign(goal, updates); // 같은 동기화에서 다음 활동 비교 시 최신 PR 사용
+    // 월간 리포트 최신 1개
+    const { data: monthlyReports } = await sb.from('reports')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'monthly')
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (chatId && process.env.TELEGRAM_BOT_TOKEN) {
-      const msg = `🎉 <b>개인 최고 기록(PB) 갱신!</b>\n─────────\n${improved.join('\n')}\n\n📅 ${activity.start_date_local?.slice(0, 10) || ''} · ${activity.name}`;
-      await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'HTML' })
+    const monthlyEl = document.getElementById('monthlyReport');
+    if (monthlyReports && monthlyReports.length > 0) {
+      const r = monthlyReports[0];
+      const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+      const summary = getAnalysisSummary(r.content);
+      monthlyEl.innerHTML = `
+        <div style="font-size:11px;color:var(--gray);font-family:'DM Mono',monospace;margin-bottom:12px">📊 ${date} 생성</div>
+        ${summary ? `<div id="monthly-summary" style="font-size:13px;color:var(--gray-light);line-height:1.8;margin-bottom:12px">${summary}</div>` : ''}
+        <div id="monthly-detail" style="display:none" class="aa-txt">${marked.parse(r.content)}</div>
+        <button onclick="toggleMonthlyDetail()" id="monthly-toggle-btn"
+          style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:6px 16px;border-radius:100px;font-size:12px;cursor:pointer;font-family:'Pretendard',sans-serif">
+          상세보기 ▼
+        </button>
+      `;
+    }
+  } catch(e) {
+    console.log('Reports load error:', e);
+  }
+
+  // 주간/월간 카드 데이터 로드
+  await loadWeeklyCards();
+  await loadMonthlyCards();
+}
+
+// ── 주간 카드 데이터 ──
+async function loadWeeklyCards() {
+  try {
+    // 최근 활동 가져오기 (8주 = 56일, 하루 최대 5개 기준 280개)
+    const { data: acts, error } = await sb.from('activities')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('start_date', { ascending: false })
+      .limit(300);
+
+    if (error) { console.error('Weekly acts error:', error); return; }
+    if (!acts || acts.length === 0) { console.log('No activities for weekly cards'); return; }
+    console.log('Weekly cards acts count:', acts.length);
+
+    const now = new Date();
+    const todayDay = now.getDay();
+    const todayIdx = todayDay === 0 ? 6 : todayDay - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (todayDay === 0 ? 6 : todayDay - 1));
+    weekStart.setHours(0, 0, 0, 0);
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    // 이번 주 계획 가져오기
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+    const { data: plans } = await sb.from('weekly_plans')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('week_start', weekStartStr)
+      .limit(1);
+    const plan = plans?.[0];
+
+    // 이번 주 활동
+    const thisWeekActs = acts.filter(a => new Date(a.start_date) >= weekStart);
+    const lastWeekActs = acts.filter(a => {
+      const d = new Date(a.start_date);
+      return d >= lastWeekStart && d < weekStart;
+    });
+
+    const thisWeekKm = (thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+    const weekTarget = parseInt(document.getElementById('db-week-target')?.textContent) || 50;
+
+    // 1섹션 업데이트
+    document.getElementById('wk-done-km').textContent = thisWeekKm;
+    document.getElementById('wk-sessions').textContent = thisWeekActs.length;
+    document.getElementById('wk-target-km').textContent = weekTarget;
+    document.getElementById('wk-progress-bar').style.width = Math.min(100, (thisWeekKm / weekTarget * 100)).toFixed(0) + '%';
+
+    // 이번 주 일별 막대그래프
+    const dayKm = [0, 0, 0, 0, 0, 0, 0]; // 월~일
+    thisWeekActs.forEach(a => {
+      const d = new Date(a.start_date).getDay();
+      const idx = d === 0 ? 6 : d - 1;
+      dayKm[idx] += a.distance / 1000;
+    });
+    const maxKm = Math.max(...dayKm, 1);
+    const dayNames = ['월','화','수','목','금','토','일'];
+    document.getElementById('wk-daily-bars').innerHTML = dayKm.map((km, i) => {
+      const isCur = i === todayIdx;
+      return `<div class="b-col">
+        <div class="b-km">${km > 0 ? km.toFixed(1) : '-'}</div>
+        <div class="b-bar fill ${isCur ? 'cur' : ''}" style="height:${Math.max(2, km/maxKm*100).toFixed(0)}%"></div>
+        <div class="b-day">${dayNames[i]}</div>
+      </div>`;
+    }).join('');
+
+    // ── 이번 주 훈련 현황 캘린더 (민트 테마) ──
+    const calEl = document.getElementById('wk-this-week-calendar');
+    if (calEl) {
+      const dayNames = ['월','화','수','목','금','토','일'];
+      const days2 = ['mon','tue','wed','thu','fri','sat','sun'];
+      calEl.innerHTML = days2.map((d, i) => {
+        const planned = plan?.[d] || (i === 4 ? '휴식' : '-');
+        const isRest = planned === '휴식';
+        const isPast = i < todayIdx;
+        const isToday = i === todayIdx;
+        const isFuture = i > todayIdx;
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(weekStart.getDate() + i);
+        const dayStr = dayDate.toISOString().split('T')[0];
+        const dayActs = acts.filter(a => a.start_date?.startsWith(dayStr));
+        const didExercise = dayActs.length > 0;
+        const actualWorkout = dayActs[0]?.workout_type || '';
+        let stamp = '', bg, border, nameColor, typeColor, workoutText = planned;
+        if (isRest) {
+          stamp='💤'; bg='#0D1117'; border='rgba(255,255,255,.04)'; nameColor='#374151'; typeColor='#374151';
+        } else if (isFuture) {
+          stamp='⏳'; bg='#111827'; border='rgba(0,212,170,.15)'; nameColor='#64748B'; typeColor='#00D4AA';
+        } else if (isToday) {
+          bg='#0A2A25'; border='#00D4AA'; nameColor='#00D4AA'; typeColor='#E2E8F0';
+          if (didExercise) { stamp = actualWorkout===planned?'✅':'🔄'; workoutText=actualWorkout||planned; }
+          else { stamp='⏳'; }
+        } else if (isPast) {
+          if (!didExercise && planned!=='-') {
+            stamp='❌'; bg='#1A0A0A'; border='rgba(239,68,68,.2)'; nameColor='#4B5563'; typeColor='#EF4444';
+          } else if (didExercise) {
+            stamp = actualWorkout===planned?'✅':'🔄';
+            workoutText=actualWorkout||planned;
+            if (actualWorkout===planned) { bg='#0A1A12'; border='rgba(34,197,94,.2)'; typeColor='#22C55E'; }
+            else { bg='#1A1400'; border='rgba(245,158,11,.2)'; typeColor='#F59E0B'; }
+            nameColor='#4B5563';
+          } else {
+            bg='#0D0D0D'; border='rgba(255,255,255,.03)'; nameColor='#374151'; typeColor='#374151';
+          }
+        }
+        return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center">
+          <div style="font-size:9px;color:${nameColor};font-family:'DM Mono',monospace;margin-bottom:4px">${dayNames[i]}</div>
+          <div style="font-size:8px;color:${typeColor};font-weight:600;min-height:18px;line-height:1.3">${workoutText}</div>
+          <div style="font-size:13px;margin-top:3px">${stamp||''}</div>
+        </div>`;
+      }).join('');
+    }
+    const paceToSec = (p) => { const [m,s] = p.split(':').map(Number); return m*60+s; };
+    const secToPace = (s) => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+
+    // 목표 페이스 가져오기
+    const { data: goals } = await sb.from('goals').select('target_pace').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const targetPace = goals?.[0]?.target_pace || document.getElementById('wk-target-pace')?.textContent || '5:27';
+
+    const targetSec = paceToSec(targetPace);
+    if (document.getElementById('wk-pace-interval')) {
+      document.getElementById('wk-pace-interval').textContent = secToPace(targetSec - 30) + '/km';
+      document.getElementById('wk-pace-tempo').textContent = secToPace(targetSec - 15) + '/km';
+      document.getElementById('wk-pace-lsd').textContent = secToPace(targetSec + 60) + '/km';
+    }
+
+    // ── 다음 주 훈련 계획 (민트 테마) ──
+    const nextPlanEl = document.getElementById('wk-next-plan');
+    if (nextPlanEl) {
+      if (plan) {
+        const days3 = ['mon','tue','wed','thu','fri','sat','sun'];
+        const dayNames3 = ['월','화','수','목','금','토','일'];
+        nextPlanEl.innerHTML = days3.map((d, i) => {
+          const workout = plan[d] || (i === 4 ? '휴식' : '-');
+          const isRest = workout === '휴식' || workout === '-';
+          const bg = isRest ? '#0D1117' : '#111827';
+          const border = isRest ? 'rgba(255,255,255,.04)' : 'rgba(0,212,170,.2)';
+          const typeColor = isRest ? '#374151' : '#00D4AA';
+          return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 4px;text-align:center">
+            <div style="font-size:9px;color:#4B5563;font-family:'DM Mono',monospace;margin-bottom:4px">${dayNames3[i]}</div>
+            <div style="font-size:8px;color:${typeColor};font-weight:600;min-height:18px;line-height:1.3">${workout}</div>
+          </div>`;
+        }).join('');
+      } else {
+        nextPlanEl.innerHTML = `
+          <div style="grid-column:1/-1;text-align:center;padding:20px;color:#4B5563;font-size:12px">
+            📅 주간 리포트 생성 후 다음 주 계획이 표시됩니다<br>
+            <span style="font-size:11px;color:#374151">매주 월요일 오전 8시 자동 생성</span>
+          </div>`;
+      }
+    }
+    const weeks8 = [];
+    for (let i = 7; i >= 0; i--) {
+      const wStart = new Date(weekStart);
+      wStart.setDate(wStart.getDate() - i * 7);
+      const wEnd = new Date(wStart);
+      wEnd.setDate(wEnd.getDate() + 7);
+      const wActs = acts.filter(a => {
+        const d = new Date(a.start_date);
+        return d >= wStart && d < wEnd;
       });
+      const wKm = (wActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const label = i === 0 ? '이번 주' : i === 1 ? '지난 주' : `${i}주 전`;
+      weeks8.push({ label, km: parseFloat(wKm), isNow: i === 0 });
+    }
+    const maxMonthKm = Math.max(...weeks8.map(w => w.km), 1);
+    document.getElementById('wk-8weeks').innerHTML = weeks8.map(w => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:10px;color:${w.isNow ? 'var(--orange)' : 'var(--gray)'};width:44px;text-align:right;font-family:'DM Mono',monospace;flex-shrink:0">${w.label}</div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(w.km/maxMonthKm*100).toFixed(0)}%;background:${w.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px;transition:width 1s ease"></div>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${w.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${w.km}km</div>
+      </div>
+    `).join('');
+
+    // 훈련 종류 분류
+    renderWorkoutTypes('wk-this-week-types', 'wk-this-ratio', thisWeekActs);
+    renderWorkoutTypes('wk-last-week-types', 'wk-last-ratio', lastWeekActs);
+
+  } catch(e) {
+    console.error('Weekly cards error:', e);
+  }
+}
+
+// ── 훈련 종류 렌더링 ──
+function renderWorkoutTypes(typesId, ratioId, acts) {
+  const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+  const typeColors = {
+    '인터벌': '#9B59B6', '템포런': '#2D9CDB', '페이스주': '#FC4C02',
+    '롱런': '#27AE60', 'LSD': '#F0B429', '이지런': '#777777'
+  };
+  acts.forEach(a => {
+    const wt = a.workout_type || '이지런';
+    if (types[wt] !== undefined) types[wt]++;
+  });
+
+  const total = Object.values(types).reduce((s, v) => s + v, 0);
+  if (total === 0) {
+    document.getElementById(typesId).innerHTML = '<div style="color:var(--gray);font-size:12px">활동 없음</div>';
+    document.getElementById(ratioId).textContent = '';
+    return;
+  }
+
+  document.getElementById(typesId).innerHTML = Object.entries(types)
+    .filter(([, v]) => v > 0)
+    .map(([name, count]) => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${typeColors[name]};flex-shrink:0"></div>
+        <span style="font-size:12px;flex:1">${name}</span>
+        <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--orange)">${count}회</span>
+      </div>
+    `).join('');
+
+  // 이지+LSD vs 포인트 비율
+  const easy = (types['이지런'] + types['LSD']);
+  const point = total - easy;
+  const easyPct = Math.round(easy / total * 100);
+  document.getElementById(ratioId).innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--gray)">이지+LSD <strong style="color:var(--white)">${easyPct}%</strong></span>
+      <span style="color:var(--gray)">포인트 <strong style="color:var(--orange)">${100-easyPct}%</strong></span>
+    </div>
+  `;
+}
+
+// ── 월간 카드 데이터 ──
+async function loadMonthlyCards(goal) {
+  try {
+    const { data: acts } = await sb.from('activities')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('start_date', { ascending: false })
+      .limit(300);
+
+    if (!acts || acts.length === 0) return;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 목표 정보
+    const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+
+    // 1단: 이달 카드
+    const thisMonthActs = acts.filter(a => new Date(a.start_date) >= monthStart);
+    const thisMonthKm = (thisMonthActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+    const phase = g?.race_date ? getPhase(g.race_date) : '--';
+    const weeklyTarget = phase === '기초체력기' ? 50 : phase === '훈련강화기' ? 65 : phase === '피크훈련기' ? 75 : 40;
+    const monthTarget = weeklyTarget * 4;
+    const daysLeft = g?.race_date ? Math.ceil((new Date(g.race_date) - now) / 86400000) : '--';
+
+    document.getElementById('mn-done-km').textContent = thisMonthKm;
+    document.getElementById('mn-target-km').textContent = monthTarget;
+    document.getElementById('mn-sessions').textContent = thisMonthActs.length;
+    document.getElementById('mn-progress-bar').style.width = Math.min(100, (thisMonthKm / monthTarget * 100)).toFixed(0) + '%';
+    document.getElementById('mn-dday').textContent = daysLeft;
+    document.getElementById('mn-phase').textContent = phase;
+    document.getElementById('mn-race-name').textContent = g?.race_name || '--';
+
+    // 목표 가능성 % (월간 km 달성률 기반 추정)
+    const achievePct = Math.min(100, (thisMonthKm / monthTarget * 100));
+    const probPct = Math.round(40 + achievePct * 0.5); // 기본 40% + 달성률 반영
+    document.getElementById('mn-prob-val').textContent = probPct + '%';
+    document.getElementById('mn-prob-label').textContent =
+      probPct >= 80 ? '🔥 달성 가능성 높음' :
+      probPct >= 60 ? '💪 꾸준히 하면 가능' :
+      '⚠️ 훈련량 늘려야 해요';
+
+    // 2단: 이달의 미션 (월간 리포트에서 추출 - 없으면 기본값)
+    const { data: reports } = await sb.from('reports')
+      .select('content')
+      .eq('user_id', currentUser.id)
+      .eq('type', 'monthly')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (reports?.[0]) {
+      const content = reports[0].content;
+      // 핵심 목표 추출 (첫 3문장)
+      const sentences = content.replace(/#{1,3} .+/g, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\n+/g, ' ').split(/[.!?]/).filter(s => s.trim().length > 10).slice(0, 3);
+      const icons = ['🎯', '💪', '🏆'];
+      const colors = ['var(--orange)', '#00D4AA', '#F59E0B'];
+      document.getElementById('mn-missions').innerHTML = sentences.map((s, i) => `
+        <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px">
+          <div style="font-size:20px;margin-bottom:8px">${icons[i]}</div>
+          <div style="font-size:11px;color:${colors[i]};line-height:1.6">${s.trim()}</div>
+        </div>
+      `).join('');
+    }
+
+    // 3단: 훈련 종류별
+    const types = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeKm = { '인터벌': 0, '템포런': 0, '페이스주': 0, '롱런': 0, 'LSD': 0, '이지런': 0 };
+    const typeColors = {
+      '인터벌': '#9B59B6', '템포런': '#2D9CDB', '페이스주': '#FC4C02',
+      '롱런': '#27AE60', 'LSD': '#F0B429', '이지런': '#777777'
+    };
+    thisMonthActs.forEach(a => {
+      const wt = a.workout_type || '이지런';
+      if (types[wt] !== undefined) { types[wt]++; typeKm[wt] += a.distance / 1000; }
+    });
+
+    document.getElementById('mn-workout-types').innerHTML = Object.entries(types)
+      .map(([name, count]) => `
+        <div style="background:var(--dark3);border-radius:10px;padding:12px;text-align:center">
+          <div style="width:10px;height:10px;border-radius:50%;background:${typeColors[name]};margin:0 auto 6px"></div>
+          <div style="font-size:10px;color:var(--gray);margin-bottom:4px">${name}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--white)">${count}회</div>
+          <div style="font-size:10px;color:var(--orange)">${typeKm[name].toFixed(1)}km</div>
+        </div>
+      `).join('');
+
+    const total = Object.values(types).reduce((s, v) => s + v, 0);
+    if (total > 0) {
+      const easy = types['이지런'] + types['LSD'];
+      const easyPct = Math.round(easy / total * 100);
+      document.getElementById('mn-ratio').innerHTML = `
+        이지+LSD <strong style="color:var(--white)">${easyPct}%</strong> &nbsp;|&nbsp;
+        포인트 훈련 <strong style="color:var(--orange)">${100-easyPct}%</strong>
+        &nbsp;(권장: 이지 70~80% : 포인트 20~30%)
+      `;
+    }
+
+    // 4단: 6개월 마일리지
+    const months6 = [];
+    for (let i = 5; i >= 0; i--) {
+      const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const mActs = acts.filter(a => { const d = new Date(a.start_date); return d >= mStart && d < mEnd; });
+      const mKm = (mActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
+      const label = mStart.toLocaleDateString('ko-KR', { month: 'long' });
+      months6.push({ label, km: parseFloat(mKm), isNow: i === 0 });
+    }
+    const maxMonthKm = Math.max(...months6.map(m => m.km), 1);
+    document.getElementById('mn-6months').innerHTML = months6.map(m => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:10px;color:${m.isNow ? 'var(--orange)' : 'var(--gray)'};width:50px;font-family:'DM Mono',monospace;flex-shrink:0">${m.label}</div>
+        <div style="flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(m.km/maxMonthKm*100).toFixed(0)}%;background:${m.isNow ? 'var(--orange)' : 'rgba(252,76,2,.35)'};border-radius:4px"></div>
+        </div>
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.isNow ? 'var(--orange)' : 'var(--gray-light)'};width:40px;flex-shrink:0">${m.km}km</div>
+      </div>
+    `).join('');
+
+    // 5단: 로드맵
+    if (g?.race_date) {
+      const raceDate = new Date(g.race_date);
+      const monthsLeft = Math.ceil((raceDate - now) / (30 * 24 * 60 * 60 * 1000));
+      const phases = [
+        { name: '기초체력 강화', desc: '유산소 기반 구축, 주간 거리 점진적 증가', icon: '🌱' },
+        { name: '롱런 강화', desc: '장거리 훈련 확대, LSD 22km+ 도전', icon: '🏃' },
+        { name: '스피드 강화', desc: '인터벌/템포런 집중, 목표 페이스 적응', icon: '⚡' },
+        { name: '마라톤 특화', desc: '레이스 페이스 훈련, 30km 장거리', icon: '🎯' },
+        { name: '최종 마무리', desc: '훈련량 유지, 레이스 시뮬레이션', icon: '🏁' },
+        { name: '테이퍼링', desc: '훈련량 감소, 컨디션 최상화', icon: '💎' },
+      ];
+      const totalMonths = Math.min(monthsLeft, 6);
+      const roadmap = [];
+      for (let i = 0; i < totalMonths; i++) {
+        const m = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const isNow = i === 0;
+        const isRace = i === totalMonths - 1;
+        const phaseIdx = Math.floor(i / Math.max(totalMonths, 1) * phases.length);
+        const raceName = g.race_name || '대회';
+        const raceTime = g.target_time || '목표 기록';
+        const ph = isRace
+          ? { name: '🏁 레이스 D-day', desc: raceName + ' · ' + raceTime, icon: '🏆' }
+          : phases[Math.min(phaseIdx, phases.length - 1)];
+        roadmap.push({ month: m.toLocaleDateString('ko-KR', { month: 'long' }), phase: ph, isNow, isRace });
+      }
+      var roadmapHtml = '';
+      for (var ri = 0; ri < roadmap.length; ri++) {
+        var r = roadmap[ri];
+        var borderStyle = r.isRace
+          ? 'padding:10px;background:rgba(252,76,2,.15);border-radius:10px;border-left:3px solid var(--orange)'
+          : r.isNow
+            ? 'padding:10px;background:rgba(255,255,255,.04);border-radius:10px;border-left:3px solid var(--gray)'
+            : '';
+        var labelColor = r.isRace ? 'var(--orange)' : r.isNow ? 'var(--white)' : 'var(--gray)';
+        var monthLabel = r.isNow ? r.month + ' \u2190 \ud604\uc7ac' : r.isRace ? r.month + ' \u2190 \ub808\uc774\uc2a4' : r.month;
+        roadmapHtml += '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;' + borderStyle + '">'
+          + '<div style="font-size:20px;flex-shrink:0">' + r.phase.icon + '</div>'
+          + '<div>'
+          + '<div style="font-size:11px;color:' + labelColor + '">' + monthLabel + '</div>'
+          + '<div style="font-size:13px;font-weight:700;margin:2px 0;color:var(--white)">' + r.phase.name + '</div>'
+          + '<div style="font-size:11px;color:var(--gray)">' + r.phase.desc + '</div>'
+          + '</div></div>';
+      }
+      document.getElementById('mn-roadmap').innerHTML = roadmapHtml;
+    }
+
+  } catch(e) {
+    console.error('Monthly cards error:', e);
+  }
+}
+
+function renderDailyTopCards(acts, plan, todayIdx) {
+  if (!acts || acts.length === 0) return;
+
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
+  const dayNames = ['월','화','수','목','금','토','일'];
+
+  // ── 카드1: 최근 훈련 계획 vs 실제 ──
+  const lastAct = acts[0];
+  const lastDate = new Date(lastAct.start_date);
+  const lastDayIdx = lastDate.getDay() === 0 ? 6 : lastDate.getDay() - 1;
+  const plannedWorkout = plan?.[days[lastDayIdx]] || '-';
+  const actualWorkout = lastAct.workout_type || lastAct.sport_type || '러닝';
+
+  document.getElementById('daily-card1-plan').textContent = `계획 · ${plannedWorkout}`;
+  document.getElementById('daily-card1-type').textContent = actualWorkout;
+  document.getElementById('daily-card1-actual').textContent =
+    plannedWorkout === actualWorkout ? '✅ 계획대로 완료' :
+    plannedWorkout === '-' ? '📝 자유 훈련' :
+    `⚡ ${plannedWorkout} → ${actualWorkout}`;
+
+  // ── 카드2: 훈련 강도 평가 ──
+  const km = lastAct.distance / 1000;
+  const paceSecPerKm = lastAct.moving_time / km;
+  const avgHR = lastAct.avg_heartrate;
+
+  let intensity = 2;
+  let intensityLabel = '중간';
+  let intensityDetail = '';
+
+  // 페이스 + 심박수로 강도 계산
+  if (avgHR) {
+    if (avgHR >= 170) { intensity = 5; intensityLabel = '매우 높음'; }
+    else if (avgHR >= 160) { intensity = 4; intensityLabel = '높음'; }
+    else if (avgHR >= 145) { intensity = 3; intensityLabel = '중상'; }
+    else if (avgHR >= 130) { intensity = 2; intensityLabel = '중간'; }
+    else { intensity = 1; intensityLabel = '낮음'; }
+    intensityDetail = `평균 심박 ${Math.round(avgHR)}bpm`;
+  } else {
+    if (paceSecPerKm < 300) { intensity = 5; intensityLabel = '매우 높음'; }
+    else if (paceSecPerKm < 330) { intensity = 4; intensityLabel = '높음'; }
+    else if (paceSecPerKm < 360) { intensity = 3; intensityLabel = '중상'; }
+    else if (paceSecPerKm < 420) { intensity = 2; intensityLabel = '중간'; }
+    else { intensity = 1; intensityLabel = '낮음'; }
+    intensityDetail = `${(km).toFixed(1)}km · ${Math.floor(paceSecPerKm/60)}:${String(Math.round(paceSecPerKm%60)).padStart(2,'0')}/km`;
+  }
+
+  const stars = '★'.repeat(intensity) + '☆'.repeat(5 - intensity);
+  const starColors = ['#4ADE80','#84CC16','#F59E0B','#FB923C','#EF4444'];
+  document.getElementById('daily-card2-stars').innerHTML =
+    `<span style="color:${starColors[intensity-1]}">${stars}</span>`;
+  document.getElementById('daily-card2-label').textContent = intensityLabel;
+  document.getElementById('daily-card2-detail').textContent = intensityDetail;
+
+  // ── 카드3: 다음 훈련 ──
+  const now = new Date();
+  const currentDayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  let nextWorkout = null;
+  let nextDayName = null;
+
+  for (let i = currentDayIdx + 1; i < 7; i++) {
+    const w = plan?.[days[i]];
+    if (w && w !== '휴식' && w !== '-') {
+      nextWorkout = w;
+      nextDayName = dayNames[i];
+      break;
+    }
+  }
+
+  if (nextWorkout) {
+    const targetPace = document.getElementById('db-target-pace')?.textContent || '5:27';
+    document.getElementById('daily-card3-day').textContent = `${nextDayName}요일 예정`;
+    document.getElementById('daily-card3-type').textContent = nextWorkout;
+    document.getElementById('daily-card3-detail').textContent = getWorkoutDetail(nextWorkout, targetPace).replace(/<br>/g, ' · ').replace(/<[^>]*>/g, '');
+  } else {
+    document.getElementById('daily-card3-day').textContent = '이번 주';
+    document.getElementById('daily-card3-type').textContent = '훈련 완료! 🎉';
+    document.getElementById('daily-card3-detail').textContent = '다음 주 계획을 기다려요';
+  }
+
+  // ── 이번 주 요약 ──
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - currentDayIdx);
+  weekStart.setHours(0,0,0,0);
+  const weekActs = acts.filter(a => new Date(a.start_date) >= weekStart);
+
+  const totalKm = weekActs.reduce((s, a) => s + a.distance, 0) / 1000;
+  const totalSecs = weekActs.reduce((s, a) => s + a.moving_time, 0);
+  const runActs = weekActs.filter(a => a.distance > 1000);
+  const avgPaceSec = runActs.length > 0
+    ? runActs.reduce((s, a) => s + a.moving_time / (a.distance / 1000), 0) / runActs.length
+    : 0;
+
+  document.getElementById('daily-sum-km').textContent = totalKm.toFixed(1);
+  document.getElementById('daily-sum-count').textContent = weekActs.length;
+  document.getElementById('daily-sum-pace').textContent = avgPaceSec > 0
+    ? `${Math.floor(avgPaceSec/60)}:${String(Math.round(avgPaceSec%60)).padStart(2,'0')}`
+    : '-';
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  document.getElementById('daily-sum-time').textContent = hrs > 0 ? `${hrs}h${mins}m` : `${mins}m`;
+}
+
+function renderLastActivity(a) {
+  const km = (a.distance / 1000).toFixed(1);
+  const mins = Math.floor(a.moving_time / 60);
+  const secs = a.moving_time % 60;
+  const timeStr = `${Math.floor(mins/60)}:${String(mins%60).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  const paceSecPerKm = a.moving_time / (a.distance / 1000);
+  const paceStr = `${Math.floor(paceSecPerKm/60)}:${String(Math.round(paceSecPerKm%60)).padStart(2,'0')}`;
+  const date = new Date(a.start_date).toLocaleDateString('ko-KR');
+
+  const summary = getAnalysisSummary(a.analysis);
+  const detailHtml = a.analysis ? marked.parse(a.analysis) : '';
+
+  document.getElementById('db-last-activity').innerHTML = `
+    <div class="db-act-header">
+      <div class="db-act-name">${a.name || '달리기'}</div>
+      <div class="db-act-date">${date}</div>
+    </div>
+    <div class="db-act-badge">${a.workout_type || a.sport_type || a.type}</div>
+    <div class="db-act-stats">
+      <div><div class="as-val">${km}km</div><div class="as-lbl">거리</div></div>
+      <div><div class="as-val">${timeStr}</div><div class="as-lbl">시간</div></div>
+      <div><div class="as-val">${paceStr}/km</div><div class="as-lbl">페이스</div></div>
+      <div><div class="as-val">${a.calories || '-'}</div><div class="as-lbl">칼로리</div></div>
+    </div>
+    ${summary || detailHtml ? `
+    <div class="db-act-analysis">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--orange);font-weight:600">🤖 AI 분석</span>
+        ${a.analysis ? `<button onclick="toggleDashAnalysis()" id="dash-analysis-btn" style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif">상세보기 ▼</button>` : ''}
+      </div>
+      ${summary ? `<div id="dash-summary" style="font-size:12px;color:var(--gray-light);line-height:1.7">${summary}</div>` : ''}
+      <div id="dash-detail" style="display:none;font-size:12px;color:var(--gray-light);line-height:1.7">${detailHtml}</div>
+    </div>` : ''}
+  `;
+}
+
+function toggleDashAnalysis() {
+  const summary = document.getElementById('dash-summary');
+  const detail = document.getElementById('dash-detail');
+  const btn = document.getElementById('dash-analysis-btn');
+  if (!detail) return;
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    if (summary) summary.style.display = 'none';
+    if (btn) btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    if (summary) summary.style.display = 'block';
+    if (btn) btn.textContent = '상세보기 ▼';
+  }
+}
+
+function getAnalysisSummary(analysis) {
+  if (!analysis) return null;
+  // 마크다운에서 텍스트만 추출
+  const text = analysis
+    .replace(/#{1,3} .+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*.+?\*/g, '')
+    .replace(/\|.+\|/g, '')
+    .replace(/[-]{3,}/g, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+
+  // 문장 단위로 자르기
+  const sentences = text.split(/[.!?。]\s+/).filter(s => s.trim().length > 5);
+  return sentences.slice(0, 3).join('. ') + (sentences.length > 3 ? '...' : '');
+}
+
+function toggleAnalysis(id) {
+  const summary = document.getElementById(`summary-${id}`);
+  const detail = document.getElementById(`detail-${id}`);
+  const btn = document.getElementById(`btn-${id}`);
+  if (detail.style.display === 'none') {
+    detail.style.display = 'block';
+    summary.style.display = 'none';
+    btn.textContent = '접기 ▲';
+  } else {
+    detail.style.display = 'none';
+    summary.style.display = 'block';
+    btn.textContent = '상세보기 ▼';
+  }
+}
+
+function renderActivities(acts) {
+  const list = document.getElementById('activitiesList');
+  if (acts.length === 0) return;
+  list.innerHTML = acts.map((a, idx) => {
+    const km = (a.distance / 1000).toFixed(1);
+    const mins = Math.floor(a.moving_time / 60);
+    const secs = a.moving_time % 60;
+    const timeStr = `${Math.floor(mins/60)}:${String(mins%60).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    const paceSecPerKm = a.moving_time / (a.distance / 1000);
+    const paceMins = Math.floor(paceSecPerKm / 60);
+    const paceSecs = Math.round(paceSecPerKm % 60);
+    const paceStr = `${paceMins}:${String(paceSecs).padStart(2,'0')}`;
+    const date = new Date(a.start_date).toLocaleDateString('ko-KR');
+
+    const summary = getAnalysisSummary(a.analysis);
+    const detailHtml = a.analysis
+      ? marked.parse(a.analysis)
+      : `<div style="color:var(--gray);font-size:12px;font-style:italic">
+          📋 과거 데이터 불러오기로 저장된 기록이에요.<br>
+          다음 운동부터 AI 분석이 자동으로 추가돼요.
+         </div>`;
+
+    return `
+      <div class="act-card">
+        <div>
+          <div class="act-date">${date}</div>
+          <div class="act-name">${a.name || '달리기'}</div>
+          <div class="act-stats">
+            <div><div class="as-val">${km}km</div><div class="as-lbl">거리</div></div>
+            <div><div class="as-val">${timeStr}</div><div class="as-lbl">시간</div></div>
+            <div><div class="as-val">${paceStr}/km</div><div class="as-lbl">페이스</div></div>
+            <div><div class="as-val">${a.calories || '-'}</div><div class="as-lbl">칼로리</div></div>
+          </div>
+        </div>
+        <div class="act-analysis">
+          <div class="aa-hd" style="display:flex;justify-content:space-between;align-items:center">
+            <span>🤖 Claude AI 분석</span>
+            ${a.analysis ? `<button id="btn-${idx}" onclick="toggleAnalysis(${idx})" style="background:none;border:1px solid rgba(252,76,2,.3);color:var(--orange);padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif">상세보기 ▼</button>` : ''}
+          </div>
+          ${summary
+            ? `<div id="summary-${idx}" class="aa-txt" style="color:var(--gray-light);font-size:12px;line-height:1.7;margin-top:8px">${summary}</div>`
+            : ''}
+          <div id="detail-${idx}" class="aa-txt" style="display:none;margin-top:8px">${detailHtml}</div>
+          ${!a.analysis ? `<div class="aa-txt">${detailHtml}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── DASHBOARD ──
+function switchPanel(btn, panelId) {
+  document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+  if (panelId === 'p-races' && allRaces.length === 0) loadRaces();
+}
+
+function switchPanelMobile(btn, panelId) {
+  document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+  window.scrollTo(0, 0);
+  if (panelId === 'p-races' && allRaces.length === 0) loadRaces();
+}
+
+// ── SETTINGS SAVE ──
+async function saveProfile() {
+  const name = document.getElementById('settingName').value;
+  await sb.from('profiles').update({ name }).eq('id', currentUser.id);
+  document.getElementById('userInitial').textContent = name[0].toUpperCase();
+  document.getElementById('userName').textContent = name;
+  toast('✅ 프로필이 업데이트됐습니다!');
+}
+
+async function saveGoal() {
+  const target_time = document.getElementById('settingGoal').value;
+  const race_date = document.getElementById('settingRaceDate').value;
+  const race_name = document.getElementById('settingRaceName').value;
+  // 새 행을 추가하면 PR·트라이 설정이 빈 행이 최신이 되므로, 최신 목표 행을 업데이트
+  const goalFields = { target_time, race_date, race_name, target_pace: userGoal.pace };
+  const { data: latest } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  const { error } = latest && latest.length > 0
+    ? await sb.from('goals').update(goalFields).eq('id', latest[0].id)
+    : await sb.from('goals').insert({ user_id: currentUser.id, ...goalFields });
+  if (error) { toast('⚠️ 목표 저장 실패: ' + error.message); return; }
+  document.getElementById('gh-race').textContent = '🎯 ' + race_name + ' 풀코스';
+  document.getElementById('gh-target').textContent = '목표: ' + target_time + ' 이내 완주';
+  const days = Math.ceil((new Date(race_date) - new Date()) / 86400000);
+  document.getElementById('gh-days').textContent = days;
+  toast('✅ 목표가 업데이트됐습니다!');
+}
+
+async function importHistory() {
+  if (!currentUser) return;
+  const btn = document.getElementById('importBtn');
+  const status = document.getElementById('importStatus');
+
+  btn.textContent = '⏳ 불러오는 중... (1~2분 소요)';
+  btn.disabled = true;
+  status.style.display = 'none';
+
+  try {
+    // JWT 토큰 가져오기
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const res = await fetch(`/api/import-history?user_id=${currentUser.id}&months=12`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      status.style.display = 'block';
+      status.textContent = `✅ ${data.newly_saved}개 활동 저장 완료! 주간/월간 분석 생성 중...`;
+
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=weekly`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      await fetch(`/api/strava-sync?user_id=${currentUser.id}&type=monthly`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      status.textContent = `✅ 완료! ${data.newly_saved}개 활동 저장 + 주간/월간 분석이 텔레그램으로 발송됐어요.`;
+      btn.textContent = '✅ 완료';
+      await loadUserData();
+    } else {
+      throw new Error(data.error);
     }
   } catch (e) {
-    console.error('PR check error:', e.message); // PR 실패가 동기화 전체를 막지 않도록
+    status.style.display = 'block';
+    status.style.background = 'rgba(231,76,60,.08)';
+    status.style.borderColor = 'rgba(231,76,60,.2)';
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ 오류가 발생했어요. 다시 시도해주세요.';
+    btn.textContent = '📥 과거 1년 데이터 불러오기';
+    btn.disabled = false;
   }
 }
 
-export default async function handler(req, res) {
-  const userId = req.query.user_id || req.body?.user_id;
-  const type = req.query.type || 'daily';
-
-  if (!userId) return res.status(400).json({ error: 'user_id required' });
-
-  // ── 인증 체크 ──
-  // 1. Cron/내부 호출: CRON_SECRET 또는 webhook 헤더
-  // 2. 브라우저 직접 호출: Supabase JWT 검증
-  const authHeader = req.headers.authorization || '';
-  const isInternalCall = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-  const isWebhookCall = req.headers['x-strava-webhook'] === process.env.STRAVA_VERIFY_TOKEN;
-
-  if (!isInternalCall && !isWebhookCall) {
-    // JWT 검증
-    const token = authHeader.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-    try {
-      const verifyRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-        headers: {
-          'apikey': process.env.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const userData = await verifyRes.json();
-
-      // JWT의 user_id와 요청 user_id 일치 여부 확인
-      if (!userData?.id || userData.id !== userId) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
+async function saveTriathlon() {
+  const triType = document.getElementById('settingTriType').value;
+  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (goals && goals.length > 0) {
+    await sb.from('goals').update({
+      goal_type: triType ? 'both' : 'marathon',
+      tri_type: triType || null,
+      tri_swim_target: document.getElementById('settingTriSwim').value || null,
+      tri_bike_target: document.getElementById('settingTriBike').value || null,
+      tri_run_target: document.getElementById('settingTriRun').value || null,
+      tri_total_target: document.getElementById('settingTriTotal').value || null,
+    }).eq('id', goals[0].id);
   }
+  toast('✅ 트라이애슬론 목표가 저장됐습니다!');
+}
+
+const PR_FIELDS = [
+  { key: 'pr_full', inputId: 'settingPrFull',  autoId: 'prFullAuto' },
+  { key: 'pr_half', inputId: 'settingPrHalf',  autoId: 'prHalfAuto' },
+  { key: 'pr_10k',  inputId: 'settingPrTenK',  autoId: 'prTenKAuto' },
+  { key: 'pr_5k',   inputId: 'settingPrFiveK', autoId: 'prFiveKAuto' },
+];
+
+// 자동 갱신된 기록을 직접 수정하고 싶을 때: 입력칸으로 전환
+function editAutoPR(autoId, inputId) {
+  document.getElementById(autoId).style.display = 'none';
+  const input = document.getElementById(inputId);
+  input.style.display = '';
+  input.focus();
+}
+
+async function savePR() {
+  const updates = {};
+  for (const f of PR_FIELDS) {
+    const input = document.getElementById(f.inputId);
+    // 자동 갱신 표시 중인 항목(입력칸 숨김)은 건드리지 않음 → 빈 값으로 덮어쓰기 방지
+    if (input.style.display === 'none') continue;
+    updates[f.key] = input.value.trim() || null;
+    updates[`${f.key}_updated_at`] = null; // 직접 입력한 값 = 수동 기록
+  }
+  if (Object.keys(updates).length === 0) { toast('변경할 기록이 없어요'); return; }
+
+  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (!goals || goals.length === 0) { toast('⚠️ 먼저 목표를 설정해주세요'); return; }
+  const { error } = await sb.from('goals').update(updates).eq('id', goals[0].id);
+  if (error) { toast('⚠️ 저장 실패: ' + error.message); return; }
+  toast('✅ 개인 기록이 업데이트됐습니다!');
+}
+
+// ── 컨디션/부상 ──
+function selectCondition(val) {
+  selectedCondition = val;
+  ['condGood','condNormal','condTired'].forEach(id => document.getElementById(id)?.classList.remove('sel'));
+  const map = { '좋음': 'condGood', '보통': 'condNormal', '피로': 'condTired' };
+  document.getElementById(map[val])?.classList.add('sel');
+}
+
+function selectInjury(val) {
+  selectedInjury = val;
+  ['없음','무릎','발목','종아리','허벅지','허리','기타'].forEach(v => {
+    document.getElementById(`inj-${v}`)?.classList.remove('sel');
+  });
+  document.getElementById(`inj-${val}`)?.classList.add('sel');
+  document.getElementById('injuryLevelSection').style.display = val === '없음' ? 'none' : 'block';
+}
+
+function selectInjuryLevel(val) {
+  selectedInjuryLevel = val;
+  ['경미','중간','심각'].forEach(v => {
+    document.getElementById(`injlv-${v}`)?.classList.remove('sel');
+  });
+  document.getElementById(`injlv-${val}`)?.classList.add('sel');
+}
+
+async function saveCondition() {
+  if (!currentUser) return;
+  const memo = document.getElementById('conditionMemo').value;
+  const today = new Date().toISOString().split('T')[0];
+  const btn = document.getElementById('conditionSaveBtn');
+
+  btn.textContent = '⏳ 코칭 생성 중...';
+  btn.disabled = true;
+
+  const { error } = await sb.from('conditions').upsert({
+    user_id: currentUser.id,
+    date: today,
+    condition: selectedCondition,
+    injury_part: selectedInjury,
+    injury_level: selectedInjury === '없음' ? '없음' : selectedInjuryLevel,
+    memo: memo || null
+  }, { onConflict: 'user_id,date' });
+
+  if (error) {
+    toast('❌ 저장 중 오류가 발생했어요');
+    btn.textContent = '💪 컨디션 반영하기';
+    btn.disabled = false;
+    return;
+  }
+
+  // AI 코칭 생성
+  try {
+    const { data: goals } = await sb.from('goals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+    const targetPace = g?.target_pace || '5:27';
+    const phase = g?.race_date ? getPhase(g.race_date) : '기초체력기';
+
+    // 오늘 계획된 훈련
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+    const { data: plans } = await sb.from('weekly_plans').select('*').eq('user_id', currentUser.id).eq('week_start', weekStartStr).limit(1);
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const todayPlan = plans?.[0]?.[days[todayIdx]] || '미정';
+
+    const prompt = `마라톤 코치로서 선수의 오늘 컨디션에 맞는 훈련 코칭을 해주세요.
+
+선수 정보:
+- 목표 페이스: ${targetPace}/km
+- 훈련 단계: ${phase}
+- 오늘 계획된 훈련: ${todayPlan}
+
+오늘 컨디션:
+- 상태: ${selectedCondition}
+- 부상: ${selectedInjury === '없음' ? '없음' : `${selectedInjury} (${selectedInjuryLevel})`}
+${memo ? `- 메모: ${memo}` : ''}
+
+300자 이내로 간결하게:
+1. 오늘 훈련 권장사항 (계획 수정 또는 유지)
+2. 구체적인 훈련 처방 (종류/거리/페이스)
+3. 주의사항 한 줄`;
+
+    // Claude API는 서버에서만 호출 가능하므로 별도 엔드포인트 사용
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const coachRes = await fetch(`/api/condition-coaching?user_id=${currentUser.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        condition: selectedCondition,
+        injury_part: selectedInjury,
+        injury_level: selectedInjuryLevel,
+        memo,
+        today_plan: todayPlan,
+        target_pace: targetPace,
+        phase
+      })
+    });
+
+    const coachData = await coachRes.json();
+    if (coachData.coaching) {
+      const coachingEl = document.getElementById('conditionCoaching');
+      const coachingText = document.getElementById('conditionCoachingText');
+      coachingEl.style.display = 'block';
+
+      let coachingHtml = coachData.coaching;
+      if (coachData.changed && coachData.adjustment_reason) {
+        coachingHtml += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--orange)">
+          📅 주간 계획 조정됨<br>
+          <span style="color:var(--gray-light)">${coachData.adjustment_reason}</span>
+        </div>`;
+      }
+      coachingText.innerHTML = coachingHtml;
+
+      // 대시보드 코치 제안도 업데이트
+      const adviceEl = document.getElementById('db-condition-advice');
+      const section = document.getElementById('db-condition-section');
+      if (adviceEl && section) {
+        section.style.display = 'block';
+        adviceEl.textContent = coachData.coaching;
+      }
+
+      // 주간 카드 새로고침
+      if (coachData.changed) await loadWeeklyCards();
+
+      // 대시보드 전체 새로고침
+      await loadUserData();
+    }
+
+    const statusEl = document.getElementById('conditionSaveStatus');
+    statusEl.style.display = 'block';
+    statusEl.textContent = `✅ ${today} 컨디션 반영 완료!`;
+    setTimeout(() => statusEl.style.display = 'none', 3000);
+    toast('💪 컨디션 반영 완료! 맞춤 코칭을 확인하세요.');
+
+  } catch(e) {
+    console.error('Coaching error:', e);
+    toast('💪 컨디션 저장 완료!');
+  }
+
+  btn.textContent = '💪 컨디션 반영하기';
+  btn.disabled = false;
+}
+
+async function loadTodayCondition() {
+  if (!currentUser) return;
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await sb.from('conditions')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .eq('date', today)
+    .maybeSingle();
+  if (data) {
+    selectCondition(data.condition || '보통');
+    selectInjury(data.injury_part || '없음');
+    if (data.injury_level && data.injury_level !== '없음') selectInjuryLevel(data.injury_level);
+    if (data.memo) document.getElementById('conditionMemo').value = data.memo;
+  }
+}
+
+// ── 레이스 전략 ──
+let currentStrategy = 'A';
+
+function switchStrategy(type) {
+  currentStrategy = type;
+  document.getElementById('strategy-A').style.display = type === 'A' ? 'block' : 'none';
+  document.getElementById('strategy-B').style.display = type === 'B' ? 'block' : 'none';
+
+  const btnA = document.getElementById('tab-strat-a');
+  const btnB = document.getElementById('tab-strat-b');
+
+  if (type === 'A') {
+    btnA.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--orange);background:rgba(252,76,2,.12);color:var(--orange);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+    btnB.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+  } else {
+    btnA.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:var(--dark2);color:var(--gray);font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+    btnB.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid #00D4AA;background:rgba(0,212,170,.1);color:#00D4AA;font-family:Pretendard,sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+  }
+}
+
+function secToPaceDisplay(sec) {
+  if (!sec) return '--:--';
+  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+}
+
+function renderSplits(elId, splits, color) {
+  if (!splits || splits.length === 0) return;
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tr style="color:var(--gray);border-bottom:1px solid rgba(255,255,255,.06)">
+        <td style="padding:6px 4px">구간</td>
+        <td style="padding:6px 4px;text-align:center">페이스</td>
+        <td style="padding:6px 4px;text-align:center">구간 시간</td>
+        <td style="padding:6px 4px;text-align:right">누적 시간</td>
+      </tr>
+      ${splits.map((s, i) => `
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);${i === splits.length - 1 ? 'font-weight:700' : ''}">
+          <td style="padding:7px 4px;color:var(--gray-light)">${s.segment}</td>
+          <td style="padding:7px 4px;text-align:center;color:${color};font-family:'DM Mono',monospace">${s.pace}</td>
+          <td style="padding:7px 4px;text-align:center;color:var(--gray);font-family:'DM Mono',monospace">${s.segTime}</td>
+          <td style="padding:7px 4px;text-align:right;color:var(--white);font-family:'DM Mono',monospace">${s.cumTime}</td>
+        </tr>
+      `).join('')}
+    </table>`;
+}
+
+function renderGels(elId, gels) {
+  if (!gels || gels.length === 0) return;
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = gels.map(g => `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+      <div style="background:rgba(252,76,2,.15);color:var(--orange);border-radius:100px;padding:2px 8px;font-size:10px;font-family:'DM Mono',monospace;flex-shrink:0">
+        #${g.num} · ${g.time}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--white)">${g.km}km 지점</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${g.note}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadRaceStrategy() {
+  if (!currentUser) return;
+  try {
+    const { data: strategies } = await sb.from('race_strategies')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!strategies || strategies.length === 0) return;
+    const s = strategies[0];
+
+    // 헤더
+    const { data: goals } = await sb.from('goals').select('race_name,race_date').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+    const g = goals?.[0];
+    if (g) {
+      document.getElementById('race-strategy-title').textContent = `🏁 ${g.race_name || '레이스'} 전략`;
+      const created = new Date(s.created_at).toLocaleDateString('ko-KR');
+      document.getElementById('race-strategy-date').textContent = `${created} 생성 · 레이스 1주일 전 최종 갱신`;
+    }
+
+    // 전략 A
+    const a = s.strategy_a;
+    if (a) {
+      document.getElementById('a-target-time').textContent = a.targetTime || '--:--:--';
+      document.getElementById('a-target-pace').textContent = secToPaceDisplay(a.paceSec) + '/km';
+      document.getElementById('a-key-point').textContent = a.keyPoint || '';
+      document.getElementById('a-description').textContent = a.description || '';
+
+      // 전/중/후반 페이스
+      if (a.splits && a.splits.length > 0) {
+        const firstSplit = a.splits[0];
+        const midSplit = a.splits[Math.floor(a.splits.length / 2)];
+        const lastSplit = a.splits[a.splits.length - 1];
+        document.getElementById('a-pace-first').textContent = firstSplit.pace + '/km';
+        document.getElementById('a-pace-mid').textContent = midSplit.pace + '/km';
+        document.getElementById('a-pace-last').textContent = lastSplit.pace + '/km';
+        renderSplits('a-splits', a.splits, 'var(--orange)');
+      }
+      renderGels('a-gels', a.gels);
+    }
+
+    // 전략 B
+    const b = s.strategy_b;
+    if (b) {
+      document.getElementById('b-target-time').textContent = b.targetTime || '--:--:--';
+      document.getElementById('b-target-pace').textContent = secToPaceDisplay(b.paceSec) + '/km';
+      document.getElementById('b-key-point').textContent = b.keyPoint || '';
+      document.getElementById('b-description').textContent = b.description || '';
+
+      if (b.splits && b.splits.length > 0) {
+        const firstSplit = b.splits[0];
+        const midSplit = b.splits[Math.floor(b.splits.length / 2)];
+        const lastSplit = b.splits[b.splits.length - 1];
+        document.getElementById('b-pace-first').textContent = firstSplit.pace + '/km';
+        document.getElementById('b-pace-mid').textContent = midSplit.pace + '/km';
+        document.getElementById('b-pace-last').textContent = lastSplit.pace + '/km';
+        renderSplits('b-splits', b.splits, '#00D4AA');
+      }
+      renderGels('b-gels', b.gels);
+    }
+
+    // 현재 체력 분석
+    if (s.training_analysis) {
+      const ta = s.training_analysis;
+      document.getElementById('ta-fitness-pace').textContent = ta.fitnessPace || '--:--';
+      document.getElementById('ta-completeness').textContent = ta.completeness ?? '--';
+      document.getElementById('ta-weekly-avg').textContent = ta.weeklyAvgKm != null ? Number(ta.weeklyAvgKm).toFixed(1) : '--';
+      document.getElementById('ta-longest-lsd').textContent = ta.longestLsdKm != null ? Number(ta.longestLsdKm).toFixed(1) : '--';
+      document.getElementById('training-analysis-section').style.display = 'block';
+    }
+    if (s.assessment) {
+      document.getElementById('ta-assessment').textContent = s.assessment;
+    }
+
+    // 목표 타당성 평가
+    if (s.user_goal_feasibility) {
+      document.getElementById('goal-feasibility-text').textContent = s.user_goal_feasibility;
+      document.getElementById('goal-feasibility-section').style.display = 'block';
+    }
+
+    // 핵심 훈련 조언
+    if (s.training_advice) {
+      document.getElementById('training-advice-text').textContent = s.training_advice;
+      document.getElementById('training-advice-section').style.display = 'block';
+    }
+
+  } catch(e) {
+    console.error('Race strategy load error:', e);
+  }
+}
+
+async function refreshRaceStrategy() {
+  if (!currentUser) return;
+  const btn = document.getElementById('strategy-refresh-btn');
+  btn.textContent = '⏳ 생성 중...';
+  btn.disabled = true;
 
   try {
-    const profiles = await sbGet('profiles', `id=eq.${userId}`);
-    const profile = profiles[0];
-    if (!profile?.strava_access_token) return res.status(400).json({ error: 'Strava not connected' });
-
-    const goals = await sbGet('goals', `user_id=eq.${userId}&order=created_at.desc&limit=1`);
-    const goal = goals[0];
-
-    // 약점 프로파일만 갱신 (웹앱 대시보드에서 호출, 텔레그램 발송 없음, Strava 호출 없음)
-    if (type === 'profile') {
-      const athleteProfile = await buildAthleteProfile(userId, goal, profile);
-      return res.json({ success: true, type: 'profile', profile: athleteProfile });
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    const res = await fetch(`/api/cron-race-strategy?user_id=${currentUser.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (result.success) {
+      await loadRaceStrategy();
+      toast('🏁 레이스 전략이 생성됐어요!');
     }
-
-    const accessToken = await refreshToken(profile, userId);
-
-    // 주간 분석 (목표 타입에 따라 분기)
-    if (type === 'weekly') {
-      // 주간 리포트 전에 약점 프로파일 갱신 → 이번 리포트부터 최신 약점 반영
-      try { await buildAthleteProfile(userId, goal, profile); }
-      catch (e) { console.error('Athlete profile error:', e.message); }
-      const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
-      const analysis = isTri
-        ? await analyzeWeeklyTriathlon(userId, goal, accessToken)
-        : await analyzeWeekly(userId, goal, accessToken);
-      await sbUpsert('reports', { user_id: userId, type: 'weekly', content: analysis }, 'user_id,type');
-      const title = isTri ? '🏊🚴🏃 <b>트라이애슬론 주간 리포트</b>' : '📅 <b>주간 훈련 리포트</b>';
-      await sendTelegram(profile.telegram_chat_id, title, analysis);
-      return res.json({ success: true, type: 'weekly' });
-    }
-
-    // 월간 분석
-    if (type === 'monthly') {
-      const analysis = await analyzeMonthly(userId, goal, accessToken);
-      await sbUpsert('reports', { user_id: userId, type: 'monthly', content: analysis }, 'user_id,type');
-      await sendTelegram(profile.telegram_chat_id, '📊 <b>월간 훈련 리포트</b>', analysis);
-      return res.json({ success: true, type: 'monthly' });
-    }
-
-    // 일일 분석
-    const activityId = req.query.activity_id;
-    let activities = [];
-
-    if (activityId) {
-      const actRes = await fetch(
-        `https://www.strava.com/api/v3/activities/${activityId}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const act = await actRes.json();
-      if (act.id) activities = [act];
-    } else {
-      const after = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
-      const r = await fetch(
-        `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=20`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      activities = await r.json();
-    }
-
-    if (!Array.isArray(activities) || activities.length === 0) {
-      return res.json({ message: 'No new activities', synced: 0 });
-    }
-
-    const recentSaved = await sbGet('activities', `user_id=eq.${userId}&order=start_date.desc&limit=7`);
-    const targetPace = goal?.target_pace || '5:27';
-    const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
-
-    // A1+S3: 일일 분석에 필요한 데이터 사전 로드
-    const dailyCoachingNote = await fetchCoachingNote(userId, 'daily');
-    const dailyFitnessPace = await calcCurrentFitnessPace(accessToken);
-    const dailyAthleteNote = await fetchAthleteNote(userId);
-
-    let newCount = 0;
-
-    if (isTri) {
-      // 트라이애슬론: 같은 날 활동 묶어서 분석
-      const todayGroups = groupActivitiesByDay(activities);
-
-      for (const [day, dayActs] of Object.entries(todayGroups)) {
-        // 이미 저장된 활동 필터
-        const newDayActs = [];
-        for (const activity of dayActs) {
-          const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
-          if (existing.length > 0) continue;
-          newDayActs.push(activity);
-          await checkAndUpdatePR(userId, activity, goal, accessToken, profile.telegram_chat_id);
-        }
-        if (newDayActs.length === 0) continue;
-
-        // 각 활동 저장
-        for (const activity of newDayActs) {
-          const sportType = getSportType(activity);
-          const workoutType = classifyWorkout(activity, targetPace, sportType);
-          const weekStart = getWeekStart(activity.start_date);
-          const adjustedPace = sportType === '트레일런'
-            ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
-            : null;
-          const details = await fetchActivityDetails(activity.id, accessToken);
-          const hrData = details.streams?.heartrate?.data || [];
-          const cadData = details.streams?.cadence?.data || [];
-          const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
-          const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
-
-          await sbPost('activities', {
-            user_id: userId,
-            strava_id: String(activity.id),
-            name: activity.name,
-            type: activity.type,
-            sport_type: sportType,
-            workout_type: workoutType,
-            week_start: weekStart,
-            distance: activity.distance,
-            moving_time: activity.moving_time,
-            average_speed: activity.average_speed,
-            calories: activity.calories || null,
-            start_date: activity.start_date,
-            total_elevation_gain: activity.total_elevation_gain || 0,
-            avg_heartrate: avgHR,
-            max_heartrate: activity.max_heartrate || null,
-            avg_cadence: avgCad,
-            adjusted_pace: adjustedPace,
-            analysis: null // 묶음 분석으로 대체
-          });
-        }
-
-        // 당일 전체 활동 묶어서 분석
-        const allDayActs = [...newDayActs]; // 새 활동들
-        const analysis = await analyzeTriathlonDaily(allDayActs, goal, recentSaved.slice(0, 6), dailyAthleteNote);
-
-        // 분석 결과를 첫 번째 활동에만 저장
-        const firstAct = newDayActs[0];
-        await sbPatch('activities', `strava_id=eq.${firstAct.id}&user_id=eq.${userId}`, { analysis });
-
-        // 텔레그램 발송
-        const sports = [...new Set(allDayActs.map(a => getSportType(a)))];
-        const sportIcons = sports.map(s => s === '수영' ? '🏊' : s === '자전거' ? '🚴' : '🏃').join('');
-        const totalKm = (allDayActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
-        const totalMins = Math.floor(allDayActs.reduce((s, a) => s + a.moving_time, 0) / 60);
-        const isBrick = sports.includes('자전거') && sports.includes('러닝');
-
-        const title = `${sportIcons} <b>${isBrick ? '벽돌훈련' : '복합훈련'}</b>\n📏 총 ${totalKm}km | ⏱ ${Math.floor(totalMins/60)}시간 ${totalMins%60}분`;
-        await sendTelegram(profile.telegram_chat_id, title, analysis);
-        newCount += newDayActs.length;
-      }
-
-    } else {
-      // 마라톤: 개별 활동 분석
-      for (const activity of activities) {
-        const existing = await sbGet('activities', `strava_id=eq.${activity.id}&user_id=eq.${userId}`);
-        if (existing.length > 0) continue;
-
-        await checkAndUpdatePR(userId, activity, goal, accessToken, profile.telegram_chat_id);
-
-        const sportType = getSportType(activity);
-        const workoutType = classifyWorkout(activity, targetPace, sportType);
-        const weekStart = getWeekStart(activity.start_date);
-        const adjustedPace = sportType === '트레일런'
-          ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
-          : null;
-
-        const details = await fetchActivityDetails(activity.id, accessToken);
-        const phases = analyzePhases(details.laps, targetPace);
-
-        const hrData = details.streams?.heartrate?.data || [];
-        const cadData = details.streams?.cadence?.data || [];
-        const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
-        const avgCad = cadData.length > 0 ? Math.round(cadData.reduce((s, v) => s + v, 0) / cadData.length * 2) : null;
-
-        // 날씨 + 컨디션
-        const weather = await fetchWeather(
-          activity.start_latlng?.[0],
-          activity.start_latlng?.[1],
-          activity.start_date
-        );
-        const condition = await fetchUserCondition(userId, activity.start_date);
-
-        const analysis = await analyzeDailyActivity(
-          activity, goal, recentSaved.slice(0, 6),
-          workoutType, sportType, phases, details, weather, condition,
-          dailyCoachingNote, dailyFitnessPace, dailyAthleteNote
-        );
-
-        // A1: 일일 코칭 노트 저장
-        const ctx = getDateContext();
-        await saveCoachingNote(userId, 'daily', ctx.weekStart, analysis);
-
-        const km = (activity.distance / 1000).toFixed(1);
-        const pace = calcPace(activity.moving_time, activity.distance);
-
-        await sbPost('activities', {
-          user_id: userId,
-          strava_id: String(activity.id),
-          name: activity.name,
-          type: activity.type,
-          sport_type: sportType,
-          workout_type: workoutType,
-          week_start: weekStart,
-          distance: activity.distance,
-          moving_time: activity.moving_time,
-          average_speed: activity.average_speed,
-          calories: activity.calories || null,
-          start_date: activity.start_date,
-          total_elevation_gain: activity.total_elevation_gain || 0,
-          avg_heartrate: avgHR,
-          max_heartrate: activity.max_heartrate || null,
-          avg_cadence: avgCad,
-          adjusted_pace: adjustedPace,
-          laps: details.laps.length > 0 ? JSON.stringify(details.laps) : null,
-          warmup_km: phases ? parseFloat(phases.warmupKm) : null,
-          main_km: phases ? parseFloat(phases.mainKm) : null,
-          cooldown_km: phases ? parseFloat(phases.cooldownKm) : null,
-          analysis
-        });
-
-        const sportIcon = sportType === '트레일런' ? '🏔️' : sportType === '자전거' ? '🚴' : sportType === '수영' ? '🏊' : '🏃';
-        const title = `${sportIcon} <b>${activity.name}</b> [${workoutType}]\n📏 ${km}km | ⚡ ${pace}/km${adjustedPace ? ` (환산 ${adjustedPace}/km)` : ''}${avgHR ? ` | ❤️ ${avgHR}bpm` : ''}`;
-        await sendTelegram(profile.telegram_chat_id, title, analysis);
-        newCount++;
-      }
-    }
-
-    res.json({ success: true, synced: newCount });
-
-  } catch (error) {
-    console.error('Sync error:', error);
-    res.status(500).json({ error: error.message });
+  } catch(e) {
+    toast('❌ 전략 생성 중 오류가 발생했어요');
+  } finally {
+    btn.textContent = '🔄 지금 생성하기';
+    btn.disabled = false;
   }
 }
+
+async function saveTelegram() {
+  const telegram_chat_id = document.getElementById('settingTelegram').value;
+  await sb.from('profiles').update({ telegram_chat_id }).eq('id', currentUser.id);
+  toast('✅ 텔레그램 알림이 설정됐습니다!');
+}
+
+// ── AI COACH ──
+const answers = {
+  '이번 주 훈련 강도 평가해줘': '현재 주간 52km는 서브 3:50에 <strong>적절한 볼륨</strong>입니다. 인터벌 비율을 20%(약 10km)로 늘리면 더 효과적이에요!',
+  '레이스 당일 페이스 전략 알려줘': '<strong>네거티브 스플릿</strong> 추천! 전반 21km → 5:35/km, 후반 21km → 5:20/km. 에너지젤은 25km·32km에서 섭취하세요.',
+  '부상 예방 팁 알려줘': '<strong>10% 법칙</strong>: 주간 볼륨을 매주 10% 이상 늘리지 마세요. 달리기 후 폼롤러 15분, 신발은 500km마다 교체!',
+  '탄수화물 로딩 방법 알려줘': '레이스 3일 전부터 탄수화물 70%로 높이세요. 쌀밥·파스타·바나나 중심으로, 레이스 전날 저녁은 <strong>파스타 or 쌀밥</strong> 추천!'
+};
+
+function askCoach(q) {
+  const input = document.getElementById('coachQ');
+  const question = q || input.value.trim();
+  if (!question) return;
+  input.value = '';
+  const ansDiv = document.getElementById('coachAns');
+  const ansTxt = document.getElementById('coachAnsTxt');
+  ansDiv.style.display = 'block';
+  ansTxt.innerHTML = '';
+  const answer = answers[question] || `"<strong>${question}</strong>"에 대해: 현재 훈련 데이터 분석 결과, 꾸준한 훈련을 이어가시면 됩니다. 주간 볼륨을 점진적으로 늘리고 인터벌을 병행하세요!`;
+  let i = 0;
+  const words = answer.split(' ');
+  const iv = setInterval(() => {
+    if (i < words.length) { ansTxt.innerHTML = words.slice(0, i + 1).join(' '); i++; }
+    else clearInterval(iv);
+  }, 40);
+}
+
+// ── STRAVA ──
+function connectStrava() {
+  if (!currentUser) return;
+  const clientId = '228283';
+  const redirectUri = encodeURIComponent('https://runai-coach.vercel.app/api/strava-callback');
+  const scope = 'activity:read_all';
+  const state = currentUser.id;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&approval_prompt=force`;
+  window.location.href = url;
+}
+
+async function syncStrava() {
+  if (!currentUser) return;
+  toast('🔄 Strava 동기화 중...');
+  try {
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    const res = await fetch(`/api/strava-sync?user_id=${currentUser.id}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (result.synced > 0) {
+      toast(`✅ ${result.synced}개 활동 동기화 완료!`);
+      await loadUserData();
+    } else {
+      toast('✅ 최신 상태예요!');
+    }
+  } catch (e) {
+    toast('❌ 동기화 실패. 다시 시도해주세요.');
+  }
+}
+
+function updateStravaUI(isConnected) {
+  document.getElementById('stravaConnected').style.display = isConnected ? 'block' : 'none';
+  document.getElementById('stravaDisconnected').style.display = isConnected ? 'none' : 'block';
+}
+
+// URL 파라미터 확인 (Strava 연동 완료 후)
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('strava') === 'connected') {
+  toast('🎉 Strava 연동 완료! 활동을 불러오는 중...');
+  window.history.replaceState({}, '', '/');
+}
+if (urlParams.get('error')) {
+  toast('❌ Strava 연동 실패. 다시 시도해주세요.');
+  window.history.replaceState({}, '', '/');
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── 대회 일정 ──
+const RACE_MONTH_NAMES = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+const RACE_DAY_NAMES = ['일','월','화','수','목','금','토'];
+
+function raceParseDate(dateStr) {
+  if (!dateStr) return null;
+  const dotMatch = dateStr.match(/^(\d{2})\.(\d{2})\.(\d{2})/);
+  if (dotMatch) {
+    const year = 2000 + parseInt(dotMatch[1]);
+    const month = parseInt(dotMatch[2]);
+    const day = parseInt(dotMatch[3]);
+    const d = new Date(year, month - 1, day);
+    return { year, month, day, dayName: RACE_DAY_NAMES[d.getDay()] };
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  return { year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate(), dayName: RACE_DAY_NAMES[d.getDay()] };
+}
+
+function raceParseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
+  return lines.slice(1).map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (cols[i] || '').replace(/"/g,''));
+    return obj;
+  }).filter(r => r['대회명']);
+}
+
+function getRaceCardState(race) {
+  const date = raceParseDate(race['대회일']);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  if (date) {
+    const raceDate = new Date(date.year, date.month-1, date.day);
+    if (raceDate < today) return 'race-ended';
+  }
+  const status = normalizeRaceStatus(race['접수 상태'] || '');
+  if (status === '마감') return 'reg-closed';
+  if (status === '접수중') return 'open';
+  return 'upcoming';
+}
+
+function normalizeRaceStatus(raw) {
+  if (!raw) return '접수예정';
+  const s = raw.trim();
+  if (s.includes('종료')) return '마감';
+  if (s.includes('접수중') || s.includes('접수 중')) return '접수중';
+  if (s.includes('예정')) return '접수예정';
+  return '접수예정';
+}
+
+function raceCardHTML(race) {
+  const date = raceParseDate(race['대회일']);
+  const cardState = getRaceCardState(race);
+  const link = race['홈페이지'] || '';
+  const rec = race['연유추천'] || '';
+  const dayNum = date ? String(date.day).padStart(2,'0') : '--';
+  const dayName = date ? date.dayName : '';
+
+  const tags = [];
+  if (race['거리태그']) tags.push(`<span class="rtag rtag-dist">${race['거리태그']}</span>`);
+  if (race['유형'])     tags.push(`<span class="rtag rtag-type">${race['유형']}</span>`);
+  if (rec === '연습')   tags.push(`<span class="rtag rtag-practice">🏃 연습</span>`);
+  if (rec === '코스')   tags.push(`<span class="rtag rtag-course">🗺 코스</span>`);
+  if (rec === '메이저') tags.push(`<span class="rtag rtag-major">🏆 메이저</span>`);
+
+  let normalizedLink = '';
+  if (link && link !== '러너블') {
+    normalizedLink = link.startsWith('http') ? link : 'https://' + link;
+  } else if (link === '러너블') {
+    normalizedLink = 'https://www.runnble.com';
+  }
+
+  const badgeMap = {
+    'open': '<span class="rbadge open">✅ 접수중</span>',
+    'reg-closed': '<span class="rbadge reg-closed">🔒 접수마감</span>',
+    'race-ended': '<span class="rbadge race-ended">종료</span>',
+    'upcoming': '<span class="rbadge upcoming">📅 접수예정</span>'
+  };
+
+  const actionBtn = cardState === 'race-ended'
+    ? `<span class="raction-btn no-link">✕</span>`
+    : normalizedLink
+      ? `<a href="${normalizedLink}" target="_blank" class="raction-btn">→</a>`
+      : `<span class="raction-btn no-link">→</span>`;
+
+  const regInfo = cardState === 'open' && race['접수 시작일']
+    ? `📅 접수 중 · 시작일 ${race['접수 시작일']}`
+    : cardState === 'reg-closed' ? '✅ 접수 종료' : '';
+
+  return `<div class="race-card-baba ${cardState}"
+       data-state="${cardState}" data-type="${race['유형']||''}"
+       data-rec="${rec}" data-dist="${race['거리태그']||''}">
+    <div class="rcard-left">
+      <div class="r-day">${dayNum}</div>
+      <div class="r-dow">${dayName}</div>
+    </div>
+    <div class="rcard-body">
+      <div class="rcard-tags">${tags.join('')}</div>
+      <div class="rcard-name">${race['대회명']}</div>
+      <div class="rcard-meta">
+        <span>📍 ${race['장소']||''}</span>
+        <span>🏃 ${race['종목']||''}</span>
+        ${race['제한시간'] && race['제한시간'] !== '없음' ? `<span>⏱ ${race['제한시간']}</span>` : ''}
+      </div>
+      ${regInfo ? `<div class="rcard-reg">${regInfo}</div>` : ''}
+    </div>
+    ${badgeMap[cardState]}
+    <div class="rcard-action">${actionBtn}</div>
+  </div>`;
+}
+
+function renderRaces(races) {
+  if (!races.length) {
+    document.getElementById('races-content').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--gray);font-size:13px">해당하는 대회가 없어요</div>';
+    return;
+  }
+  const byMonth = {};
+  races.forEach(race => {
+    const date = raceParseDate(race['대회일']);
+    const key = date ? `${date.year}-${String(date.month).padStart(2,'0')}` : '9999-99';
+    if (!byMonth[key]) byMonth[key] = { year: date?.year||9999, month: date?.month||99, races: [] };
+    byMonth[key].races.push(race);
+  });
+
+  let html = '';
+  Object.keys(byMonth).sort().forEach(key => {
+    const { month, races: mRaces } = byMonth[key];
+    const mm = month === 99 ? '??' : String(month).padStart(2,'0');
+    const monthKr = month === 99 ? '일정 미정' : `${RACE_MONTH_NAMES[month]}`;
+    html += `<div class="races-month-label">
+      <div class="races-month-num">${mm}</div>
+      <div class="races-month-kr">${monthKr}</div>
+    </div>`;
+    mRaces.forEach(race => { html += raceCardHTML(race); });
+  });
+  document.getElementById('races-content').innerHTML = html;
+}
+
+function racesFilter(btn) {
+  document.querySelectorAll('.races-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filter = btn.dataset.filter;
+  document.querySelectorAll('.race-card-baba').forEach(card => {
+    const state = card.dataset.state;
+    const type = card.dataset.type;
+    const rec = card.dataset.rec || '';
+    const dist = card.dataset.dist || '';
+    let show = true;
+    if (filter === '접수중')   show = state === 'open';
+    if (filter === '접수예정') show = state === 'upcoming';
+    if (filter === '마감')     show = state === 'reg-closed' || state === 'race-ended';
+    if (filter === '연습')     show = rec === '연습';
+    if (filter === '코스')     show = rec === '코스';
+    if (filter === '메이저')   show = rec === '메이저';
+    if (filter === '풀')       show = dist.includes('42');
+    if (filter === '하프')     show = dist.includes('21');
+    if (filter === '트레일')   show = type.includes('트레일');
+    card.style.display = show ? 'flex' : 'none';
+  });
+}
+
+async function loadRaces() {
+  try {
+    const res = await fetch('https://race-schedule-lake.vercel.app/api/races');
+    if (!res.ok) throw new Error('fetch 실패');
+    const text = await res.text();
+    allRaces = raceParseCSV(text);
+    allRaces.sort((a, b) => {
+      const da = raceParseDate(a['대회일']);
+      const db = raceParseDate(b['대회일']);
+      if (!da) return 1;
+      if (!db) return -1;
+      return new Date(da.year, da.month-1, da.day) - new Date(db.year, db.month-1, db.day);
+    });
+    if (allRaces.length === 0) throw new Error('데이터 없음');
+    renderRaces(allRaces);
+    const now = new Date();
+    document.getElementById('races-update-time').textContent =
+      `마지막 업데이트 · ${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일`;
+  } catch(e) {
+    document.getElementById('races-content').innerHTML =
+      `<div style="text-align:center;padding:40px;color:var(--gray);font-size:13px">😅 데이터를 불러오지 못했어요<br>${e.message}</div>`;
+  }
+}
+
+// ESC to close modal
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
+</script>
+</body>
+</html>
