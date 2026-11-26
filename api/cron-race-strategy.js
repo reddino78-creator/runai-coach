@@ -462,7 +462,8 @@ export default async function handler(req, res) {
       generated_at: new Date().toISOString()
     });
 
-    // 텔레그램
+    // 텔레그램 (AI 답변의 <, >, & 처리 — 안 하면 메시지 전체가 거부됨)
+    const escTg = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const profile = profiles[0];
     if (profile.telegram_chat_id && process.env.TELEGRAM_BOT_TOKEN) {
       const t90 = strategy.target90;
@@ -473,12 +474,12 @@ export default async function handler(req, res) {
         `📊 <b>현재 체력 분석</b>\n` +
         `훈련 페이스: ${tr.fitnessPace}/km${tr.bestRacePace ? ` | 최근 레이스: ${tr.bestRacePace}/km` : ''} | 완성도: ${tr.completeness}/100\n` +
         `주간 평균: ${tr.weeklyAvgKm}km | 최장 LSD: ${tr.longestLsdKm}km\n\n` +
-        `${strategy.assessment}\n\n` +
+        `${escTg(strategy.assessment)}\n\n` +
         `✅ <b>전략 A — 90% 달성 목표</b>\n` +
-        `${t90.targetTime} (${secToPace(t90.paceSec)}/km)\n${t90.keyPoint}\n\n` +
+        `${t90.targetTime} (${secToPace(t90.paceSec)}/km)\n${escTg(t90.keyPoint)}\n\n` +
         `🔥 <b>전략 B — 80% 달성 목표</b>\n` +
-        `${t80.targetTime} (${secToPace(t80.paceSec)}/km)\n${t80.keyPoint}\n\n` +
-        `💡 <b>남은 훈련 핵심</b>\n${strategy.trainingAdvice}`;
+        `${t80.targetTime} (${secToPace(t80.paceSec)}/km)\n${escTg(t80.keyPoint)}\n\n` +
+        `💡 <b>남은 훈련 핵심</b>\n${escTg(strategy.trainingAdvice)}`;
 
       const truncated = msg.length > 4096 ? msg.substring(0, 4090) + '...' : msg;
       await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
