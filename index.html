@@ -1618,7 +1618,7 @@ select.input-field option { background:var(--dark3); }
               <label class="input-label">풀코스 (42.195km)</label>
               <div id="prFullAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
                 <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFullAutoVal">--</div>
-                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFullAutoDate"></span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFullAutoDate"></span> · <a onclick="editAutoPR('prFullAuto','settingPrFull')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
               </div>
               <input class="input-field" type="text" id="settingPrFull" placeholder="예: 3:52:00">
             </div>
@@ -1627,7 +1627,7 @@ select.input-field option { background:var(--dark3); }
               <label class="input-label">하프코스 (21.0975km)</label>
               <div id="prHalfAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
                 <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prHalfAutoVal">--</div>
-                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prHalfAutoDate"></span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prHalfAutoDate"></span> · <a onclick="editAutoPR('prHalfAuto','settingPrHalf')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
               </div>
               <input class="input-field" type="text" id="settingPrHalf" placeholder="예: 1:48:00">
             </div>
@@ -1636,7 +1636,7 @@ select.input-field option { background:var(--dark3); }
               <label class="input-label">10K</label>
               <div id="prTenKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
                 <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prTenKAutoVal">--</div>
-                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prTenKAutoDate"></span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prTenKAutoDate"></span> · <a onclick="editAutoPR('prTenKAuto','settingPrTenK')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
               </div>
               <input class="input-field" type="text" id="settingPrTenK" placeholder="예: 48:30">
             </div>
@@ -1645,7 +1645,7 @@ select.input-field option { background:var(--dark3); }
               <label class="input-label">5K</label>
               <div id="prFiveKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
                 <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFiveKAutoVal">--</div>
-                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFiveKAutoDate"></span></div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFiveKAutoDate"></span> · <a onclick="editAutoPR('prFiveKAuto','settingPrFiveK')" style="color:var(--orange);cursor:pointer;text-decoration:underline">수정</a></div>
               </div>
               <input class="input-field" type="text" id="settingPrFiveK" placeholder="예: 23:00">
             </div>
@@ -1928,6 +1928,7 @@ async function loadUserData() {
       const val = g[key];
       const updatedAt = g[`${key}_updated_at`];
       if (val) {
+        document.getElementById(inputId).value = val; // "수정" 전환 시를 위해 항상 채워둠
         if (updatedAt) {
           // 자동 갱신된 경우: 읽기 전용 표시
           document.getElementById(autoValId).textContent = val;
@@ -2960,7 +2961,13 @@ async function saveGoal() {
   const target_time = document.getElementById('settingGoal').value;
   const race_date = document.getElementById('settingRaceDate').value;
   const race_name = document.getElementById('settingRaceName').value;
-  await sb.from('goals').insert({ user_id: currentUser.id, target_time, race_date, race_name, target_pace: userGoal.pace });
+  // 새 행을 추가하면 PR·트라이 설정이 빈 행이 최신이 되므로, 최신 목표 행을 업데이트
+  const goalFields = { target_time, race_date, race_name, target_pace: userGoal.pace };
+  const { data: latest } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  const { error } = latest && latest.length > 0
+    ? await sb.from('goals').update(goalFields).eq('id', latest[0].id)
+    : await sb.from('goals').insert({ user_id: currentUser.id, ...goalFields });
+  if (error) { toast('⚠️ 목표 저장 실패: ' + error.message); return; }
   document.getElementById('gh-race').textContent = '🎯 ' + race_name + ' 풀코스';
   document.getElementById('gh-target').textContent = '목표: ' + target_time + ' 이내 완주';
   const days = Math.ceil((new Date(race_date) - new Date()) / 86400000);
@@ -3031,17 +3038,36 @@ async function saveTriathlon() {
   toast('✅ 트라이애슬론 목표가 저장됐습니다!');
 }
 
-async function savePR() {
-  const pr_full = document.getElementById('settingPrFull').value;
-  const pr_half = document.getElementById('settingPrHalf').value;
-  const pr_10k = document.getElementById('settingPrTenK').value;
-  const pr_5k = document.getElementById('settingPrFiveK').value;
+const PR_FIELDS = [
+  { key: 'pr_full', inputId: 'settingPrFull',  autoId: 'prFullAuto' },
+  { key: 'pr_half', inputId: 'settingPrHalf',  autoId: 'prHalfAuto' },
+  { key: 'pr_10k',  inputId: 'settingPrTenK',  autoId: 'prTenKAuto' },
+  { key: 'pr_5k',   inputId: 'settingPrFiveK', autoId: 'prFiveKAuto' },
+];
 
-  // 최신 goal 업데이트
-  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
-  if (goals && goals.length > 0) {
-    await sb.from('goals').update({ pr_full, pr_half, pr_10k, pr_5k }).eq('id', goals[0].id);
+// 자동 갱신된 기록을 직접 수정하고 싶을 때: 입력칸으로 전환
+function editAutoPR(autoId, inputId) {
+  document.getElementById(autoId).style.display = 'none';
+  const input = document.getElementById(inputId);
+  input.style.display = '';
+  input.focus();
+}
+
+async function savePR() {
+  const updates = {};
+  for (const f of PR_FIELDS) {
+    const input = document.getElementById(f.inputId);
+    // 자동 갱신 표시 중인 항목(입력칸 숨김)은 건드리지 않음 → 빈 값으로 덮어쓰기 방지
+    if (input.style.display === 'none') continue;
+    updates[f.key] = input.value.trim() || null;
+    updates[`${f.key}_updated_at`] = null; // 직접 입력한 값 = 수동 기록
   }
+  if (Object.keys(updates).length === 0) { toast('변경할 기록이 없어요'); return; }
+
+  const { data: goals } = await sb.from('goals').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  if (!goals || goals.length === 0) { toast('⚠️ 먼저 목표를 설정해주세요'); return; }
+  const { error } = await sb.from('goals').update(updates).eq('id', goals[0].id);
+  if (error) { toast('⚠️ 저장 실패: ' + error.message); return; }
   toast('✅ 개인 기록이 업데이트됐습니다!');
 }
 
