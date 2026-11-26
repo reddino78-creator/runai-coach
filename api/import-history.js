@@ -174,7 +174,10 @@ export default async function handler(req, res) {
 
     const goals = await sbGet('goals', `user_id=eq.${userId}&order=created_at.desc&limit=1`);
     const goal = goals[0];
-    const targetPace = goal?.target_pace || '5:27';
+    // 목표 페이스는 목표 기록에서 계산 (저장된 target_pace 기본값 5:27 오류 방지)
+    const tt = String(goal?.target_time || '').split(':').map(Number);
+    const tSec = tt.length === 3 && !tt.some(isNaN) ? Math.round((tt[0] * 3600 + tt[1] * 60 + tt[2]) / 42.195) : null;
+    const targetPace = tSec ? `${Math.floor(tSec / 60)}:${String(tSec % 60).padStart(2, '0')}` : (goal?.target_pace || '6:00');
     const accessToken = await refreshToken(profile, userId);
 
     // 기간 설정
