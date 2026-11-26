@@ -108,10 +108,10 @@ function isCrossTraining(sportType) {
 // ── 트레일런 고도 환산 페이스 ──
 function calcAdjustedPace(movingTime, distance, elevation) {
   if (!distance || distance === 0) return '-';
-  // 고도 100m 상승 = +1분/km 추가
-  const elevationBonus = (elevation || 0) / 100 * 60; // 초 단위
-  const adjustedTime = movingTime + elevationBonus;
-  const sec = adjustedTime / (distance / 1000);
+  // 평지 환산 페이스: 오르막 1m ≈ 평지 8m (100m 상승 ≈ 평지 0.8km 추가). 오르막은 같은 시간에 더 많은 일을 한 것이므로 환산 페이스는 더 빨라짐
+  // (예전 식은 시간을 더해서 환산 페이스가 실제보다 느려지는 반대 방향이었음)
+  const equivalentDistance = distance + (elevation || 0) * 8;
+  const sec = movingTime / (equivalentDistance / 1000);
   return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
 }
 
@@ -130,13 +130,16 @@ function classifyHill(distance, elevation) {
 function classifyWorkout(activity, refPace, sportType, zones = null, laps = null) {
   if (isCrossTraining(sportType)) return sportType;
   const elevation = activity.total_elevation_gain || 0;
-  if (sportType !== '트레일런') {
-    const hill = classifyHill(activity.distance, elevation);
-    if (hill && hill.elevPerKm >= 15) return '언덕훈련';
-  }
   // refPace = 현재 마라톤 페이스(레이스 환산). 목표 페이스를 넣으면 목표보다 느린 선수의 템포런이 이지런으로 분류됨
   const mpSec = paceToSec(refPace);
-  if (sportType === '트레일런') {
+  // 랩에서 워크아웃 구조(인터벌·언덕 반복·템포)가 확인되면 코스 경사보다 우선
+  if (sportType !== '트레일런' && activity.distance < 38000) {
+    const structure = detectWorkoutStructure(laps, mpSec, { distance: activity.distance, zones });
+    if (structure?.primary) return structure.type;
+  }
+  // 트레일·경사 코스(km당 15m 이상)는 평지 환산 페이스로 강도 판단 — 경사 코스를 편하게 뛴 건 이지런 (언덕훈련 = 오르막 반복이 확인된 경우만)
+  const hill = classifyHill(activity.distance, elevation);
+  if (sportType === '트레일런' || (hill && hill.elevPerKm >= 15)) {
     const adjSec = paceToSec(calcAdjustedPace(activity.moving_time, activity.distance, elevation));
     return classifyRunIntensity({ ...activity, moving_time: adjSec * activity.distance / 1000 }, mpSec, zones, null);
   }
@@ -507,24 +510,118 @@ const COACHING_RULES = `[코칭 원칙 — 반드시 지킬 것]
 9. 부상·피로 기록이 있거나 풀코스 후 14일 이내면 회복을 최우선.
 10. 표(|) 대신 목록(-)으로 작성.`;
 
-const QUALITY_TYPES = ['인터벌', '템포런', '페이스주'];
+const QUALITY_TYPES = ['인터벌', '템포런', '페이스주', '언덕훈련'];
+const RUN_LABELS = ['이지런', 'LSD', '롱런', '페이스주', '템포런', '인터벌', '언덕훈련', '풀코스'];
+
+// DB 기록의 분류: 저장 시 랩까지 보고 분류한 값(workout_type)을 우선 사용 — DB 조회에는 랩이 없어서 다시 분류하면 인터벌이 이지런으로 보임
+function runType(r, basics) {
+  return RUN_LABELS.includes(r.workout_type) ? r.workout_type : classifyRunIntensity(r, basics.mp.sec, basics.zones, null);
+}
+// Strava에서 막 가져온 활동: 같은 활동이 DB에 있으면 그 분류, 없으면 직접 분류
+function labelOf(a, basics) {
+  const row = basics?.byId?.get(String(a.id));
+  if (row && RUN_LABELS.includes(row.workout_type)) return row.workout_type;
+  return classifyWorkout(a, basics.refPaceStr, getSportType(a), basics.zones, null);
+}
 
 function secToPaceStr(sec) {
   const s = Math.round(sec);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// 러닝 강도 분류 — 현재 마라톤 페이스(mpSec) 기준. 랩이 있으면 인터벌 반복 구간 감지, 심박 구간 보조
+// 워크아웃 구조 감지 (랩 기반) — 전체 평균·1km 스플릿으로는 이지런처럼 보이는 인터벌·언덕 반복·템포 구간을 찾아냄
+// 시계 워크아웃의 랩(예: 500m 질주 ↔ 회복)은 Strava laps에 그대로 남음
+// 반환: { type, text, primary } — primary=false면 분류는 바꾸지 않고 설명(text)만 제공 (예: LSD 끝 빠른 마무리)
+function detectWorkoutStructure(laps, mpSec, opts = {}) {
+  const v = (Array.isArray(laps) ? laps : []).filter(l => l.distance >= 150 && l.moving_time > 0);
+  if (v.length < 5) return null;
+  const total = v.reduce((s, l) => s + l.distance, 0);
+  if (opts.distance && Math.abs(total - opts.distance) > opts.distance * 0.15) return null;  // 랩 데이터 신뢰 불가
+  const pace = (l) => l.moving_time / (l.distance / 1000);
+  const elevPerKm = (l) => (l.total_elevation_gain || 0) / (l.distance / 1000);
+  const fmtKm = (m) => (m / 1000).toFixed(2).replace(/0$/, '');
+  const sumD = (ls) => ls.reduce((s, l) => s + l.distance, 0);
+  const avgPace = (ls) => ls.reduce((s, l) => s + l.moving_time, 0) / (sumD(ls) / 1000);
+  const avgHr = (ls) => { const h = ls.filter(l => l.average_heartrate > 0); return h.length ? Math.round(h.reduce((s, l) => s + l.average_heartrate * l.moving_time, 0) / h.reduce((s, l) => s + l.moving_time, 0)) : null; };
+  // 시계 자동 1km 랩인지 (자동 랩은 지형·신호대기로도 페이스가 출렁이므로 더 엄격하게)
+  const auto1k = v.filter(l => Math.abs(l.distance - 1000) <= 30).length >= v.length * 0.7;
+
+  // ① 반복 구간: 앞뒤 랩 평균보다 40초/km 이상 빠른 2.5km 이하 랩
+  let work = v.map((l, i) => {
+    const nb = [v[i - 1], v[i + 1]].filter(Boolean);
+    const nbPace = nb.reduce((s, x) => s + pace(x), 0) / nb.length;
+    return { l, i, isWork: l.distance <= 2500 && pace(l) <= nbPace - 40 };
+  }).filter(x => x.isWork);
+  let medDist = 0;
+  if (work.length >= 3) {
+    medDist = median(work.map(x => x.l.distance));
+    work = work.filter(x => Math.abs(x.l.distance - medDist) <= medDist * 0.35);  // 비슷한 길이의 반복만
+  }
+  if (work.length >= 3 && work.length < v.length) {
+    const idx = work.map(x => x.i);
+    const gaps = idx.slice(1).map((x, k) => x - idx[k]);
+    // 질주↔회복 반복 (400m×2 + 회복 같은 세트 구성도 인정: 간격 1~3랩)
+    const regular = gaps.filter(g => g >= 1 && g <= 3).length >= gaps.length * 0.7;
+    const workLaps = work.map(x => x.l);
+    const idxSet = new Set(idx);
+    const rec = v.filter((l, i) => i > idx[0] && i < idx[idx.length - 1] && !idxSet.has(i));
+    const upWork = median(workLaps.map(elevPerKm));
+    const upRec = rec.length ? median(rec.map(elevPerKm)) : 0;
+    const isHill = upWork >= 10 && upRec < 5;
+    const hr = avgHr(workLaps), recHr = avgHr(rec);
+    const contrast = rec.length ? avgPace(rec) - avgPace(workLaps) : 0;
+    // 실제로 힘을 썼나: 심박이 회복보다 높아야 함. 1km 자동 랩은 지형·신호대기 영향이 커서 더 엄격하게
+    const hrOk = rec.length >= Math.max(1, work.length / 3) &&
+      (hr && recHr ? hr - recHr >= (auto1k ? 8 : 5) : contrast >= 60) &&
+      (!auto1k || contrast >= 60);
+    const fastEnough = isHill || !mpSec || avgPace(workLaps) <= mpSec + 10;                              // 걷기 섞인 러닝 제외
+    const downhillFast = upRec - upWork >= 5;                                                             // 내리막이라 빨랐던 것 제외
+    if (regular && hrOk && fastEnough && !downhillFast) {
+      const elev = Math.round(median(workLaps.map(l => l.total_elevation_gain || 0)));
+      return {
+        type: isHill ? '언덕훈련' : '인터벌', primary: true,
+        text: `${isHill ? '언덕 반복' : '인터벌'} ${work.length}회 × ${fmtKm(medDist)}km (평균 ${secToPaceStr(avgPace(workLaps))}/km` +
+          `${isHill ? `, 오르막 +${elev}m` : ''}${hr ? `, 심박 ${hr}` : ''})` +
+          (rec.length ? ` / 회복 ${fmtKm(median(rec.map(l => l.distance)))}km ${secToPaceStr(avgPace(rec))}/km${recHr ? `, 심박 ${recHr}` : ''}` : '') +
+          ` · 반복 페이스 ${secToPaceStr(Math.min(...workLaps.map(pace)))}~${secToPaceStr(Math.max(...workLaps.map(pace)))}`
+      };
+    }
+  }
+
+  // ② 템포 구간: 첫 랩 이후 (현재 마라톤 페이스 - 10초)보다 빠른 랩이 3km 이상 연속, 앞뒤보다 20초 이상 빠르고 심박도 높음
+  if (mpSec) {
+    let best = null, cur = [];
+    const flush = () => { if (cur.length && (!best || sumD(cur) > sumD(best.laps))) best = { laps: cur, start: v.indexOf(cur[0]) }; cur = []; };
+    v.forEach((l, i) => { if (i > 0 && pace(l) <= mpSec - 10) cur.push(l); else flush(); });
+    flush();
+    if (best && sumD(best.laps) >= 3000 && sumD(best.laps) < total * 0.9) {
+      const others = v.filter(l => !best.laps.includes(l));
+      const contrast = avgPace(others) - avgPace(best.laps) >= 20;
+      const bHr = avgHr(best.laps), oHr = avgHr(others);
+      const hrOk = opts.zones?.marathon && bHr ? bHr >= opts.zones.marathon[0] : bHr && oHr ? bHr - oHr >= 5 : true;
+      if (contrast && hrOk) {
+        const primary = total <= 16000 || sumD(best.laps) >= total * 0.35;  // 긴 러닝 끝부분만 빠르면 '빠른 마무리'로 설명만
+        return {
+          type: '템포런', primary,
+          text: `${primary ? '템포 구간' : '빠른 구간 포함(빌드업/빠른 마무리)'} ${(sumD(best.laps) / 1000).toFixed(1)}km @ ${secToPaceStr(avgPace(best.laps))}/km${bHr ? `, 심박 ${bHr}` : ''}` +
+            ` (나머지 ${secToPaceStr(avgPace(others))}/km)`
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// 러닝 강도 분류 — 현재 마라톤 페이스(mpSec) 기준. 랩이 있으면 워크아웃 구조(인터벌·언덕 반복·템포) 먼저 감지
 function classifyRunIntensity(a, mpSec, zones, laps) {
   const km = a.distance / 1000;
   if (!a.distance || !a.moving_time) return '이지런';
   const p = a.moving_time / km;
-  const lapList = Array.isArray(laps) ? laps.filter(l => l.distance >= 200 && l.moving_time > 0) : [];
-  const fastLaps = lapList.filter(l => l.moving_time / (l.distance / 1000) <= mpSec - 30);
   if (km < 3) return '이지런';
   if (km >= 38) return '풀코스';  // 대회급 거리 — 훈련 분류와 구분
-  if (fastLaps.length >= 3 && fastLaps.length < lapList.length) return '인터벌'; // 빠른 반복 + 회복 구간
-  if (p <= mpSec - 30 && km <= 12) return '인터벌';
+  const structure = detectWorkoutStructure(laps, mpSec, { distance: a.distance, zones });
+  if (structure?.primary) return structure.type;
+  // 쉬지 않고 쭉 빠르게 달린 건 '템포런'(지속주). '인터벌'은 랩에서 질주↔회복 반복이 확인될 때만 (위 구조 감지)
   if (p <= mpSec - 12 && km <= 16) return '템포런';
   if (p <= mpSec + 8 && km >= 6) return '페이스주';
   const hr = a.avg_heartrate || a.average_heartrate;
@@ -622,7 +719,7 @@ async function buildCoachBasics(userId, goal, anchor = Date.now()) {
   const last4 = weeklyTarget.weeks;
 
   return {
-    userId, ctx, runs, zones, mp, paces, goalMpSec, phase, daysLeft, postRace, daysSinceRace, lastRace,
+    userId, ctx, runs, byId: new Map(runs.map(r => [String(r.strava_id), r])), zones, mp, paces, goalMpSec, phase, daysLeft, postRace, daysSinceRace, lastRace,
     last4Weeks: last4, weeklyTarget, athleteNote: ap?.summary || '',
     refPaceStr: secToPaceStr(mp.sec)
   };
@@ -665,7 +762,7 @@ function sameTypeComparison(activity, workoutType, basics, anchorMs) {
   const past = basics.runs.filter(r =>
     String(r.strava_id) !== String(activity.id) && r.sport_type === '러닝' &&
     utcMs(r.start_date) < anchorMs && utcMs(r.start_date) >= from &&
-    classifyRunIntensity(r, basics.mp.sec, basics.zones, null) === workoutType);
+    runType(r, basics) === workoutType);
   if (past.length < 2) return `같은 유형(${workoutType}) 지난 8주 기록 ${past.length}회 — 비교 불가`;
   const paceOf = (r) => r.moving_time / (r.distance / 1000);
   const medPace = median(past.map(paceOf));
@@ -702,7 +799,7 @@ function recentLog(basics, anchorMs, activityId) {
   if (!rows.length) return { text: '최근 14일 러닝 기록 없음', lastHardDays: null };
   let lastHard = null;
   const text = rows.map(r => {
-    const t = classifyRunIntensity(r, basics.mp.sec, basics.zones, null);
+    const t = runType(r, basics);
     if (QUALITY_TYPES.includes(t) || r.distance >= 20000) lastHard = r;
     return `- ${kstLabel(r.start_date)} ${t} ${(r.distance / 1000).toFixed(1)}km @ ${secToPaceStr(r.moving_time / (r.distance / 1000))}` +
       (r.avg_heartrate ? ` · ${Math.round(r.avg_heartrate)}bpm` : '');
@@ -748,7 +845,7 @@ async function analyzeDailyActivity(activity, goal, basics, workoutType, sportTy
   const weekRuns = basics.runs.filter(r => getWeekStart(r.start_date) === ctx.weekStart &&
     utcMs(r.start_date) < anchorMs && String(r.strava_id) !== String(activity.id));
   const weekKm = weekRuns.reduce((s, r) => s + r.distance, 0) / 1000 + (isCross ? 0 : activity.distance / 1000);
-  const weekQuality = weekRuns.filter(r => QUALITY_TYPES.includes(classifyRunIntensity(r, basics.mp.sec, basics.zones, null))).length
+  const weekQuality = weekRuns.filter(r => QUALITY_TYPES.includes(runType(r, basics))).length
     + (QUALITY_TYPES.includes(workoutType) ? 1 : 0);
 
   const log = recentLog(basics, anchorMs, activity.id);
@@ -760,9 +857,13 @@ async function analyzeDailyActivity(activity, goal, basics, workoutType, sportTy
   const planned = await plannedDaysText(basics.userId, isSunday ? ctx.nextWeekStart : ctx.weekStart, targetLabels);
   const lateNote = Date.now() - anchorMs > 36 * 3600000 ? ` (훈련 ${Math.floor((Date.now() - anchorMs) / 86400000)}일 뒤 늦게 분석됨)` : '';
 
-  const phaseInfo = phases
-    ? `웜업 ${phases.warmupKm}km · 본훈련 ${phases.mainKm}km @ ${phases.mainPace}/km · 쿨다운 ${phases.cooldownKm}km | ${phases.splitText} | 랩 페이스 편차 ±${phases.paceSdSec}초`
-    : '랩 데이터 없음';
+  // 인터벌·언덕 반복·템포는 전체 평균이 아니라 반복 구간이 핵심 → 구조를 그대로 전달
+  const structure = isCross ? null : detectWorkoutStructure(details?.laps, basics.mp.sec, { distance: activity.distance, zones: basics.zones });
+  const phaseInfo = structure
+    ? `워크아웃 구조: ${structure.text}`
+    : phases
+      ? `웜업 ${phases.warmupKm}km · 본훈련 ${phases.mainKm}km @ ${phases.mainPace}/km · 쿨다운 ${phases.cooldownKm}km | ${phases.splitText} | 랩 페이스 편차 ±${phases.paceSdSec}초`
+      : '랩 데이터 없음';
   const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
   const conditionInfo = condition
     ? `컨디션 ${condition.condition || '보통'} | 부상 ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}${condition.memo ? ` | 메모: ${condition.memo}` : ''}`
@@ -793,7 +894,9 @@ ${planned ? `[주간 리포트 계획] ${planned}` : '[주간 리포트 계획] 
 아래 4개 섹션으로 900자 이내 작성:
 
 **오늘 평가**
-훈련 분류(${workoutType})의 의도에 맞는 강도였는지 심박 구간과 페이스로 판단하세요. [같은 유형 과거 비교]의 숫자를 최소 1개 인용해 지난 기록 대비 변화를 평가하세요. ${phases ? '스플릿·페이스 편차도 한 줄로.' : ''}${isCross ? ' 크로스트레이닝이 마라톤 준비에 주는 효과 중심으로.' : ''}${isTrail ? ' 트레일은 고도 환산 페이스 기준.' : ''}${weatherImpact ? ' 날씨 영향이 컸다면 반영.' : ''}${condition?.injury_part && condition.injury_part !== '없음' ? ` ${condition.injury_part} 부상을 반드시 고려.` : ''} (3-4문장)
+${structure?.primary
+  ? `이 훈련은 ${structure.type}입니다. 전체 평균 페이스·심박이 아니라 [워크아웃 구조]의 반복(질주) 구간 페이스와 심박이 의도한 강도(${structure.type === '템포런' ? '젖산역치·템포' : '인터벌·역치 이상'} 구간)에 맞았는지, 첫 반복과 마지막 반복의 페이스 차이(일관성)를 평가하세요. 회복 구간이 충분히 느렸는지도 한 줄로.`
+  : `훈련 분류(${workoutType})의 의도에 맞는 강도였는지 심박 구간과 페이스로 판단하세요.`} ${comparison && !comparison.includes('비교 불가') ? '[같은 유형 과거 비교]의 숫자를 최소 1개 인용해 지난 기록 대비 변화를 평가하세요.' : '같은 유형 과거 기록이 부족하니 과거 비교는 하지 말 것.'} ${phases && !structure?.primary ? '스플릿·페이스 편차도 한 줄로.' : ''}${isCross ? ' 크로스트레이닝이 마라톤 준비에 주는 효과 중심으로.' : ''}${isTrail ? ' 트레일은 고도 환산 페이스 기준.' : ''}${weatherImpact ? ' 날씨 영향이 컸다면 반영.' : ''}${condition?.injury_part && condition.injury_part !== '없음' ? ` ${condition.injury_part} 부상을 반드시 고려.` : ''} (3-4문장)
 
 **이번 주 흐름**
 주간 목표 대비 진행과 강도 분포, 최근 강훈련 간격을 1-2문장으로.
@@ -821,7 +924,7 @@ function weekTrendText(basics) {
     const wr = basics.runs.filter(r => getWeekStart(r.start_date) === ws);
     if (!wr.length) { lines.push(`- ${dateLabel(ws)}~ 주: 러닝 없음`); effs.push(null); continue; }
     const km = wr.reduce((s, r) => s + r.distance, 0) / 1000;
-    const cls = wr.map(r => classifyRunIntensity(r, basics.mp.sec, basics.zones, null));
+    const cls = wr.map(r => runType(r, basics));
     const q = cls.filter(c => QUALITY_TYPES.includes(c)).length;
     const longest = Math.max(...wr.map(r => r.distance)) / 1000;
     let easyShare;
@@ -847,9 +950,9 @@ function weekTrendText(basics) {
   return lines.join('\n');
 }
 
-function actLine(a, refPace, zones) {
+function actLine(a, basics) {
   const st = getSportType(a);
-  const wt = classifyWorkout(a, refPace, st, zones, null);
+  const wt = isCrossTraining(st) ? st : labelOf(a, basics);
   const hr = a.average_heartrate ? ` · ${Math.round(a.average_heartrate)}bpm` : '';
   const adj = st === '트레일런' ? ` (환산 ${calcAdjustedPace(a.moving_time, a.distance, a.total_elevation_gain)})` : '';
   return `- ${kstLabel(a.start_date)} ${st}/${wt} ${(a.distance / 1000).toFixed(1)}km @ ${calcPace(a.moving_time, a.distance)}/km${adj}${hr}`;
@@ -880,8 +983,8 @@ async function analyzeWeekly(userId, goal, accessToken) {
     .reduce((s, a) => s + a.distance, 0) / 1000;
 
   const prevCoachingNote = await fetchCoachingNote(userId, 'weekly');
-  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, refPace, ctx, basics.zones);
-  const kpi = calcWeeklyKPI(thisWeekActs, weeklyTarget, refPace, basics.zones);
+  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, refPace, ctx, basics.zones, basics);
+  const kpi = calcWeeklyKPI(thisWeekActs, weeklyTarget, refPace, basics.zones, basics);
 
   // 처방 범위: 일요일 → 다음 주 전체 / 그 외 → (오늘 아직 안 뛰었으면 오늘부터) 남은 날, 남은 날이 2일 이하면 다음 주까지
   const ranToday = thisWeekActs.some(a => ymd(toKst(a.start_date)) === ctx.today);
@@ -904,13 +1007,13 @@ PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'} / 10K ${goal?.p
 
 ${coachBasicsBlock(basics)}${athleteNoteBlock(basics.athleteNote)}${prevCoachingNote ? `\n📝 지난 주 코치 조언 (이행 여부 평가할 것):\n${String(prevCoachingNote).slice(0, 700)}\n` : ''}
 [지난 주 기록] 러닝 ${lastWeekRunKm.toFixed(1)}km
-${lastWeekActs.map(a => actLine(a, refPace, basics.zones)).join('\n') || '기록 없음'}
+${lastWeekActs.map(a => actLine(a, basics)).join('\n') || '기록 없음'}
 
 [최근 4주 흐름]
 ${weekTrendText(basics)}
 
 [이번 주 지금까지] ${kpi.summary}
-${thisWeekActs.map(a => actLine(a, refPace, basics.zones)).join('\n') || '아직 기록 없음'}
+${thisWeekActs.map(a => actLine(a, basics)).join('\n') || '아직 기록 없음'}
 ${planComparison ? `\n[이번 주 계획 대비 실행] 이행 ${planComparison.completedCount}/${planComparison.totalCount}\n${planComparison.text}` : ''}
 
 아래 순서로 2000자 이내 작성:
@@ -1014,7 +1117,7 @@ function monthStats(acts, monthKey, basics) {
   const inMonth = acts.filter(a => ymd(toKst(a.start_date)).slice(0, 7) === monthKey);
   const runs = inMonth.filter(a => ['러닝', '트레일런'].includes(a.sport_type));
   const cross = inMonth.filter(a => !['러닝', '트레일런', '워킹/하이킹'].includes(a.sport_type));
-  const cls = runs.map(r => classifyRunIntensity(r, basics.mp.sec, basics.zones, null));
+  const cls = runs.map(r => runType(r, basics));
   const km = runs.reduce((s, r) => s + r.distance, 0) / 1000;
   const long = runs.filter(r => r.distance >= 20000 && r.distance < 38000);
   const longest = runs.length ? Math.max(...runs.map(r => r.distance)) / 1000 : 0;
@@ -1271,7 +1374,7 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
   const basics = await buildCoachBasics(userId, goal);
 
   // S2: 계획 대비 실행
-  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, basics.refPaceStr, ctx, basics.zones);
+  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, basics.refPaceStr, ctx, basics.zones, basics);
 
   // S5: 주간 KPI
   const totalThisKm = parseFloat(thisRunKm) + parseFloat(thisBikeKm) + parseFloat(thisSwimKm);
@@ -1413,7 +1516,7 @@ async function calcCurrentFitnessPace(accessToken) {
 // S2: 계획 대비 실행 비교
 // weekly_plans 테이블에서 이번 주 계획 가져와서 실제와 대조
 // ══════════════════════════════════════
-async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, refPace, ctx, zones) {
+async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, refPace, ctx, zones, basics = null) {
   try {
     const plans = await sbGet('weekly_plans', `user_id=eq.${userId}&week_start=eq.${weekStart}`);
     if (!plans || plans.length === 0) return null;
@@ -1428,7 +1531,7 @@ async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, refPac
     thisWeekActs.forEach(a => {
       const key = DOW_KEY[kstDow(a.start_date)];
       const st = getSportType(a);
-      const wt = classifyWorkout(a, refPace, st, zones, null);
+      const wt = isCrossTraining(st) ? st : basics ? labelOf(a, basics) : classifyWorkout(a, refPace, st, zones, null);
       (doneByDay[key] = doneByDay[key] || []).push(`${wt} ${(a.distance / 1000).toFixed(1)}km@${calcPace(a.moving_time, a.distance)}`);
     });
 
@@ -1456,12 +1559,12 @@ async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, refPac
 // S5: 훈련 완료율 KPI 계산
 // LSD 완료율, 주간 거리 달성률, 강도훈련 횟수
 // ══════════════════════════════════════
-function calcWeeklyKPI(thisWeekActs, weeklyTarget, refPace, zones) {
+function calcWeeklyKPI(thisWeekActs, weeklyTarget, refPace, zones, basics = null) {
   const runActs = thisWeekActs.filter(a => ['러닝', '트레일런'].includes(getSportType(a)));
   const totalKm = runActs.reduce((s, a) => s + a.distance, 0) / 1000;
   const distRate = Math.round(totalKm / weeklyTarget * 100);
   const longCount = runActs.filter(a => a.distance >= 15000).length;
-  const intensityCount = runActs.filter(a => QUALITY_TYPES.includes(classifyWorkout(a, refPace, getSportType(a), zones, null))).length;
+  const intensityCount = runActs.filter(a => QUALITY_TYPES.includes(basics ? labelOf(a, basics) : classifyWorkout(a, refPace, getSportType(a), zones, null))).length;
   const crossCount = thisWeekActs.length - runActs.length;
   return {
     totalKm: totalKm.toFixed(1), weeklyTarget, distRate, longCount, intensityCount,
@@ -1624,7 +1727,8 @@ async function buildAthleteProfile(userId, goal, userProfile) {
 
   // ① 이지런 강도 — 이지런 평균 심박이 이지 구간 상한을 넘은 비율
   if (zones) {
-    const easy = runs.filter(a => a.avg_heartrate > 0 && classifyRunIntensity(a, mpInfo.sec, zones, null) === '이지런');
+    const typeOf = (a) => RUN_LABELS.includes(a.workout_type) ? a.workout_type : classifyRunIntensity(a, mpInfo.sec, zones, null);
+    const easy = runs.filter(a => a.avg_heartrate > 0 && typeOf(a) === '이지런');
     if (easy.length >= 8) {
       const limit = zones.easy[1];
       const pct = Math.round(easy.filter(a => a.avg_heartrate > limit).length / easy.length * 100);
@@ -1665,13 +1769,13 @@ async function buildAthleteProfile(userId, goal, userProfile) {
 
   // ③ 스피드/품질 훈련 — 최근 8주 인터벌·템포·페이스주 횟수
   const recent8w = runs.filter(a => new Date(a.start_date).getTime() > weeksAgo(8));
-  const quality = recent8w.filter(a => QUALITY_TYPES.includes(classifyRunIntensity(a, mpInfo.sec, zones, null))).length;
+  const quality = recent8w.filter(a => QUALITY_TYPES.includes(RUN_LABELS.includes(a.workout_type) ? a.workout_type : classifyRunIntensity(a, mpInfo.sec, zones, null))).length;
   metrics.qualitySessions8w = quality;
   if (recent8w.length >= 8) {
     if (quality < 2) {
       weaknesses.push({
         key: 'speed_work', label: '스피드 훈련 부족', severity: quality === 0 ? 'high' : 'medium',
-        evidence: `최근 8주 인터벌·템포·페이스주 ${quality}회`,
+        evidence: `최근 8주 인터벌·언덕·템포·페이스주 ${quality}회`,
         advice: `주 1회 템포런(${calcPaceOffset(targetPace, 15)}/km${zones ? `, 심박 ${zones.threshold[0]}-${zones.threshold[1]}` : ''}) 또는 인터벌(${calcPaceOffset(targetPace, 30)}/km${zones ? `, 심박 ${zones.interval[0]}+` : ''})을 넣으세요. 나머지는 확실히 천천히.`
       });
     } else if (quality >= 6) {
@@ -2028,12 +2132,13 @@ export default async function handler(req, res) {
         // 각 활동 저장
         for (const activity of newDayActs) {
           const sportType = getSportType(activity);
-          const workoutType = classifyWorkout(activity, basics.refPaceStr, sportType, basics.zones, null);
           const weekStart = getWeekStart(activity.start_date);
           const adjustedPace = sportType === '트레일런'
             ? calcAdjustedPace(activity.moving_time, activity.distance, activity.total_elevation_gain)
             : null;
           const details = await fetchActivityDetails(activity.id, accessToken);
+          // 랩까지 보고 분류 (인터벌·언덕 반복은 전체 평균으로는 이지런처럼 보임)
+          const workoutType = classifyWorkout(activity, basics.refPaceStr, sportType, basics.zones, details.laps);
           const hrData = details.streams?.heartrate?.data || [];
           const cadData = details.streams?.cadence?.data || [];
           const avgHR = hrData.length > 0 ? Math.round(hrData.reduce((s, v) => s + v, 0) / hrData.length) : null;
@@ -2057,6 +2162,7 @@ export default async function handler(req, res) {
             max_heartrate: activity.max_heartrate || null,
             avg_cadence: avgCad,
             adjusted_pace: adjustedPace,
+            laps: details.laps.length > 0 ? JSON.stringify(details.laps) : null,
             analysis: null // 묶음 분석으로 대체
           });
         }
