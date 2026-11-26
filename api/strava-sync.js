@@ -385,23 +385,37 @@ async function fetchActivityDetails(activityId, accessToken) {
   }
 }
 
-// ── Claude API 호출 ──
-async function callClaude(prompt, maxTokens) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || '분석을 불러올 수 없습니다.';
+// ── Claude API 공통 호출 ──
+// Haiku 5.5: 생각(thinking) 블록이 먼저 올 수 있어 text 블록만 골라 읽음.
+// 토큰이 약 30% 더 들고 생각 분량도 max_tokens에 포함되므로 한도를 넉넉히 줌.
+// effort: 일간·컨디션은 low, 계획을 짜는 주간·월간·레이스 전략은 medium.
+// 5.5 요청이 실패하면 기존 Haiku 4.5로 한 번 더 시도(분석이 멈추지 않게).
+async function askClaude(prompt, maxTokens, effort = 'low') {
+  const call = async (body) => {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (!res.ok || !text || data.stop_reason === 'refusal') {
+      console.error('Claude 응답 실패', body.model, res.status, data.error?.message || data.stop_reason);
+      return null;
+    }
+    return text;
+  };
+  const messages = [{ role: 'user', content: prompt }];
+  return (await call({ model: 'claude-haiku-5-5', max_tokens: Math.round(maxTokens * (effort === 'low' ? 1.6 : 2.2)) + 400, output_config: { effort }, messages }))
+      ?? (await call({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages }));
+}
+
+async function callClaude(prompt, maxTokens, effort = 'low') {
+  return (await askClaude(prompt, maxTokens, effort)) || '분석을 불러올 수 없습니다.';
 }
 
 // ── 마크다운 → 텔레그램 HTML ──
@@ -506,12 +520,100 @@ const COACHING_RULES = `[코칭 원칙 — 반드시 지킬 것]
 5. 주간 훈련의 약 80%는 이지 강도. 이지런이 느린 것은 문제가 아니고, 이지런이 이지 구간보다 센 것이 문제.
 6. 데이터에 있는 사실만 근거로 평가. 근거 없는 원인 추정이나 "심각", "저하" 같은 과장 금지. 잘한 점은 숫자로 구체적으로 인정.
 7. 처방에는 반드시 날짜와 요일(예: 11/28(금))을 붙일 것. "Day 2" 같은 표현 금지.
-8. 일요일은 일산호수 정모 LSD 고정.
+8. 일요일은 일산호수 정모 LSD 고정 — 거리가 아니라 시간 기준으로 처방(예: LSD 2시간, 이 선수 LSD 페이스로 약 OOkm는 괄호로).
 9. 부상·피로 기록이 있거나 풀코스 후 14일 이내면 회복을 최우선.
 10. 표(|) 대신 목록(-)으로 작성.`;
 
 const QUALITY_TYPES = ['인터벌', '템포런', '페이스주', '언덕훈련'];
 const RUN_LABELS = ['이지런', 'LSD', '롱런', '페이스주', '템포런', '인터벌', '언덕훈련', '풀코스'];
+
+// ── 일마 정모 일정 (구글 시트 CSV) ──
+// 시트 열: 날짜 | 종류 | 시간 | 거리(km) | 코스 | 메모  — 헤더 이름으로 찾으므로 열 순서는 자유
+// 일요 LSD는 시간 기준(예: 2:00, 2시간, 120분). 거리는 비워도 됨 → 개인 LSD 페이스로 예상 거리 환산
+// CLUB_RUNS_CSV_URL 이 없거나 읽기에 실패하면 빈 목록 → 기존 규칙(일요일 일산호수 LSD)대로 동작
+let clubRunsCache = null;
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.map(r => r.map(x => x.trim())).filter(r => r.some(Boolean));
+}
+function parseSheetMinutes(v) {
+  const t = String(v || '').replace(/\s/g, '');
+  if (!t) return null;
+  let m = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+  m = t.match(/^(\d+(?:\.\d+)?)시간(?:(\d+)분)?$/);
+  if (m) return Math.round(Number(m[1]) * 60 + Number(m[2] || 0));
+  m = t.match(/^(\d+)분$/) || t.match(/^(\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+function parseSheetDate(v, anchor) {
+  const t = String(v || '').replace(/\s/g, '');
+  let m = t.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = t.match(/^(\d{1,2})[-./월](\d{1,2})/);
+  if (!m) return null;
+  const y = new Date(anchor + KST_MS).getUTCFullYear();
+  const mo = Number(m[1]), d = Number(m[2]);
+  const cand = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  // 연말에 1~2월 일정을 적은 경우 다음 해로
+  return Date.parse(cand) < anchor - 60 * 86400000 ? `${y + 1}${cand.slice(4)}` : cand;
+}
+async function fetchClubRuns(anchor = Date.now()) {
+  const url = process.env.CLUB_RUNS_CSV_URL;
+  if (!url) return [];
+  if (!clubRunsCache) {
+    try {
+      const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 4000);
+      const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(tm);
+      clubRunsCache = r.ok ? parseCsv(await r.text()) : [];
+    } catch (e) { console.error('정모 일정 읽기 실패', e.message); clubRunsCache = []; }
+  }
+  const [head, ...body] = clubRunsCache;
+  if (!head) return [];
+  const col = (k) => head.findIndex(h => h.includes(k));
+  const ci = { date: col('날짜'), type: col('종류'), min: col('시간'), km: col('거리'), course: col('코스'), memo: col('메모') };
+  if (ci.date < 0) return [];
+  const today = ymd(new Date(anchor));
+  const until = ymd(new Date(anchor + 45 * 86400000));
+  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  return body.map(r => {
+    const date = parseSheetDate(r[ci.date], anchor);
+    if (!date) return null;
+    const km = ci.km >= 0 ? parseFloat(String(r[ci.km]).replace(/[^\d.]/g, '')) : NaN;
+    const dt = new Date(date + 'T00:00:00Z');
+    return {
+      date, km: isNaN(km) ? null : km, min: ci.min >= 0 ? parseSheetMinutes(r[ci.min]) : null,
+      type: (ci.type >= 0 && r[ci.type]) || 'LSD',
+      course: ci.course >= 0 ? r[ci.course] : '', memo: ci.memo >= 0 ? r[ci.memo] : '',
+      label: `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}(${DOW[dt.getUTCDay()]})`
+    };
+  }).filter(x => x && x.date >= today && x.date <= until).sort((a, b) => a.date.localeCompare(b.date));
+}
+function fmtMin(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
+// 시간 기준 LSD → 개인 이지·LSD 페이스(현재 MP+45~75초)로 예상 거리
+function lsdKmRange(min, mpSec) {
+  if (!min || !mpSec) return null;
+  const a = Math.round(min * 60 / (mpSec + 75)), b = Math.round(min * 60 / (mpSec + 45));
+  return { lo: a, hi: b, mid: Math.round((a + b) / 2) };
+}
+function clubRunsText(list, mpSec) {
+  if (!list?.length) return '';
+  return `[일마 정모 일정 — 클럽이 정한 확정 일정]\n` + list.map(c => {
+    const est = c.min && !c.km ? lsdKmRange(c.min, mpSec) : null;
+    return `- ${c.label} ${c.type}${c.min ? ` ${fmtMin(c.min)}` : ''}${c.km ? ` ${c.km}km` : ''}` +
+      `${est ? ` (이 선수 LSD 페이스로 약 ${est.lo}~${est.hi}km, 주간 거리 계산은 ${est.mid}km)` : ''}` +
+      `${c.course ? ` · ${c.course}` : ''}${c.memo ? ` · ${c.memo}` : ''}`;
+  }).join('\n') + '\n';
+}
 
 // DB 기록의 분류: 저장 시 랩까지 보고 분류한 값(workout_type)을 우선 사용 — DB 조회에는 랩이 없어서 다시 분류하면 인터벌이 이지런으로 보임
 function runType(r, basics) {
@@ -583,7 +685,15 @@ function detectWorkoutStructure(laps, mpSec, opts = {}) {
         text: `${isHill ? '언덕 반복' : '인터벌'} ${work.length}회 × ${fmtKm(medDist)}km (평균 ${secToPaceStr(avgPace(workLaps))}/km` +
           `${isHill ? `, 오르막 +${elev}m` : ''}${hr ? `, 심박 ${hr}` : ''})` +
           (rec.length ? ` / 회복 ${fmtKm(median(rec.map(l => l.distance)))}km ${secToPaceStr(avgPace(rec))}/km${recHr ? `, 심박 ${recHr}` : ''}` : '') +
-          ` · 반복 페이스 ${secToPaceStr(Math.min(...workLaps.map(pace)))}~${secToPaceStr(Math.max(...workLaps.map(pace)))}`
+          ` · 반복 페이스 ${secToPaceStr(Math.min(...workLaps.map(pace)))}~${secToPaceStr(Math.max(...workLaps.map(pace)))}`,
+        stats: {
+          workPaceSec: avgPace(workLaps), workHr: hr, recHr, recPaceSec: rec.length ? avgPace(rec) : null,
+          firstPaceSec: pace(workLaps[0]), lastPaceSec: pace(workLaps[workLaps.length - 1]),
+          repSec: median(workLaps.map(l => l.moving_time)), isHill,
+          // 오르막 1m ≈ 평지 8m 로 환산한 반복 구간 페이스
+          gradePct: isHill ? Math.round(median(workLaps.map(l => (l.total_elevation_gain || 0) / l.distance * 100)) * 10) / 10 : null,
+          adjPaceSec: isHill ? workLaps.reduce((s, l) => s + l.moving_time, 0) / (workLaps.reduce((s, l) => s + l.distance + (l.total_elevation_gain || 0) * 8, 0) / 1000) : null
+        }
       };
     }
   }
@@ -604,7 +714,8 @@ function detectWorkoutStructure(laps, mpSec, opts = {}) {
         return {
           type: '템포런', primary,
           text: `${primary ? '템포 구간' : '빠른 구간 포함(빌드업/빠른 마무리)'} ${(sumD(best.laps) / 1000).toFixed(1)}km @ ${secToPaceStr(avgPace(best.laps))}/km${bHr ? `, 심박 ${bHr}` : ''}` +
-            ` (나머지 ${secToPaceStr(avgPace(others))}/km)`
+            ` (나머지 ${secToPaceStr(avgPace(others))}/km)`,
+          stats: { workPaceSec: avgPace(best.laps), workHr: bHr, repSec: best.laps.reduce((s, l) => s + l.moving_time, 0), isHill: false }
         };
       }
     }
@@ -717,10 +828,11 @@ async function buildCoachBasics(userId, goal, anchor = Date.now()) {
   // 개인화 주간 목표 (대회·회복 주 제외한 정상 훈련 주 기준)
   const weeklyTarget = weeklyTargetFromRuns(runs, goal, anchor);
   const last4 = weeklyTarget.weeks;
+  const clubRuns = await fetchClubRuns(anchor);
 
   return {
     userId, ctx, runs, byId: new Map(runs.map(r => [String(r.strava_id), r])), zones, mp, paces, goalMpSec, phase, daysLeft, postRace, daysSinceRace, lastRace,
-    last4Weeks: last4, weeklyTarget, athleteNote: ap?.summary || '',
+    last4Weeks: last4, weeklyTarget, clubRuns, athleteNote: ap?.summary || '',
     refPaceStr: secToPaceStr(mp.sec)
   };
 }
@@ -734,12 +846,42 @@ ${b.goalMpSec ? `- 목표 레이스 페이스: ${secToPaceStr(b.goalMpSec)}/km (
 [현재 실력 기준 훈련 페이스] ${b.paces.text}
 ${b.zones ? `[심박 구간] ${hrZonesText(b.zones)}` : '[심박 구간] 미설정 — 페이스 기준으로만 평가'}
 [주간 목표 거리] ${b.weeklyTarget.km}km (${b.weeklyTarget.basis}) | 최근 4주: ${b.last4Weeks.slice().reverse().map(w => `${w.km}${w.postRace ? '*' : ''}`).join(' → ')}km (*=대회·회복 주, 대회 거리 제외)
-${b.postRace ? `⚠️ 풀코스(${kstLabel(b.lastRace.start_date)}) 후 ${b.daysSinceRace}일째 — 회복 기간\n` : ''}
-${COACHING_RULES}
+${b.postRace ? `⚠️ 풀코스(${kstLabel(b.lastRace.start_date)}) 후 ${b.daysSinceRace}일째 — 회복 기간\n` : ''}${clubRunsText(b.clubRuns, b.mp?.sec)}
+${b.clubRuns?.length ? COACHING_RULES.replace('8. 일요일은 일산호수 정모 LSD 고정 — 거리가 아니라 시간 기준으로 처방(예: LSD 2시간, 이 선수 LSD 페이스로 약 OOkm는 괄호로).', '8. [일마 정모 일정]에 있는 날은 그 종류·시간(또는 거리)·코스를 그대로 처방(페이스·심박은 선수 기준값). 시간 기준이면 시간으로 처방하고 예상 거리는 괄호로, 주간 거리 계산에는 표의 예상 거리를 사용. 일정에 없는 일요일은 일산호수 정모 LSD(시간 기준).') : COACHING_RULES}
 `;
 }
 
 // 심박이 어느 구간인지
+// 반복·템포 구간 강도 판정 — AI가 범위 비교를 직접 하지 않도록 코드에서 결론을 내려 전달
+function structureVerdict(structure, basics) {
+  const st = structure?.stats;
+  if (!st || !structure.primary || !basics?.mp?.sec) return '';
+  const mp = basics.mp.sec;
+  const isTempo = structure.type === '템포런';
+  const [lo, hi] = isTempo ? [mp - 20, mp - 12] : [mp - 40, mp - 32];   // 기준 범위 (초/km, 작을수록 빠름)
+  const rangeStr = `${secToPaceStr(lo)}~${secToPaceStr(hi)}/km`;
+  const judge = (sec) => sec < lo ? `기준보다 ${Math.round(lo - sec)}초/km 빠름`
+    : sec > hi ? `기준보다 ${Math.round(sec - hi)}초/km 느림` : '기준 범위 안 (충족)';
+  const lines = [];
+  if (st.isHill) {
+    lines.push(`- 페이스: 오르막 반복(평균 경사 약 ${st.gradePct}%)이라 평지 인터벌 페이스 기준(${rangeStr})과 비교하지 않음. 실제 반복 평균 ${secToPaceStr(st.workPaceSec)}/km는 참고용, 강도는 심박과 반복 간 일관성으로 판단`);
+  } else {
+    lines.push(`- 페이스: 반복 평균 ${secToPaceStr(st.workPaceSec)}/km → ${isTempo ? '템포' : '인터벌'} 기준 ${rangeStr} 대비 ${judge(st.workPaceSec)}`);
+  }
+  if (st.workHr && basics.zones) {
+    const target = isTempo ? basics.zones.threshold : basics.zones.interval;
+    const zoneLabel = hrZoneOf(st.workHr, basics.zones);
+    let hrLine = `- 심박: 반복 평균 ${st.workHr}bpm → ${zoneLabel}${target ? ` (목표 구간 ${target[0]}~${target[1]}bpm ${st.workHr >= target[0] ? '도달' : '미도달'})` : ''}`;
+    if (!isTempo && st.repSec < 240) hrLine += ` · 반복 1회가 약 ${Math.round(st.repSec / 60 * 10) / 10}분으로 짧아 심박이 다 오르기 전에 끝남 → 랩 평균 심박이 목표보다 낮은 건 정상${st.isHill ? (st.recHr ? `. 반복 ${st.workHr} vs 회복 ${st.recHr}bpm (+${st.workHr - st.recHr}) → ${st.workHr - st.recHr >= 10 ? '오르막에서 확실히 힘을 씀' : '반복과 회복의 강도 차이가 작음'}` : '') : ', 강도는 페이스로 판단'}`;
+    lines.push(hrLine);
+  }
+  if (st.firstPaceSec && st.lastPaceSec && !isTempo) {
+    const d = Math.round(st.lastPaceSec - st.firstPaceSec);
+    lines.push(`- 일관성: 첫 반복 ${secToPaceStr(st.firstPaceSec)} → 마지막 ${secToPaceStr(st.lastPaceSec)}/km (${d > 0 ? `${d}초 느려짐` : d < 0 ? `${-d}초 빨라짐` : '같음'}) → ${Math.abs(d) <= 8 ? '일정하게 유지' : d > 20 ? '후반 페이스가 크게 떨어짐' : d > 0 ? '후반 약간 떨어짐' : '후반으로 갈수록 빨라짐'}${st.isHill ? ' (언덕 반복은 구간마다 경사가 달라 참고용)' : ''}`);
+  }
+  return lines.length ? `[강도 판정 — 코드 계산 결과]\n${lines.join('\n')}\n` : '';
+}
+
 function hrZoneOf(hr, zones) {
   if (!hr || !zones) return null;
   const order = ['easy', 'marathon', 'threshold', 'interval'];
@@ -864,6 +1006,7 @@ async function analyzeDailyActivity(activity, goal, basics, workoutType, sportTy
     : phases
       ? `웜업 ${phases.warmupKm}km · 본훈련 ${phases.mainKm}km @ ${phases.mainPace}/km · 쿨다운 ${phases.cooldownKm}km | ${phases.splitText} | 랩 페이스 편차 ±${phases.paceSdSec}초`
       : '랩 데이터 없음';
+  const verdict = structureVerdict(structure, basics);
   const weatherImpact = weather ? analyzeWeatherImpact(weather) : null;
   const conditionInfo = condition
     ? `컨디션 ${condition.condition || '보통'} | 부상 ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}${condition.memo ? ` | 메모: ${condition.memo}` : ''}`
@@ -884,7 +1027,7 @@ ${avgHR ? `- 평균 심박 ${avgHR}bpm → ${zoneName || '구간 미설정'}` : 
 ${weatherImpact ? `- 날씨: ${weatherImpact.replace(/\n/g, ' / ')}` : ''}
 ${conditionInfo ? `- 선수 컨디션: ${conditionInfo}` : ''}
 
-${comparison ? `[같은 유형 과거 비교]\n${comparison}\n` : ''}
+${verdict}${comparison ? `[같은 유형 과거 비교]\n${comparison}\n` : ''}
 [최근 14일 러닝]${log.lastHardDays !== null ? ` (마지막 강훈련: ${log.lastHardDays === 0 ? '같은 날' : `${log.lastHardDays}일 전`} ${log.lastHardLabel})` : ''}
 ${log.text}
 
@@ -895,7 +1038,7 @@ ${planned ? `[주간 리포트 계획] ${planned}` : '[주간 리포트 계획] 
 
 **오늘 평가**
 ${structure?.primary
-  ? `이 훈련은 ${structure.type}입니다. 전체 평균 페이스·심박이 아니라 [워크아웃 구조]의 반복(질주) 구간 페이스와 심박이 의도한 강도(${structure.type === '템포런' ? '젖산역치·템포' : '인터벌·역치 이상'} 구간)에 맞았는지, 첫 반복과 마지막 반복의 페이스 차이(일관성)를 평가하세요. 회복 구간이 충분히 느렸는지도 한 줄로.`
+  ? `이 훈련은 ${structure.type}입니다. 전체 평균 페이스·심박이 아니라 [워크아웃 구조]의 반복(질주) 구간 페이스와 심박이 의도한 강도(${structure.type === '템포런' ? '젖산역치·템포' : '인터벌·역치 이상'} 구간)에 맞았는지, 첫 반복과 마지막 반복의 페이스 차이(일관성)를 평가하세요. 회복 구간이 충분히 느렸는지도 한 줄로.${verdict ? ' 페이스·심박·일관성은 [강도 판정]의 결론을 그대로 따르고 숫자를 인용하세요. 판정과 다르게 쓰지 말 것(예: "기준 범위 안"인 값을 느리다·빠르다고 쓰지 말 것).' : ''}`
   : `훈련 분류(${workoutType})의 의도에 맞는 강도였는지 심박 구간과 페이스로 판단하세요.`} ${comparison && !comparison.includes('비교 불가') ? '[같은 유형 과거 비교]의 숫자를 최소 1개 인용해 지난 기록 대비 변화를 평가하세요.' : '같은 유형 과거 기록이 부족하니 과거 비교는 하지 말 것.'} ${phases && !structure?.primary ? '스플릿·페이스 편차도 한 줄로.' : ''}${isCross ? ' 크로스트레이닝이 마라톤 준비에 주는 효과 중심으로.' : ''}${isTrail ? ' 트레일은 고도 환산 페이스 기준.' : ''}${weatherImpact ? ' 날씨 영향이 컸다면 반영.' : ''}${condition?.injury_part && condition.injury_part !== '없음' ? ` ${condition.injury_part} 부상을 반드시 고려.` : ''} (3-4문장)
 
 **이번 주 흐름**
@@ -1026,7 +1169,7 @@ ${planComparison ? `\n[이번 주 계획 대비 실행] 이행 ${planComparison.
 
 **${planTitle}**
 ${planDates.map(dateLabel).join(', ')} 각각 한 줄씩 "- ${dateLabel(planDates[0])} 훈련종류 거리km @ 페이스/km, 심박 범위" 형식. 휴식일도 표시.
-이번 주 남은 날의 합계는 ${thisWeekLeftKm.toFixed(0)}km 이하(이미 ${kpi.totalKm}km 완료), 다음 주는 ${weeklyTarget}km 이하. 강훈련은 주 2회 이하, 연속 금지, 일요일은 일산호수 LSD.
+이번 주 남은 날의 합계는 ${thisWeekLeftKm.toFixed(0)}km 이하(이미 ${kpi.totalKm}km 완료), 다음 주는 ${weeklyTarget}km 이하. 강훈련은 주 2회 이하, 연속 금지, 일요일은 일산호수 LSD(시간 기준).
 
 **핵심 훈련 상세**
 위 계획 중 가장 중요한 1개: 웜업/본훈련/쿨다운, 페이스·심박, 목적.
@@ -1035,7 +1178,7 @@ ${planDates.map(dateLabel).join(', ')} 각각 한 줄씩 "- ${dateLabel(planDate
 2-3개. 약점 프로파일과 연결.
 ${planBlockInstruction(planDates)}`;
 
-  const raw = await callClaude(prompt, 2300);
+  const raw = await callClaude(prompt, 2300, 'medium');
   const { clean, items } = extractPlan(raw);
   try { await storePlanItems(userId, items); } catch (e) { console.error('plan store error:', e.message); }
 
@@ -1245,7 +1388,7 @@ ${monthRoadmap ? '**대회까지 월별 테마** — 위 월 순서대로 한 �
 
 **코치 한마디** — 1-2문장`;
 
-  return callClaude(prompt, 3500);
+  return callClaude(prompt, 3500, 'medium');
 }
 
 // ══════════════════════════════════════
@@ -1382,7 +1525,7 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
   const kpiSummary = `러닝 ${thisRunKm}km | 자전거 ${thisBikeKm}km | 수영 ${thisSwimKm}km${planComparison ? ` | 계획이행 ${planComparison.rate}%` : ''}`;
 
   const remainingStr = ctx.remainingDaysCount > 0
-    ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}`
+    ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정, 시간 기준)' : ''}`
     : '없음 (오늘이 일요일)';
 
   const planDates = ctx.todayDow === 0 ? ctx.nextWeekDates : ctx.remainingDayDates.concat(ctx.nextWeekDates);
@@ -1418,7 +1561,7 @@ ${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고
 남은 날 각각 한 줄씩 날짜·요일과 함께 (예: "- 11/28(금) 수영 2km 지속주").
 
 **다음 주 훈련 계획 (${ctx.nextWeekLabels[0]} ~ ${ctx.nextWeekLabels[6]})**
-${ctx.nextWeekLabels.join(', ')} 각각 한 줄: 종목·거리/시간·강도(러닝은 페이스·심박). 토요일은 벽돌훈련(자전거+러닝) 권장, 일요일은 일산호수 LSD.
+${ctx.nextWeekLabels.join(', ')} 각각 한 줄: 종목·거리/시간·강도(러닝은 페이스·심박). 토요일은 벽돌훈련(자전거+러닝) 권장, 일요일은 일산호수 LSD(시간 기준).
 
 **핵심 훈련 상세**
 1. [벽돌훈련 - 자전거 거리/강도 → 러닝 거리/페이스]
@@ -1429,7 +1572,7 @@ ${ctx.nextWeekLabels.join(', ')} 각각 한 줄: 종목·거리/시간·강도(�
 (트라이애슬론과 마라톤 병행 관련 2-3가지)
 ${planBlockInstruction(planDates)}`;
 
-  const raw = await callClaude(prompt, 2300);
+  const raw = await callClaude(prompt, 2300, 'medium');
   const { clean, items } = extractPlan(raw);
   try { await storePlanItems(userId, items); } catch (e) { console.error('plan store error:', e.message); }
 
@@ -1830,7 +1973,7 @@ async function buildAthleteProfile(userId, goal, userProfile) {
       weaknesses.push({
         key: 'long_run', label: '장거리 훈련 부족', severity: 'high',
         evidence: `${phase}인데 최근 6주 20km 이상 러닝 0회`,
-        advice: `일요일 일산호수 LSD를 20km 이상으로 점진적으로 늘리세요 (${calcPaceOffset(targetPace, -60)}/km 내외).`
+        advice: `일요일 LSD 시간을 점진적으로 늘려 20km 이상을 확보하세요 (현재 LSD 페이스 ${secToPaceStr(mpInfo.sec + 60)}/km 기준 약 ${fmtMin(Math.round(20 * (mpInfo.sec + 60) / 60))}).`
       });
     } else if (long6w >= 4) {
       strengths.push({ key: 'long_run', label: '충분한 장거리 훈련', evidence: `최근 6주 20km+ ${long6w}회` });
