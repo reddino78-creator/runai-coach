@@ -568,7 +568,7 @@ function parseSheetDate(v, anchor) {
   // 연말에 1~2월 일정을 적은 경우 다음 해로
   return Date.parse(cand) < anchor - 60 * 86400000 ? `${y + 1}${cand.slice(4)}` : cand;
 }
-async function fetchClubRuns(anchor = Date.now()) {
+async function fetchClubRuns(anchor = Date.now(), days = 45) {
   const url = process.env.CLUB_RUNS_CSV_URL;
   if (!url) return [];
   if (!clubRunsCache) {
@@ -584,7 +584,7 @@ async function fetchClubRuns(anchor = Date.now()) {
   const ci = { date: col('날짜'), type: col('종류'), min: col('시간'), km: col('거리'), hill: col('언덕'), course: col('코스'), memo: col('메모') };
   if (ci.date < 0) return [];
   const today = ymd(new Date(anchor));
-  const until = ymd(new Date(anchor + 45 * 86400000));
+  const until = ymd(new Date(anchor + days * 86400000));
   const DOW = ['일', '월', '화', '수', '목', '금', '토'];
   return body.map(r => {
     const date = parseSheetDate(r[ci.date], anchor);
@@ -1884,9 +1884,9 @@ async function buildAthleteProfile(userId, goal, userProfile) {
       const limit = zones.easy[1];
       const pct = Math.round(easy.filter(a => a.avg_heartrate > limit).length / easy.length * 100);
       metrics.easyTooHardPct = pct;
-      if (pct >= 30) {
+      if (pct >= 20) {
         weaknesses.push({
-          key: 'easy_intensity', label: '이지런 강도 과다', severity: pct >= 50 ? 'high' : 'medium',
+          key: 'easy_intensity', label: '이지런 강도 과다', severity: pct >= 40 ? 'high' : 'medium',
           evidence: `이지런 ${easy.length}회 중 ${pct}%가 ${zones.labels.easy} 구간 상한(${limit}bpm) 초과`,
           advice: `이지런은 ${zones.labels.easy} 구간(${zones.easy[0]}-${zones.easy[1]}bpm), 대화 가능한 강도로. 쉬는 날을 확실히 쉬어야 강한 날이 강해집니다.`
         });
@@ -2014,9 +2014,9 @@ async function buildAthleteProfile(userId, goal, userProfile) {
   if (raceFades.length > 0) {
     const latest = raceFades[0];
     metrics.raceFade = raceFades;
-    if (latest.fadePct > 5) {
+    if (latest.fadePct > 3) {
       weaknesses.push({
-        key: 'race_fade', label: '레이스 후반 페이스 저하', severity: latest.fadePct > 10 ? 'high' : 'medium',
+        key: 'race_fade', label: '레이스 후반 페이스 저하', severity: latest.fadePct > 8 ? 'high' : 'medium',
         evidence: `최근 풀코스(${latest.date}) 마지막 1/4 구간이 전반보다 ${latest.fadePct}% 느려짐`,
         advice: '레이스 초반을 목표 페이스보다 5~10초 느리게 시작하고, 30km 이후를 대비한 보급과 롱런 후반 페이스 연습을 하세요.'
       });
@@ -2034,6 +2034,28 @@ async function buildAthleteProfile(userId, goal, userProfile) {
     partCount[p].count++;
   });
   const cautions = Object.values(partCount).filter(c => c.count >= 2).sort((a, b) => b.count - a.count);
+
+  // ⑨ 목표 대비 현재 실력 격차 — 현재 마라톤 페이스(최근 대회·PR 기준) vs 목표 기록 페이스
+  const goalSec = goalPaceSec(goal);
+  if (goalSec && mpInfo?.sec && !isTri && raceAhead) {
+    const gap = Math.round(mpInfo.sec - goalSec);
+    metrics.goalGapSec = gap;
+    const hms = (sec) => { sec = Math.round(sec); return `${Math.floor(sec / 3600)}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; };
+    const predicted = hms(mpInfo.sec * 42.195);
+    const weeksLeft = Math.floor((new Date(goal.race_date) - Date.now()) / (7 * 86400000));
+    if (gap >= 15) {
+      const until = goal.race_date ? Math.ceil((new Date(goal.race_date) - Date.now()) / 86400000) : 60;
+      const checks = (await fetchClubRuns(Date.now(), Math.max(0, until - 21))).filter(c => /race|대회/i.test(c.type) && c.km >= 10);
+      const cp = checks[0];
+      weaknesses.push({
+        key: 'goal_gap', label: '목표 대비 현재 실력 격차', severity: gap >= 30 ? 'high' : 'medium',
+        evidence: `현재 실력 기준 풀코스 예상 ${predicted}(${mpInfo.source}) vs 목표 ${goal.target_time} — ${gap}초/km 차이, 대회까지 ${weeksLeft}주`,
+        advice: `훈련은 목표 페이스가 아니라 현재 실력 기준으로 하고, ${cp ? `${cp.label} ${cp.type} ${cp.km}km` : '중간 점검 대회(하프 등)'}로 실제 향상을 확인한 뒤 목표 기록을 다시 판단하세요.`
+      });
+    } else if (gap <= 5) {
+      strengths.push({ key: 'goal_gap', label: '목표에 근접한 실력', evidence: `현재 예상 ${predicted}, 목표 ${goal.target_time}과 ${gap <= 0 ? '이미 같거나 빠름' : `${gap}초/km 차이`}` });
+    }
+  }
 
   // 심각도 순 정렬, 상위 3개를 핵심 약점으로
   const sevRank = { high: 0, medium: 1 };
