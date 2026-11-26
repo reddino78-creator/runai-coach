@@ -92,9 +92,10 @@ function analyzeTrainingData(acts) {
     : 0;
 
   // 체력 페이스 (가중 평균 — 최근 2주 가중 3배, 1개월 2배, 3개월 1배)
-  // 레이스 기록(38km 이상 또는 workout_type=1)은 제외 — 훈련 페이스와 성격이 다름
+  // 풀코스 레이스(38km 이상)는 제외 — 훈련 페이스와 성격이 다름
+  // (DB의 workout_type은 한글 훈련 분류라 레이스 여부를 알 수 없음 → 거리로 판별)
   // 페이스 범위 필터: 3:30~8:00/km (210~480초)
-  const isRace = (a) => a.distance >= 38000 || a.workout_type === 1;
+  const isRace = (a) => a.distance >= 38000;
   const validPaces = (runs) => runs
     .filter(a => !isRace(a))
     .map(a => a.moving_time / (a.distance / 1000))
@@ -131,20 +132,17 @@ function analyzeTrainingData(acts) {
   if (intensityRatio >= 25) completeness += 20;
   else if (intensityRatio >= 15) completeness += 10;
 
-  // 레이스 기록이 있으면 훈련 페이스와 비교해 더 빠른 쪽 반영
-  // (실제 레이스 성과가 훈련보다 체력을 더 정확하게 보여줄 수 있음)
-  const effectiveFitnessSec = bestRacePaceSec && bestRacePaceSec < fitnessPaceSec
-    ? Math.round(bestRacePaceSec * 0.98 + fitnessPaceSec * 0.02) // 레이스 기록 98% 반영
-    : Math.round(fitnessPaceSec);
-
+  // 훈련 페이스는 순수 훈련 기준으로만 계산 (레이스 기록과 섞지 않음)
+  // 레이스 기록은 deriveRealisticTargets에서 별도 기준점으로 사용
   return {
     totalKm3m: totalKm3m.toFixed(0),
     weeklyAvgKm: weeklyAvgKm.toFixed(1),
     longestLsdKm: longestLsdKm.toFixed(1),
     lsd20Count,
     intensityRatio,
-    fitnessPaceSec: effectiveFitnessSec,
-    fitnessPace: secToPace(effectiveFitnessSec),
+    fitnessPaceSec: Math.round(fitnessPaceSec),
+    fitnessPace: fitnessPaceSec ? secToPace(Math.round(fitnessPaceSec)) : '--:--',
+    bestRacePaceSec: bestRacePaceSec ? Math.round(bestRacePaceSec) : null,
     bestRacePace: bestRacePaceSec ? secToPace(Math.round(bestRacePaceSec)) : null,
     completeness,
     runCount3m: recent3m.length,
@@ -195,18 +193,22 @@ async function callClaude(prompt) {
 
 async function deriveRealisticTargets(goal, training, daysLeft, phase, improvement) {
   const userTargetSec = paceToSec(goal.target_pace || '5:27');
-  const fitnessSec = training.fitnessPaceSec;
+  // 현재 레이스 페이스 기준점
+  // - 최근 3개월 풀코스 레이스가 있으면: 실제 레이스 페이스 그대로 (가장 확실한 근거)
+  // - 없으면: 훈련 페이스 × 레이스 효율 (레이스는 보통 훈련보다 3~7% 빠름, 완성도 반영)
+  //   ※ 레이스 페이스에 효율을 또 곱하면 이중 반영되어 비현실적으로 빨라짐
+  // 완성도 0점 → 0.97(3% 단축), 100점 → 0.93(7% 단축). 기존 식(0.93+완성도/1000)은
+  // 0.93~1.03으로 완성도가 높을수록 오히려 느려지는 반대 로직이었음
+  const raceEfficiency = 0.97 - (training.completeness / 100) * 0.04;
+  const trainingBasedSec = training.fitnessPaceSec > 0
+    ? training.fitnessPaceSec * raceEfficiency
+    : userTargetSec * 1.05; // 러닝 데이터가 없을 때 안전장치
+  const baselineSec = training.bestRacePaceSec || trainingBasedSec;
 
-  // 대회일 예상 페이스 = 현재 체력 페이스 - 향상치
-  // Math.min: 체력 기반 예측과 목표의 95% 중 더 빠른(작은) 값은 허용하지 않음
-  // → 단, 체력이 충분히 뒷받침되면 목표보다 빠른 전략도 가능
-  const projectedPaceSec = fitnessSec - improvement;
-
-  // 레이스 효율: 훈련 페이스 대비 레이스 페이스는 보통 3~8% 빠름
-  // 완성도에 따라 조정
-  const raceEfficiency = 0.93 + (training.completeness / 1000); // 0.93~0.97
-  const racePaceSec90 = Math.round(projectedPaceSec * raceEfficiency);        // 90% 달성
-  const racePaceSec80 = Math.round(projectedPaceSec * raceEfficiency * 0.975); // 80% (더 도전적)
+  // 대회일 예상 페이스 = 기준점 - 남은 기간 향상치
+  const projectedPaceSec = baselineSec - improvement;
+  const racePaceSec90 = Math.round(projectedPaceSec);          // 90% 달성 (안전)
+  const racePaceSec80 = Math.round(projectedPaceSec * 0.975);  // 80% 달성 (도전, 약 2.5% 빠름)
 
   const totalDist = 42.195;
   const time90 = secToTime(racePaceSec90 * totalDist);
@@ -399,7 +401,8 @@ export default async function handler(req, res) {
         headers: { 'apikey': process.env.SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` }
       });
       const userData = await verifyRes.json();
-      if (!userData?.id) return res.status(403).json({ error: 'Forbidden' });
+      // 본인 전략만 생성 가능 (다른 사람 전략 덮어쓰기·텔레그램 발송 방지)
+      if (!userData?.id || userData.id !== req.query.user_id) return res.status(403).json({ error: 'Forbidden' });
     } catch (e) {
       return res.status(401).json({ error: 'Invalid token' });
     }
@@ -425,14 +428,18 @@ export default async function handler(req, res) {
 
     // 최근 3개월 활동 (Supabase activities 테이블)
     const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    // 러닝만 가져오고(자전거·수영 제외), 중복 저장된 활동은 strava_id 기준으로 1개만 사용
+    const runFilter = `sport_type=in.(${encodeURIComponent('러닝')},${encodeURIComponent('트레일런')})`;
     const recentActs = await sbGet('activities',
-      `user_id=eq.${uid}&start_date=gte.${threeMonthsAgo}&order=start_date.desc&limit=100`);
+      `user_id=eq.${uid}&${runFilter}&start_date=gte.${threeMonthsAgo}&order=start_date.desc&limit=500`);
+    const seen = new Set();
+    const uniqueActs = (Array.isArray(recentActs) ? recentActs : []).filter(a => {
+      if (seen.has(a.strava_id)) return false;
+      seen.add(a.strava_id);
+      return true;
+    });
 
-    const strategy = await generateStrategy(
-      uid, goal,
-      Array.isArray(recentActs) ? recentActs : [],
-      daysLeft
-    );
+    const strategy = await generateStrategy(uid, goal, uniqueActs, daysLeft);
 
     // 저장 (기존 삭제 후 재저장)
     await fetch(`${SUPABASE_URL}/rest/v1/race_strategies?user_id=eq.${uid}`, {
@@ -460,7 +467,7 @@ export default async function handler(req, res) {
       const msg =
         `🏁 <b>레이스 전략 업데이트</b>\n─────────\n` +
         `📊 <b>현재 체력 분석</b>\n` +
-        `훈련 페이스: ${tr.fitnessPace}/km | 완성도: ${tr.completeness}/100\n` +
+        `훈련 페이스: ${tr.fitnessPace}/km${tr.bestRacePace ? ` | 최근 레이스: ${tr.bestRacePace}/km` : ''} | 완성도: ${tr.completeness}/100\n` +
         `주간 평균: ${tr.weeklyAvgKm}km | 최장 LSD: ${tr.longestLsdKm}km\n\n` +
         `${strategy.assessment}\n\n` +
         `✅ <b>전략 A — 90% 달성 목표</b>\n` +
