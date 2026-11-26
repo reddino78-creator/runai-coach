@@ -1,5 +1,5 @@
 // 매주 월요일 오전 8시 자동 실행
-// 모든 Strava 연동 사용자에게 주간 분석 발송
+// 모든 Strava 연동 사용자에게 주간 분석 발송 + PR 자동 갱신
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -28,8 +28,8 @@ export default async function handler(req, res) {
       return res.json({ message: 'No users to process' });
     }
 
-    // 각 사용자에게 주간 분석 발송
-    const results = [];
+    // ① 주간 분석 발송
+    const weeklyResults = [];
     for (const profile of profiles) {
       try {
         const syncRes = await fetch(
@@ -40,13 +40,33 @@ export default async function handler(req, res) {
           }
         );
         const data = await syncRes.json();
-        results.push({ userId: profile.id, status: 'success', data });
+        weeklyResults.push({ userId: profile.id, status: 'success', data });
       } catch (e) {
-        results.push({ userId: profile.id, status: 'error', error: e.message });
+        weeklyResults.push({ userId: profile.id, status: 'error', error: e.message });
       }
     }
 
-    res.json({ success: true, processed: profiles.length, results });
+    // ② PR 자동 갱신
+    let prResult = null;
+    try {
+      const prRes = await fetch(
+        `https://runai-coach.vercel.app/api/cron-pr-update`,
+        {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
+        }
+      );
+      prResult = await prRes.json();
+    } catch (e) {
+      prResult = { error: e.message };
+    }
+
+    res.json({
+      success: true,
+      processed: profiles.length,
+      weekly: weeklyResults,
+      prUpdate: prResult
+    });
 
   } catch (error) {
     console.error('Weekly cron error:', error);
