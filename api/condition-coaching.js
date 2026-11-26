@@ -43,6 +43,35 @@ function getWeekStart() {
   return k.toISOString().split('T')[0];
 }
 
+// ── Claude API 공통 호출 ──
+// Haiku 5.5: 생각(thinking) 블록이 먼저 올 수 있어 text 블록만 골라 읽음.
+// 토큰이 약 30% 더 들고 생각 분량도 max_tokens에 포함되므로 한도를 넉넉히 줌.
+// effort: 일간·컨디션은 low, 계획을 짜는 주간·월간·레이스 전략은 medium.
+// 5.5 요청이 실패하면 기존 Haiku 4.5로 한 번 더 시도(분석이 멈추지 않게).
+async function askClaude(prompt, maxTokens, effort = 'low') {
+  const call = async (body) => {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (!res.ok || !text || data.stop_reason === 'refusal') {
+      console.error('Claude 응답 실패', body.model, res.status, data.error?.message || data.stop_reason);
+      return null;
+    }
+    return text;
+  };
+  const messages = [{ role: 'user', content: prompt }];
+  return (await call({ model: 'claude-haiku-5-5', max_tokens: Math.round(maxTokens * (effort === 'low' ? 1.6 : 2.2)) + 400, output_config: { effort }, messages }))
+      ?? (await call({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages }));
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -133,22 +162,7 @@ ${memo ? `- 메모: ${memo}` : ''}
 - 훈련 종류: 인터벌/템포런/페이스주/롱런/LSD/이지런/수영/자전거/휴식`;
 
   try {
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    const data = await claudeRes.json();
-    const text = data.content?.[0]?.text || '{}';
+    const text = (await askClaude(prompt, 500)) || '{}';
     const result = JSON.parse(text.replace(/```json|```/g, '').trim());
 
     // 주간 계획 업데이트
