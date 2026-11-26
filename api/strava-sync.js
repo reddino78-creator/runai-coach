@@ -407,7 +407,7 @@ async function refreshToken(profile, userId) {
 // ══════════════════════════════════════
 // 일일 분석 (1000자 이내) — A1+S3 통합
 // ══════════════════════════════════════
-async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition, coachingNote, currentFitnessPace) {
+async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition, coachingNote, currentFitnessPace, athleteNote) {
   const km = (activity.distance / 1000).toFixed(1);
   const pace = calcPace(activity.moving_time, activity.distance);
   const targetPace = goal?.target_pace || '5:27';
@@ -453,7 +453,7 @@ ${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
 
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | 이번 주: ${ctx.weekRange}
 남은 요일: ${ctx.remainingDaysCount > 0 ? ctx.remainingDays.join(', ') : '없음 (오늘이 일요일)'}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}
-${coachingNote ? `\n📝 최근 코치 조언: ${coachingNote}\n` : ''}
+${coachingNote ? `\n📝 최근 코치 조언: ${coachingNote}\n` : ''}${athleteNoteBlock(athleteNote)}
 선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
 ${currentFitnessPace ? `현재 체력 추정 페이스: ${currentFitnessPace}/km (목표 대비 ${(paceGapSec||0) > 0 ? '+' + paceGapSec : paceGapSec}초/km)` : ''}
@@ -525,6 +525,7 @@ async function analyzeWeekly(userId, goal, accessToken) {
 
   // A1: 이전 주 코칭 메모 불러오기
   const prevCoachingNote = await fetchCoachingNote(userId, 'weekly');
+  const athleteNote = await fetchAthleteNote(userId);
 
   // S2: 계획 대비 실행 비교
   const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
@@ -561,7 +562,7 @@ async function analyzeWeekly(userId, goal, accessToken) {
     : '없음 (오늘이 일요일)';
 
   const prompt = `마라톤 코치로서 주간 리포트를 작성하세요.
-
+${athleteNoteBlock(athleteNote)}
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
 남은 요일: ${remainingStr}
 
@@ -652,6 +653,7 @@ ${analysis.substring(0, 2000)}
 // 월간 분석 (4000자 이내)
 // ══════════════════════════════════════
 async function analyzeMonthly(userId, goal, accessToken) {
+  const athleteNote = await fetchAthleteNote(userId);
   const targetPace = goal?.target_pace || '5:27';
   const trainingPhase = getTrainingPhase(goal?.race_date);
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
@@ -726,7 +728,7 @@ async function analyzeMonthly(userId, goal, accessToken) {
   }
 
   const prompt = `마라톤 전문 코치로서 월간 종합 리포트를 작성하세요.
-
+${athleteNoteBlock(athleteNote)}
 📅 오늘: ${ctx.todayLabel} | ${ctx.monthLabel} ${ctx.weekOfMonth}주차
 이번 달(${ctx.monthStart} ~ ${ctx.monthEnd}) 현재까지: ${thisMonthKm}km / ${thisMonthActs.length}회
 
@@ -788,7 +790,7 @@ ${lastSportSummary}
 // ══════════════════════════════════════
 // 트라이애슬론 일일 분석
 // ══════════════════════════════════════
-async function analyzeTriathlonDaily(activities, goal, recentActivities) {
+async function analyzeTriathlonDaily(activities, goal, recentActivities, athleteNote) {
   const targetPace = goal?.target_pace || '5:27';
   const triType = goal?.tri_type || 'full';
   const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
@@ -818,7 +820,7 @@ async function analyzeTriathlonDaily(activities, goal, recentActivities) {
   const isBrick = bikeActs.length > 0 && runActs.length > 0;
 
   const prompt = `트라이애슬론 전문 코치로서 오늘 훈련을 분석하세요.
-
+${athleteNoteBlock(athleteNote)}
 선수 목표:
 - 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
 - 트라이애슬론: ${triTypeLabel} ${goal?.tri_total_target || '완주'}
@@ -905,6 +907,7 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
 
   // A1: 이전 코칭 노트
   const prevCoachingNote = await fetchCoachingNote(userId, 'weekly_tri');
+  const athleteNote = await fetchAthleteNote(userId);
 
   // S2: 계획 대비 실행
   const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
@@ -925,7 +928,7 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
     : '없음 (오늘이 일요일)';
 
   const prompt = `트라이애슬론 전문 코치로서 주간 리포트를 작성하세요.
-
+${athleteNoteBlock(athleteNote)}
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
 📊 이번 주 KPI: ${kpiSummary}
 🏃 현재 러닝 체력 페이스: ${currentFitnessPace || '데이터 부족'}${paceGap !== null ? ` (목표 대비 ${paceGap > 0 ? '+' + paceGap : paceGap}초/km)` : ''}
@@ -1175,6 +1178,316 @@ function groupActivitiesByDay(activities) {
   return groups;
 }
 // ══════════════════════════════════════
+// A2: 선수 약점 프로파일 — 규칙 기반 판정 (주간 리포트 때 갱신)
+// 결과는 athlete_profiles에 저장되고, 모든 AI 코칭 프롬프트에 주입됨
+// ══════════════════════════════════════
+const RUN_SPORTS = `sport_type=in.(${encodeURIComponent('러닝')},${encodeURIComponent('트레일런')})`;
+
+function parseLaps(laps) {
+  if (!laps) return [];
+  try {
+    const arr = typeof laps === 'string' ? JSON.parse(laps) : laps;
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+function median(arr) {
+  if (arr.length === 0) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function uniqueByStravaId(rows) {
+  const seen = new Set();
+  return (Array.isArray(rows) ? rows : []).filter(a => {
+    if (seen.has(a.strava_id)) return false;
+    seen.add(a.strava_id);
+    return true;
+  });
+}
+
+// 랩을 전반(앞 절반)/후반으로 나눠 페이스·심박 비교 (500m 미만 자투리 랩 제외)
+function splitLapHalves(laps, lateFraction = 0.5) {
+  const valid = laps.filter(l => l.distance >= 500 && l.moving_time > 0);
+  if (valid.length < 10) return null;
+  const n = valid.length;
+  const first = valid.slice(0, Math.floor(n / 2));
+  const late = valid.slice(Math.floor(n * (1 - lateFraction)));
+  const agg = (ls) => {
+    const d = ls.reduce((s, l) => s + l.distance, 0);
+    const t = ls.reduce((s, l) => s + l.moving_time, 0);
+    const hrLaps = ls.filter(l => l.average_heartrate > 0);
+    const hr = hrLaps.length === ls.length
+      ? hrLaps.reduce((s, l) => s + l.average_heartrate * l.moving_time, 0) / t
+      : null;
+    return { pace: t / (d / 1000), speed: d / t, hr };
+  };
+  return { first: agg(first), late: agg(late) };
+}
+
+// 최대심박 자동 추정: 최근 1년 러닝 최고 심박 중 센서가 튄 값(다음 값보다 8bpm 넘게 높음)을 제외한 최고값
+function estimateHrMax(values) {
+  const v = values.filter(x => x > 120 && x < 230).map(Math.round).sort((a, b) => b - a);
+  if (v.length < 10) return null;
+  const removed = [];
+  while (v.length >= 2 && v[0] - v[1] > 8 && removed.length < 2) removed.push(v.shift());
+  return {
+    value: v[0],
+    basis: `최근 1년 러닝 ${values.length}회 중 최고 심박${removed.length ? ` (튀는 값 ${removed.join(', ')} 제외)` : ''}`
+  };
+}
+
+// 훈련 심박 구간 (Daniels 기준). 같은 강도가 두 방식에서 대응되도록 방식별 %를 다르게 적용
+// - 안정시 심박 있음: 여유심박(카르보넨) %  /  없음: 최대심박 %
+const HR_ZONE_PCT = {
+  max: { easy: [0.65, 0.79], marathon: [0.80, 0.87], threshold: [0.88, 0.92], interval: [0.93, 1.00] },
+  hrr: { easy: [0.59, 0.74], marathon: [0.75, 0.82], threshold: [0.83, 0.88], interval: [0.89, 1.00] },
+};
+const HR_ZONE_LABEL = { easy: '이지', marathon: '마라톤(페이스주)', threshold: '역치(템포)', interval: '인터벌' };
+
+function calcHrZones(hrMax, hrRest) {
+  const useRest = hrRest && hrRest < hrMax;
+  const pct = useRest ? HR_ZONE_PCT.hrr : HR_ZONE_PCT.max;
+  const at = (p) => Math.round(useRest ? hrRest + p * (hrMax - hrRest) : p * hrMax);
+  const zones = { method: useRest ? 'karvonen' : 'max' };
+  for (const k of Object.keys(pct)) zones[k] = [at(pct[k][0]), at(pct[k][1])];
+  return zones;
+}
+
+function hrZonesText(z) {
+  return Object.keys(HR_ZONE_LABEL).map(k => `${HR_ZONE_LABEL[k]} ${z[k][0]}-${z[k][1]}`).join(' / ');
+}
+
+async function buildAthleteProfile(userId, goal, userProfile) {
+  const now = Date.now();
+  const iso = (days) => new Date(now - days * 86400000).toISOString();
+  const weeksAgo = (w) => now - w * 7 * 86400000;
+  // 처방 기준 페이스: 목표 페이스와 풀코스 PR 페이스 중 느린 쪽 (현재 실력보다 빠른 처방 방지)
+  const goalPaceSec = paceToSec(goal?.target_pace || '5:27');
+  const prSec = prTimeToSec(goal?.pr_full);
+  const refSec = Math.round(Math.max(goalPaceSec, prSec === Infinity ? 0 : prSec / 42.195));
+  const targetPace = `${Math.floor(refSec / 60)}:${String(refSec % 60).padStart(2, '0')}`;
+  const cols = 'strava_id,distance,moving_time,start_date,avg_heartrate,max_heartrate,avg_cadence,workout_type,sport_type';
+
+  // 최근 6개월 러닝 (랩 제외 — 가벼운 조회)
+  const runs = uniqueByStravaId(await sbGet('activities',
+    `user_id=eq.${userId}&${RUN_SPORTS}&start_date=gte.${iso(182)}&select=${cols}&order=start_date.desc&limit=600`));
+  // 15km 이상은 랩 포함 (유산소 디커플링·레이스 후반 분석용), 레이스 판단 위해 12개월
+  const longRuns = uniqueByStravaId(await sbGet('activities',
+    `user_id=eq.${userId}&${RUN_SPORTS}&distance=gte.15000&start_date=gte.${iso(365)}&select=${cols},laps&order=start_date.desc&limit=80`));
+  const conditions = await sbGet('conditions',
+    `user_id=eq.${userId}&date=gte.${iso(182).slice(0, 10)}&select=date,injury_part,injury_level&order=date.desc`);
+
+  const metrics = { runs6m: runs.length };
+  const weaknesses = [];
+  const strengths = [];
+
+  // 심박 기준 — 최대심박: 직접 입력 우선, 없으면 자동 추정 / 안정시 심박: 직접 입력
+  const hrRows = uniqueByStravaId(await sbGet('activities',
+    `user_id=eq.${userId}&${RUN_SPORTS}&max_heartrate=gt.0&start_date=gte.${iso(365)}&select=strava_id,max_heartrate&limit=1000`));
+  const autoMax = estimateHrMax(hrRows.map(a => a.max_heartrate));
+  const hrMax = userProfile?.hr_max || autoMax?.value || null;
+  const hrRest = userProfile?.hr_rest || null;
+  const zones = hrMax ? calcHrZones(hrMax, hrRest) : null;
+  metrics.hrMax = hrMax;
+  metrics.hrMaxSource = userProfile?.hr_max ? 'manual' : (autoMax ? 'auto' : null);
+  metrics.hrMaxAuto = autoMax?.value ?? null;
+  metrics.hrMaxAutoBasis = autoMax?.basis ?? null;
+  metrics.hrRest = hrRest;
+  metrics.hrZones = zones;
+
+  // ① 이지런 강도 — 이지런 평균 심박이 이지 구간 상한을 넘은 비율
+  if (zones) {
+    const easy = runs.filter(a => a.workout_type === '이지런' && a.avg_heartrate > 0);
+    if (easy.length >= 8) {
+      const limit = zones.easy[1];
+      const pct = Math.round(easy.filter(a => a.avg_heartrate > limit).length / easy.length * 100);
+      metrics.easyTooHardPct = pct;
+      if (pct >= 30) {
+        weaknesses.push({
+          key: 'easy_intensity', label: '이지런 강도 과다', severity: pct >= 50 ? 'high' : 'medium',
+          evidence: `이지런 ${easy.length}회 중 ${pct}%가 이지 구간 상한(${limit}bpm) 초과`,
+          advice: `이지런은 이지 구간(${zones.easy[0]}-${zones.easy[1]}bpm), 대화 가능한 강도로. 쉬는 날을 확실히 쉬어야 강한 날이 강해집니다.`
+        });
+      } else if (pct <= 10) {
+        strengths.push({ key: 'easy_intensity', label: '이지런 강도 조절', evidence: `이지런의 ${100 - pct}%를 이지 구간 안에서 소화` });
+      }
+    }
+  }
+
+  // ② 유산소 기반 — 롱런 전반 대비 후반의 속도/심박 효율 저하(디커플링)
+  const decouples = longRuns
+    .filter(a => a.distance < 38000 && new Date(a.start_date).getTime() > weeksAgo(26))
+    .map(a => splitLapHalves(parseLaps(a.laps)))
+    .filter(h => h && h.first.hr && h.late.hr)
+    .slice(0, 10)
+    .map(h => ((h.first.speed / h.first.hr) / (h.late.speed / h.late.hr) - 1) * 100);
+  if (decouples.length >= 4) {
+    const avg = Math.round(decouples.reduce((s, v) => s + v, 0) / decouples.length * 10) / 10;
+    metrics.aerobicDecouplingPct = avg;
+    metrics.aerobicSamples = decouples.length;
+    if (avg > 5) {
+      weaknesses.push({
+        key: 'aerobic_base', label: '유산소 기반 부족', severity: avg > 8 ? 'high' : 'medium',
+        evidence: `롱런 ${decouples.length}회 평균, 후반에 같은 속도 대비 심박이 ${avg}% 더 오름`,
+        advice: '롱런은 페이스보다 심박 유지에 집중하세요. 후반 심박이 오르면 속도를 낮추는 게 맞습니다. 낮은 강도의 볼륨을 늘리는 것이 핵심.'
+      });
+    } else if (avg < 3) {
+      strengths.push({ key: 'aerobic_base', label: '탄탄한 유산소 기반', evidence: `롱런 후반 심박 상승 ${avg}%로 안정적` });
+    }
+  }
+
+  // ③ 스피드/품질 훈련 — 최근 8주 인터벌·템포·페이스주 횟수
+  const recent8w = runs.filter(a => new Date(a.start_date).getTime() > weeksAgo(8));
+  const quality = recent8w.filter(a => ['인터벌', '템포런', '페이스주'].includes(a.workout_type)).length;
+  metrics.qualitySessions8w = quality;
+  if (recent8w.length >= 8) {
+    if (quality < 2) {
+      weaknesses.push({
+        key: 'speed_work', label: '스피드 훈련 부족', severity: quality === 0 ? 'high' : 'medium',
+        evidence: `최근 8주 인터벌·템포·페이스주 ${quality}회`,
+        advice: `주 1회 템포런(${calcPaceOffset(targetPace, 15)}/km) 또는 인터벌(${calcPaceOffset(targetPace, 30)}/km)을 넣으세요. 나머지는 확실히 천천히.`
+      });
+    } else if (quality >= 6) {
+      strengths.push({ key: 'speed_work', label: '꾸준한 품질 훈련', evidence: `최근 8주 품질 훈련 ${quality}회` });
+    }
+  }
+
+  // ④ 훈련 일관성 — 최근 12주 주간 거리
+  const weekKm = Array(12).fill(0);
+  runs.forEach(a => {
+    const w = Math.floor((now - new Date(a.start_date).getTime()) / (7 * 86400000));
+    if (w >= 0 && w < 12) weekKm[w] += a.distance / 1000;
+  });
+  const activeWeeks = weekKm.filter(k => k > 0).length;
+  const avgKm = weekKm.reduce((s, v) => s + v, 0) / 12;
+  const cv = avgKm > 0
+    ? Math.round(Math.sqrt(weekKm.reduce((s, v) => s + (v - avgKm) ** 2, 0) / 12) / avgKm * 100)
+    : null;
+  metrics.activeWeeks12 = activeWeeks;
+  metrics.weeklyKmAvg12 = Math.round(avgKm * 10) / 10;
+  metrics.weeklyCvPct = cv;
+  const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
+  if (runs.length >= 8) {
+    if (activeWeeks < 10 || (cv !== null && cv > 55)) {
+      weaknesses.push({
+        key: 'consistency', label: '훈련 일관성 부족', severity: activeWeeks < 8 ? 'high' : 'medium',
+        evidence: `최근 12주 중 러닝한 주 ${activeWeeks}주, 주간 거리 변동 ${cv}%`,
+        advice: isTri
+          ? '종목 배분과 별개로 러닝은 매주 최소 2~3회 유지하세요. 몰아서 뛰기보다 꾸준함이 우선.'
+          : '몰아서 많이 뛰는 주와 쉬는 주의 차이를 줄이세요. 매주 최소 3회, 주간 거리 증가는 10% 이내로.'
+      });
+    } else if (activeWeeks === 12 && cv !== null && cv <= 30) {
+      strengths.push({ key: 'consistency', label: '꾸준한 훈련', evidence: `12주 연속 훈련, 주간 거리 변동 ${cv}%` });
+    }
+  }
+
+  // ⑤ 장거리 — 최근 6주 20km 이상 횟수 (기초체력기에는 판정 생략)
+  const phase = getTrainingPhase(goal?.race_date);
+  const raceAhead = goal?.race_date && new Date(goal.race_date).getTime() > now;
+  const long6w = longRuns.filter(a => a.distance >= 20000 && a.distance < 38000 &&
+    new Date(a.start_date).getTime() > weeksAgo(6)).length;
+  metrics.longRuns20k6w = long6w;
+  if (runs.length >= 8 && !isTri && phase !== '기초체력기' && raceAhead) {
+    if (long6w === 0) {
+      weaknesses.push({
+        key: 'long_run', label: '장거리 훈련 부족', severity: 'high',
+        evidence: `${phase}인데 최근 6주 20km 이상 러닝 0회`,
+        advice: `일요일 일산호수 LSD를 20km 이상으로 점진적으로 늘리세요 (${calcPaceOffset(targetPace, -60)}/km 내외).`
+      });
+    } else if (long6w >= 4) {
+      strengths.push({ key: 'long_run', label: '충분한 장거리 훈련', evidence: `최근 6주 20km+ ${long6w}회` });
+    }
+  }
+
+  // ⑥ 케이던스 — 로드 러닝 중앙값 (저장값은 양발 기준 spm)
+  const cads = runs.filter(a => a.sport_type === '러닝' && a.avg_cadence > 100).map(a => a.avg_cadence);
+  if (cads.length >= 10) {
+    const cad = Math.round(median(cads));
+    metrics.cadenceMedian = cad;
+    if (cad < 170) {
+      weaknesses.push({
+        key: 'cadence', label: '낮은 케이던스', severity: cad < 162 ? 'high' : 'medium',
+        evidence: `러닝 케이던스 중앙값 ${cad}spm`,
+        advice: '보폭을 조금 줄이고 발걸음 수를 늘리는 방향으로. 급격히 바꾸면 부상 위험이 있으니 한 번에 5% 이내로 천천히 올리세요.'
+      });
+    } else if (cad >= 180) {
+      strengths.push({ key: 'cadence', label: '효율적인 케이던스', evidence: `케이던스 중앙값 ${cad}spm` });
+    }
+  }
+
+  // ⑦ 레이스 후반 저하 — 최근 1년 풀코스 거리(38km+) 러닝의 마지막 1/4 vs 전반
+  //    (DB에 레이스 표시가 없어 거리로 판별 — 38km 이상 훈련도 포함될 수 있음)
+  const raceFades = longRuns.filter(a => a.distance >= 38000)
+    .map(a => ({ date: a.start_date.slice(0, 10), h: splitLapHalves(parseLaps(a.laps), 0.25) }))
+    .filter(r => r.h)
+    .slice(0, 3)
+    .map(r => ({ date: r.date, fadePct: Math.round((r.h.late.pace / r.h.first.pace - 1) * 1000) / 10 }));
+  if (raceFades.length > 0) {
+    const latest = raceFades[0];
+    metrics.raceFade = raceFades;
+    if (latest.fadePct > 5) {
+      weaknesses.push({
+        key: 'race_fade', label: '레이스 후반 페이스 저하', severity: latest.fadePct > 10 ? 'high' : 'medium',
+        evidence: `최근 풀코스(${latest.date}) 마지막 1/4 구간이 전반보다 ${latest.fadePct}% 느려짐`,
+        advice: '레이스 초반을 목표 페이스보다 5~10초 느리게 시작하고, 30km 이후를 대비한 보급과 롱런 후반 페이스 연습을 하세요.'
+      });
+    } else if (latest.fadePct <= 1) {
+      strengths.push({ key: 'race_fade', label: '레이스 페이스 운영', evidence: `최근 풀코스 후반 변화 ${latest.fadePct}% (이븐/네거티브)` });
+    }
+  }
+
+  // ⑧ 반복 부상 부위 — 최근 6개월 컨디션 기록에서 같은 부위 2회 이상
+  const partCount = {};
+  (Array.isArray(conditions) ? conditions : []).forEach(c => {
+    const p = (c.injury_part || '').trim();
+    if (!p || p === '없음') return;
+    if (!partCount[p]) partCount[p] = { part: p, count: 0, lastDate: c.date, lastLevel: c.injury_level };
+    partCount[p].count++;
+  });
+  const cautions = Object.values(partCount).filter(c => c.count >= 2).sort((a, b) => b.count - a.count);
+
+  // 심각도 순 정렬, 상위 3개를 핵심 약점으로
+  const sevRank = { high: 0, medium: 1 };
+  weaknesses.sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
+
+  // 코칭 프롬프트용 요약
+  const lines = [];
+  if (zones) {
+    const src = metrics.hrMaxSource === 'manual' ? '직접 입력' : '데이터 추정';
+    lines.push(`심박 기준: 최대 ${hrMax}bpm(${src})${hrRest ? `, 안정시 ${hrRest}bpm(여유심박 방식)` : ''} → ${hrZonesText(zones)}. 심박 평가는 이 구간 기준으로 할 것.`);
+  }
+  if (weaknesses.length) {
+    lines.push('약점(우선순위순):');
+    weaknesses.slice(0, 3).forEach((w, i) => lines.push(`${i + 1}. ${w.label} — ${w.evidence}. 처방: ${w.advice}`));
+  }
+  if (strengths.length) lines.push(`강점: ${strengths.map(s => `${s.label}(${s.evidence})`).join(', ')}`);
+  if (cautions.length) lines.push(`주의 부위: ${cautions.map(c => `${c.part} ${c.count}회(최근 ${c.lastDate})`).join(', ')} — 이 부위에 부담 주는 처방은 피하거나 강도를 낮출 것`);
+  const summary = lines.length ? lines.join('\n') : '';
+
+  const profile = {
+    user_id: userId, metrics, weaknesses, strengths, cautions, summary,
+    updated_at: new Date().toISOString()
+  };
+  await sbUpsert('athlete_profiles', profile, 'user_id');
+  return profile;
+}
+
+async function fetchAthleteNote(userId) {
+  try {
+    const rows = await sbGet('athlete_profiles', `user_id=eq.${userId}&select=summary`);
+    return rows?.[0]?.summary || '';
+  } catch (e) { return ''; }
+}
+
+function athleteNoteBlock(note) {
+  return note
+    ? `\n🧬 선수 약점 프로파일 (데이터 기반 — 평가·처방에 반드시 반영하고, 해당되는 약점이 오늘/이번 주 훈련에 드러났다면 구체적으로 짚어줄 것):\n${note}\n`
+    : '';
+}
+
+// ══════════════════════════════════════
 // PR 자동 갱신 — Strava best_efforts(구간 최고기록) 기반
 // 새 러닝 활동이 저장될 때마다 goals의 PR과 비교해 더 빠르면 갱신
 // ══════════════════════════════════════
@@ -1295,10 +1608,20 @@ export default async function handler(req, res) {
 
     const goals = await sbGet('goals', `user_id=eq.${userId}&order=created_at.desc&limit=1`);
     const goal = goals[0];
+
+    // 약점 프로파일만 갱신 (웹앱 대시보드에서 호출, 텔레그램 발송 없음, Strava 호출 없음)
+    if (type === 'profile') {
+      const athleteProfile = await buildAthleteProfile(userId, goal, profile);
+      return res.json({ success: true, type: 'profile', profile: athleteProfile });
+    }
+
     const accessToken = await refreshToken(profile, userId);
 
     // 주간 분석 (목표 타입에 따라 분기)
     if (type === 'weekly') {
+      // 주간 리포트 전에 약점 프로파일 갱신 → 이번 리포트부터 최신 약점 반영
+      try { await buildAthleteProfile(userId, goal, profile); }
+      catch (e) { console.error('Athlete profile error:', e.message); }
       const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
       const analysis = isTri
         ? await analyzeWeeklyTriathlon(userId, goal, accessToken)
@@ -1348,6 +1671,7 @@ export default async function handler(req, res) {
     // A1+S3: 일일 분석에 필요한 데이터 사전 로드
     const dailyCoachingNote = await fetchCoachingNote(userId, 'daily');
     const dailyFitnessPace = await calcCurrentFitnessPace(accessToken);
+    const dailyAthleteNote = await fetchAthleteNote(userId);
 
     let newCount = 0;
 
@@ -1404,7 +1728,7 @@ export default async function handler(req, res) {
 
         // 당일 전체 활동 묶어서 분석
         const allDayActs = [...newDayActs]; // 새 활동들
-        const analysis = await analyzeTriathlonDaily(allDayActs, goal, recentSaved.slice(0, 6));
+        const analysis = await analyzeTriathlonDaily(allDayActs, goal, recentSaved.slice(0, 6), dailyAthleteNote);
 
         // 분석 결과를 첫 번째 활동에만 저장
         const firstAct = newDayActs[0];
@@ -1456,7 +1780,7 @@ export default async function handler(req, res) {
         const analysis = await analyzeDailyActivity(
           activity, goal, recentSaved.slice(0, 6),
           workoutType, sportType, phases, details, weather, condition,
-          dailyCoachingNote, dailyFitnessPace
+          dailyCoachingNote, dailyFitnessPace, dailyAthleteNote
         );
 
         // A1: 일일 코칭 노트 저장
