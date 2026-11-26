@@ -405,9 +405,9 @@ async function refreshToken(profile, userId) {
 }
 
 // ══════════════════════════════════════
-// 일일 분석 (1000자 이내)
+// 일일 분석 (1000자 이내) — A1+S3 통합
 // ══════════════════════════════════════
-async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition) {
+async function analyzeDailyActivity(activity, goal, recentActivities, workoutType, sportType, phases, details, weather, condition, coachingNote, currentFitnessPace) {
   const km = (activity.distance / 1000).toFixed(1);
   const pace = calcPace(activity.moving_time, activity.distance);
   const targetPace = goal?.target_pace || '5:27';
@@ -444,13 +444,19 @@ async function analyzeDailyActivity(activity, goal, recentActivities, workoutTyp
 부상: ${condition.injury_part || '없음'}${condition.injury_part && condition.injury_part !== '없음' ? ` (${condition.injury_level})` : ''}
 ${condition.memo ? `메모: ${condition.memo}` : ''}` : '';
 
+  // S3: 페이스 갭 계산
+  const targetSec = paceToSec(targetPace);
+  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
+  const paceGapSec = fitnessSec ? fitnessSec - targetSec : null;
+
   const prompt = `마라톤 코치로서 간결한 일일 분석을 작성하세요.
 
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | 이번 주: ${ctx.weekRange}
 남은 요일: ${ctx.remainingDaysCount > 0 ? ctx.remainingDays.join(', ') : '없음 (오늘이 일요일)'}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}
-
+${coachingNote ? `\n📝 최근 코치 조언: ${coachingNote}\n` : ''}
 선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
+${currentFitnessPace ? `현재 체력 추정 페이스: ${currentFitnessPace}/km (목표 대비 ${(paceGapSec||0) > 0 ? '+' + paceGapSec : paceGapSec}초/km)` : ''}
 
 오늘 운동:
 - 종류: ${sportType} [${workoutType}]
@@ -489,7 +495,7 @@ ${condition?.condition === '피로' ? '⚠️ 피로 컨디션 고려한 회복 
 }
 
 // ══════════════════════════════════════
-// 주간 분석 (2000자 이내)
+// 주간 분석 (2000자 이내) — S2+S3+S5+A1 통합
 // ══════════════════════════════════════
 async function analyzeWeekly(userId, goal, accessToken) {
   const targetPace = goal?.target_pace || '5:27';
@@ -508,7 +514,7 @@ async function analyzeWeekly(userId, goal, accessToken) {
   const thisWeekKm = (thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
 
   // 지난 주 (저번 주 월요일 ~ 일요일)
-  const lastWeekEnd   = thisWeekAfter; // 이번 주 월요일 00:00 = 지난주 종료
+  const lastWeekEnd   = thisWeekAfter;
   const lastWeekStart = lastWeekEnd - 7 * 24 * 60 * 60;
   const lastWeekRes = await fetch(
     `https://www.strava.com/api/v3/athlete/activities?after=${lastWeekStart}&before=${lastWeekEnd}&per_page=20`,
@@ -517,7 +523,22 @@ async function analyzeWeekly(userId, goal, accessToken) {
   const lastWeekActs = Array.isArray(lastWeekRes) ? lastWeekRes : [];
   const lastWeekKm = (lastWeekActs.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1);
 
-  // 이번 주 훈련 요약 (완료된 것)
+  // A1: 이전 주 코칭 메모 불러오기
+  const prevCoachingNote = await fetchCoachingNote(userId, 'weekly');
+
+  // S2: 계획 대비 실행 비교
+  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
+
+  // S3: 현재 체력 추정 페이스
+  const currentFitnessPace = await calcCurrentFitnessPace(accessToken);
+  const targetSec = paceToSec(targetPace);
+  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
+  const paceGap = fitnessSec ? fitnessSec - targetSec : null; // 양수 = 목표보다 느림
+
+  // S5: 주간 KPI
+  const kpi = calcWeeklyKPI(thisWeekActs, weeklyTarget, targetPace);
+
+  // 이번 주 훈련 요약
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
   const thisWeekSummary = thisWeekActs.map(a => {
     const st = getSportType(a);
@@ -535,7 +556,6 @@ async function analyzeWeekly(userId, goal, accessToken) {
     return `- [${st}/${wt}] ${(a.distance/1000).toFixed(1)}km @ ${calcPace(a.moving_time,a.distance)}/km ${adjustedPace} 고도${a.total_elevation_gain||0}m`;
   }).join('\n') || '기록 없음';
 
-  // 남은 요일 계산
   const remainingStr = ctx.remainingDaysCount > 0
     ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}`
     : '없음 (오늘이 일요일)';
@@ -543,26 +563,33 @@ async function analyzeWeekly(userId, goal, accessToken) {
   const prompt = `마라톤 코치로서 주간 리포트를 작성하세요.
 
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
-이번 주 완료: ${thisWeekKm}km / 목표 ${weeklyTarget}km (달성률 ${Math.round(parseFloat(thisWeekKm)/weeklyTarget*100)}%)
 남은 요일: ${remainingStr}
 
-선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
+선수: ${goal?.race_name || '마라톤'} ${goal?.target_time || ''} (목표페이스 ${targetPace}/km) | D-${daysLeft || '?'} | ${trainingPhase}
 PR: 풀 ${goal?.pr_full || '-'} / 하프 ${goal?.pr_half || '-'}
 훈련 페이스: 인터벌 ${calcPaceOffset(targetPace,30)} | 템포 ${calcPaceOffset(targetPace,15)} | LSD ${calcPaceOffset(targetPace,-60)} | 회복 ${calcPaceOffset(targetPace,-40)}
 
+📊 이번 주 KPI:
+${kpi.summary}${planComparison ? `\n계획 이행률: ${planComparison.completedCount}/${planComparison.totalCount} (${planComparison.rate}%)` : ''}
+
+🏃 현재 체력 페이스: ${currentFitnessPace || '데이터 부족'}${paceGap !== null ? ` (목표 대비 ${paceGap > 0 ? '+' + paceGap : paceGap}초/km ${paceGap > 0 ? '느림' : '빠름'})` : ''}
+
+${planComparison ? `📋 이번 주 계획 vs 실행 (월~${ctx.todayDowName}):\n${planComparison.text}\n` : ''}
 이번 주 완료된 훈련 (월~${ctx.todayDowName}):
 ${thisWeekSummary}
 
 지난 주 기록 (총 ${lastWeekKm}km / 목표 ${weeklyTarget}km):
 ${lastWeekSummary}
-
+${prevCoachingNote ? `\n📝 지난 주 코치 핵심 조언 (follow-up 필요):\n${prevCoachingNote}\n` : ''}
 2000자 이내로 작성:
 
 **지난 주 평가**
-(훈련량, 강도, 종류 구성 평가. 3-4문장)
+(훈련량, 강도, 종류 구성 평가. ${prevCoachingNote ? '지난 주 코치 조언 이행 여부 반드시 언급.' : ''} 3-4문장)
 
 **이번 주 현황 & 남은 훈련 처방**
-오늘(${ctx.todayLabel})까지 ${thisWeekKm}km 완료. 남은 요일(${ctx.remainingDays.join('/')})에 맞춰 처방:
+오늘(${ctx.todayLabel})까지 ${thisWeekKm}km 완료 (목표 ${weeklyTarget}km의 ${kpi.distRate}%).${planComparison ? ` 계획 이행률 ${planComparison.rate}%.` : ''}
+${currentFitnessPace ? `현재 체력 페이스 ${currentFitnessPace}/km — 목표까지 ${Math.abs(paceGap || 0)}초/km ${(paceGap||0) > 0 ? '개선' : '여유'} 필요.` : ''}
+남은 요일(${ctx.remainingDays.join('/')})에 맞춰 처방:
 ${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고정 (반드시 포함)' : ''}
 각 요일별 훈련 종류, 거리, 페이스를 구체적으로 작성.
 
@@ -583,9 +610,12 @@ ${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고
 2. [두 번째 훈련]
 
 **이번 주 핵심 포인트**
-(집중할 2-3가지)`;
+(집중할 2-3가지 — 현재 체력 페이스 기반 구체적 개선 방향 포함)`;
 
   const analysis = await callClaude(prompt, 1800);
+
+  // A1: 이번 주 코칭 노트 저장 (다음 주에 활용)
+  await saveCoachingNote(userId, 'weekly', ctx.weekStart, analysis);
   await saveWeeklyPlan(userId, analysis, goal);
   return analysis;
 }
@@ -873,6 +903,23 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
     return `- [${st}] ${(a.distance/1000).toFixed(1)}km / ${Math.floor(a.moving_time/60)}분`;
   }).join('\n') || '기록 없음';
 
+  // A1: 이전 코칭 노트
+  const prevCoachingNote = await fetchCoachingNote(userId, 'weekly_tri');
+
+  // S2: 계획 대비 실행
+  const planComparison = await fetchWeeklyPlanComparison(userId, ctx.weekStart, thisWeekActs, targetPace);
+
+  // S3: 현재 체력 페이스
+  const currentFitnessPace = await calcCurrentFitnessPace(accessToken);
+  const targetSec = paceToSec(targetPace);
+  const fitnessSec = currentFitnessPace ? paceToSec(currentFitnessPace) : null;
+  const paceGap = fitnessSec ? fitnessSec - targetSec : null;
+
+  // S5: 주간 KPI
+  const totalThisKm = parseFloat(thisRunKm) + parseFloat(thisBikeKm) + parseFloat(thisSwimKm);
+  const triWeeklyTarget = 80; // 트라이애슬론 주간 목표
+  const kpiSummary = `러닝 ${thisRunKm}km | 자전거 ${thisBikeKm}km | 수영 ${thisSwimKm}km${planComparison ? ` | 계획이행 ${planComparison.rate}%` : ''}`;
+
   const remainingStr = ctx.remainingDaysCount > 0
     ? `${ctx.remainingDays.join(', ')}${ctx.hasSundayLeft ? ' (일요일: 일산호수 LSD 고정)' : ''}`
     : '없음 (오늘이 일요일)';
@@ -880,8 +927,10 @@ async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
   const prompt = `트라이애슬론 전문 코치로서 주간 리포트를 작성하세요.
 
 📅 오늘: ${ctx.todayLabel} | 이번 주 ${ctx.weekDayNum}일차 | ${ctx.weekRange}
-이번 주 완료: 수영 ${thisSwimKm}km | 자전거 ${thisBikeKm}km | 러닝 ${thisRunKm}km
+📊 이번 주 KPI: ${kpiSummary}
+🏃 현재 러닝 체력 페이스: ${currentFitnessPace || '데이터 부족'}${paceGap !== null ? ` (목표 대비 ${paceGap > 0 ? '+' + paceGap : paceGap}초/km)` : ''}
 남은 요일: ${remainingStr}
+${planComparison ? `\n📋 계획 vs 실행 (월~${ctx.todayDowName}):\n${planComparison.text}\n` : ''}
 
 선수 목표:
 - 마라톤: ${goal?.target_time || '--'} (페이스 ${targetPace}/km)
@@ -896,15 +945,16 @@ ${thisWeekSummary}
 - 총 훈련시간: ${Math.floor(totalMins/60)}시간 ${totalMins%60}분
 - 벽돌훈련: ${brickSessions}회
 ${lastWeekSummary}
-
+${prevCoachingNote ? `\n📝 지난 주 코치 핵심 조언 (follow-up):\n${prevCoachingNote}\n` : ''}
 2000자 이내로 작성:
 
 **지난 주 평가**
-(종목별 볼륨 평가, 균형 분석 3-4문장)
+(종목별 볼륨 평가, 균형 분석. ${prevCoachingNote ? '지난 코치 조언 이행 여부 반드시 언급.' : ''} 3-4문장)
 
 **이번 주 현황 & 남은 훈련 처방**
 오늘(${ctx.todayLabel})까지 완료. 남은 요일(${ctx.remainingDays.join('/')})에 맞춰 처방:
 ${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고정' : ''}
+${currentFitnessPace ? `러닝 체력 페이스 ${currentFitnessPace}/km — 목표까지 ${Math.abs(paceGap || 0)}초 개선 필요.` : ''}
 
 **다음 주 훈련 계획**
 
@@ -927,8 +977,191 @@ ${ctx.hasSundayLeft ? '- 일요일은 일산호수마라톤 일요정모 LSD 고
 (트라이애슬론과 마라톤 병행 관련 2-3가지)`;
 
   const analysis = await callClaude(prompt, 1800);
+
+  // A1: 코칭 노트 저장
+  await saveCoachingNote(userId, 'weekly_tri', ctx.weekStart, analysis);
   await saveWeeklyPlan(userId, analysis, goal);
   return analysis;
+}
+
+// ══════════════════════════════════════
+// A1: 코칭 메모리 — 저장/불러오기
+// coaching_notes 테이블 필요:
+//   user_id text, type text, week_start text,
+//   advice_summary text, created_at timestamptz default now()
+//   PRIMARY KEY (user_id, type)  → upsert on conflict
+// ══════════════════════════════════════
+async function fetchCoachingNote(userId, type) {
+  try {
+    const rows = await sbGet('coaching_notes',
+      `user_id=eq.${userId}&type=eq.${type}&order=created_at.desc&limit=1`);
+    return rows?.[0]?.advice_summary || null;
+  } catch (e) {
+    console.error('fetchCoachingNote error:', e.message);
+    return null;
+  }
+}
+
+async function saveCoachingNote(userId, type, weekStart, summary) {
+  try {
+    // summary에서 핵심 조언 400자 이내로 추출 (AI 호출 없이 앞부분 사용)
+    const brief = summary.replace(/#{1,3}\s+/g, '').replace(/\*{1,2}/g, '').trim().slice(0, 400);
+    await sbUpsert('coaching_notes',
+      { user_id: userId, type, week_start: weekStart, advice_summary: brief, created_at: new Date().toISOString() },
+      'user_id,type'
+    );
+  } catch (e) {
+    console.error('saveCoachingNote error:', e.message);
+  }
+}
+
+// ══════════════════════════════════════
+// S3: 현재 체력 추정 페이스 계산
+// 최근 4주 러닝 활동 평균 페이스 → 목표 페이스 대비 갭
+// ══════════════════════════════════════
+async function calcCurrentFitnessPace(accessToken) {
+  try {
+    const fourWeeksAgo = Math.floor(Date.now() / 1000) - 28 * 24 * 60 * 60;
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?after=${fourWeeksAgo}&per_page=50`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    ).then(r => r.json());
+    const runs = Array.isArray(res)
+      ? res.filter(a => ['러닝', '트레일런'].includes(getSportType(a)) && a.distance >= 3000)
+      : [];
+    if (runs.length === 0) return null;
+
+    // 5km 이상 LSD/이지런 제외(너무 느린 것), 최근 페이스 가중
+    const paces = runs.map(a => ({
+      sec: a.moving_time / (a.distance / 1000),
+      dist: a.distance,
+      date: new Date(a.start_date)
+    })).filter(p => p.sec > 200 && p.sec < 500); // 3:20~8:20/km 범위만
+
+    if (paces.length === 0) return null;
+
+    // 최근 2주 가중 2배
+    const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    let totalWeightedSec = 0, totalWeight = 0;
+    paces.forEach(p => {
+      const w = p.date.getTime() > twoWeeksAgo ? 2 : 1;
+      totalWeightedSec += p.sec * w;
+      totalWeight += w;
+    });
+    const avgSec = totalWeightedSec / totalWeight;
+    const mm = Math.floor(avgSec / 60);
+    const ss = String(Math.round(avgSec % 60)).padStart(2, '0');
+    return `${mm}:${ss}`;
+  } catch (e) {
+    console.error('calcCurrentFitnessPace error:', e.message);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════
+// S2: 계획 대비 실행 비교
+// weekly_plans 테이블에서 이번 주 계획 가져와서 실제와 대조
+// ══════════════════════════════════════
+async function fetchWeeklyPlanComparison(userId, weekStart, thisWeekActs, targetPace) {
+  try {
+    const plans = await sbGet('weekly_plans', `user_id=eq.${userId}&week_start=eq.${weekStart}`);
+    if (!plans || plans.length === 0) return null;
+
+    const plan = plans[0];
+    const dayMap = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
+    const dayLabel = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토', sun: '일' };
+
+    // 오늘까지만 비교 (미래 요일은 제외)
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const nowKST = new Date(Date.now() + KST_OFFSET);
+    const todayDow = nowKST.getUTCDay(); // 0=일, 1=월 ... 6=토
+
+    // 완료된 요일별 활동 맵
+    const doneByDay = {};
+    thisWeekActs.forEach(a => {
+      const actDate = new Date(a.start_date);
+      const dow = actDate.getDay();
+      const key = dayMap[dow];
+      if (!doneByDay[key]) doneByDay[key] = [];
+      doneByDay[key].push(`${getSportType(a)} ${(a.distance/1000).toFixed(1)}km@${calcPace(a.moving_time,a.distance)}`);
+    });
+
+    // 월~오늘까지만 비교
+    const daysToCheck = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dowOrder = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 };
+    const comparisons = [];
+
+    for (const day of daysToCheck) {
+      const planDow = dowOrder[day];
+      // 오늘(todayDow) 포함, 이미 지난 요일만 비교
+      const isPast = planDow === 0
+        ? todayDow === 0 || todayDow > 0 // 일요일: 오늘이 일요일이면 포함
+        : planDow <= todayDow;
+      if (!isPast) continue;
+
+      const planned = plan[day] || '';
+      if (!planned || planned === '') continue;
+
+      const done = doneByDay[day] || [];
+      const isRest = planned === '휴식';
+      const isCompleted = isRest ? true : done.length > 0;
+
+      comparisons.push(
+        `- ${dayLabel[day]}: 계획[${planned}] → ${isCompleted ? `✅ ${done.join(', ')}` : '❌ 미완료'}`
+      );
+    }
+
+    if (comparisons.length === 0) return null;
+
+    const completedCount = comparisons.filter(l => l.includes('✅')).length;
+    const totalCount = comparisons.length;
+    const rate = Math.round(completedCount / totalCount * 100);
+
+    return {
+      text: comparisons.join('\n'),
+      completedCount,
+      totalCount,
+      rate
+    };
+  } catch (e) {
+    console.error('fetchWeeklyPlanComparison error:', e.message);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════
+// S5: 훈련 완료율 KPI 계산
+// LSD 완료율, 주간 거리 달성률, 강도훈련 횟수
+// ══════════════════════════════════════
+function calcWeeklyKPI(thisWeekActs, weeklyTarget, targetPace) {
+  const runActs = thisWeekActs.filter(a =>
+    ['러닝', '트레일런'].includes(getSportType(a))
+  );
+
+  // 거리 달성률
+  const totalKm = thisWeekActs.reduce((s, a) => s + a.distance, 0) / 1000;
+  const distRate = Math.round(totalKm / weeklyTarget * 100);
+
+  // LSD 완료 여부 (10km 이상 이지런/LSD)
+  const lsdActs = runActs.filter(a => a.distance >= 10000);
+  const lsdCount = lsdActs.length;
+
+  // 강도훈련 횟수 (인터벌/템포: 목표페이스보다 빠른 활동)
+  const targetSec = paceToSec(targetPace);
+  const intensityActs = runActs.filter(a => {
+    const paceSec = a.moving_time / (a.distance / 1000);
+    return paceSec < (targetSec + 10) && a.distance >= 3000; // 목표페이스 ±10초 이내
+  });
+  const intensityCount = intensityActs.length;
+
+  return {
+    totalKm: totalKm.toFixed(1),
+    weeklyTarget,
+    distRate,
+    lsdCount,
+    intensityCount,
+    summary: `거리 ${totalKm.toFixed(1)}km/${weeklyTarget}km(${distRate}%) | LSD ${lsdCount}회 | 강도훈련 ${intensityCount}회`
+  };
 }
 
 // ── 오늘 같은 날 활동 묶기 ──
@@ -1034,6 +1267,10 @@ export default async function handler(req, res) {
     const targetPace = goal?.target_pace || '5:27';
     const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
 
+    // A1+S3: 일일 분석에 필요한 데이터 사전 로드
+    const dailyCoachingNote = await fetchCoachingNote(userId, 'daily');
+    const dailyFitnessPace = await calcCurrentFitnessPace(accessToken);
+
     let newCount = 0;
 
     if (isTri) {
@@ -1137,8 +1374,13 @@ export default async function handler(req, res) {
 
         const analysis = await analyzeDailyActivity(
           activity, goal, recentSaved.slice(0, 6),
-          workoutType, sportType, phases, details, weather, condition
+          workoutType, sportType, phases, details, weather, condition,
+          dailyCoachingNote, dailyFitnessPace
         );
+
+        // A1: 일일 코칭 노트 저장
+        const ctx = getDateContext();
+        await saveCoachingNote(userId, 'daily', ctx.weekStart, analysis);
 
         const km = (activity.distance / 1000).toFixed(1);
         const pace = calcPace(activity.moving_time, activity.distance);
