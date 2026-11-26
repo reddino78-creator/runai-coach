@@ -103,10 +103,12 @@ async function updatePRForUser(userId) {
   const updates = {};
   const improved = [];
 
+  const now = new Date().toISOString();
   for (const [key, best] of Object.entries(bestTimes)) {
     const currentSec = timeToSec(goal[key]);
     if (best.timeSec < currentSec) {
       updates[key] = best.timeStr;
+      updates[`${key}_updated_at`] = now;
       improved.push({ label: best.label, old: goal[key] || '-', new: best.timeStr, date: best.date, activity: best.name });
     }
   }
