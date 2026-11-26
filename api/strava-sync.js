@@ -589,7 +589,8 @@ async function fetchClubRuns(anchor = Date.now()) {
   return body.map(r => {
     const date = parseSheetDate(r[ci.date], anchor);
     if (!date) return null;
-    const km = ci.km >= 0 ? parseFloat(String(r[ci.km]).replace(/[^\d.]/g, '')) : NaN;
+    const kmRaw = ci.km >= 0 ? String(r[ci.km] || '') : '';
+    const km = /half|하프/i.test(kmRaw) ? 21.1 : /full|풀/i.test(kmRaw) ? 42.195 : parseFloat(kmRaw.replace(/[^\d.]/g, ''));
     const dt = new Date(date + 'T00:00:00Z');
     const hv = ci.hill >= 0 ? String(r[ci.hill] || '').trim() : '';
     const hillM = parseFloat(hv.replace(/[^\d.]/g, ''));
