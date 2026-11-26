@@ -54,6 +54,22 @@ function paceToSec(paceStr) {
   return m * 60 + s;
 }
 
+// 목표 레이스 페이스 — 목표 기록(target_time)에서 계산. 저장된 target_pace는 앱 기본값(5:27)으로 잘못 저장된 경우가 있어 보조로만 사용
+function goalPaceSec(goal) {
+  const p = String(goal?.target_time || '').trim().split(':').map(Number);
+  if (p.length === 3 && !p.some(isNaN)) {
+    const t = p[0] * 3600 + p[1] * 60 + p[2];
+    if (t > 2 * 3600 && t < 8 * 3600) return t / 42.195;
+  }
+  return goal?.target_pace ? paceToSec(goal.target_pace) : null;
+}
+function goalPaceStr(goal) {
+  const s = goalPaceSec(goal);
+  if (!s) return '-';
+  const r = Math.round(s);
+  return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
+}
+
 function calcPaceOffset(targetPace, offsetSecs) {
   const total = paceToSec(targetPace) - offsetSecs;
   return `${Math.floor(total / 60)}:${String(Math.abs(total % 60)).padStart(2, '0')}`;
@@ -532,7 +548,7 @@ function estimateCurrentMP(goal, runs) {
   if (half !== Infinity) return { sec: half * Math.pow(2, 1.06) / 42.195, source: `하프 PR ${goal.pr_half} 환산` };
   const easy = runs.filter(a => a.distance >= 5000 && a.distance < 20000).map(a => a.moving_time / (a.distance / 1000));
   if (easy.length >= 5) return { sec: median(easy) - 60, source: '최근 러닝 페이스 기반 추정 (레이스 기록 없음)' };
-  const gp = paceToSec(goal?.target_pace || '6:00');
+  const gp = goalPaceSec(goal) || 360;
   return { sec: gp + 30, source: '데이터 부족 — 목표 페이스 기반 임시값' };
 }
 
@@ -592,7 +608,7 @@ async function buildCoachBasics(userId, goal, anchor = Date.now()) {
 
   const mp = estimateCurrentMP(goal, runs);
   const paces = calcTrainingPaces(mp.sec);
-  const goalMpSec = goal?.target_pace ? paceToSec(goal.target_pace) : null;
+  const goalMpSec = goalPaceSec(goal);
   const phase = getTrainingPhase(goal?.race_date);
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - anchor) / 86400000) : null;
 
@@ -1133,7 +1149,7 @@ ${monthRoadmap ? '**대회까지 월별 테마** — 위 월 순서대로 한 �
 // 트라이애슬론 일일 분석
 // ══════════════════════════════════════
 async function analyzeTriathlonDaily(activities, goal, recentActivities, athleteNote, basics) {
-  const targetPace = goal?.target_pace || '5:27';
+  const targetPace = goalPaceStr(goal);
   const triType = goal?.tri_type || 'full';
   const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
@@ -1199,7 +1215,7 @@ ${isBrick ? '벽돌훈련 효과와 자전거→러닝 전환 품질 평가' : '
 // 트라이애슬론 주간 분석
 // ══════════════════════════════════════
 async function analyzeWeeklyTriathlon(userId, goal, accessToken) {
-  const targetPace = goal?.target_pace || '5:27';
+  const targetPace = goalPaceStr(goal);
   const triType = goal?.tri_type || 'full';
   const triTypeLabel = triType === 'olympic' ? '올림픽' : triType === 'half' ? '하프 아이언맨' : '풀 아이언맨';
   const daysLeft = goal?.race_date ? Math.ceil((new Date(goal.race_date) - new Date()) / 86400000) : null;
@@ -1984,7 +2000,7 @@ export default async function handler(req, res) {
     }
 
     const recentSaved = await sbGet('activities', `user_id=eq.${userId}&order=start_date.desc&limit=7`);
-    const targetPace = goal?.target_pace || '5:27';
+    const targetPace = goalPaceStr(goal);
     const isTri = goal?.goal_type === 'both' || goal?.goal_type === 'triathlon';
 
     // A1+S3: 일일 분석에 필요한 데이터 사전 로드
