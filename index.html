@@ -1691,6 +1691,15 @@ select.input-field option { background:var(--dark3); }
             💡 최대심박은 대회 막판 스퍼트나 측정 테스트 기록을 알면 직접 입력이 더 정확해요.<br>
             💡 안정시 심박은 아침에 일어나 누운 채 1분 측정(며칠 평균)하거나 워치에 표시되는 값을 쓰세요. 입력하면 여유심박 방식으로 더 개인에 맞는 구간이 계산돼요.
           </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--white);cursor:pointer;margin-bottom:4px">
+            <input type="checkbox" id="hrWatchToggle" onchange="toggleWatchZones()" style="width:16px;height:16px;accent-color:var(--orange)">
+            <span>⌚ 시계 심박 구간 사용</span>
+          </label>
+          <div style="font-size:11px;color:var(--gray);margin:0 0 10px 24px">시계가 계산한 구간이 있으면 위 계산보다 우선 적용돼요</div>
+          <div id="hrWatchBox" style="display:none;background:var(--dark3);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--gray);margin-bottom:10px;line-height:1.6">시계(젖산역치 기반 등)에 표시되는 각 구간의 <b style="color:var(--white)">시작값</b>을 입력하세요.</div>
+            <div id="hrWatchInputs"></div>
+          </div>
           <div id="hrZonesBox" style="display:none;background:var(--dark3);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
           <button class="save-btn" onclick="saveHeartRate()">심박 저장</button>
         </div>
@@ -2155,6 +2164,43 @@ const HR_ZONE_INFO = [
 let hrMaxMode = 'auto';
 let hrMaxAutoValue = null;
 
+// 시계 구간 (시작값 5개). 앱 훈련 분류와의 연결: 유산소 지구력=이지런, 유산소 파워=페이스주, 젖산역치=템포런, 무산소=인터벌
+const WATCH_ZONES = [
+  { key: 'z1', label: '유산소 지구력', use: '이지런·롱런', color: '#27AE60', ph: 137 },
+  { key: 'z2', label: '유산소 파워',   use: '페이스주',   color: '#2D9CDB', ph: 155 },
+  { key: 'z3', label: '젖산역치',      use: '템포런',     color: '#f5a623', ph: 163 },
+  { key: 'z4', label: '무산소 지구력', use: '인터벌',     color: '#FC4C02', ph: 175 },
+  { key: 'z5', label: '무산소 파워',   use: '전력 질주',  color: '#c0392b', ph: 181 },
+];
+
+function buildWatchInputs() {
+  const box = document.getElementById('hrWatchInputs');
+  if (box.dataset.built) return;
+  box.innerHTML = WATCH_ZONES.map(z => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+      <span style="font-size:13px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}</span>
+      <input class="input-field" type="number" inputmode="numeric" id="hrW_${z.key}" placeholder="${z.ph}"
+        min="80" max="230" style="width:110px;padding:9px 12px;text-align:right" oninput="updateHrZonesPreview()">
+    </div>`).join('');
+  box.dataset.built = '1';
+}
+
+function toggleWatchZones() {
+  buildWatchInputs();
+  document.getElementById('hrWatchBox').style.display =
+    document.getElementById('hrWatchToggle').checked ? 'block' : 'none';
+  updateHrZonesPreview();
+}
+
+// 체크 안 함 → null, 값이 비었거나 잘못됨 → 'invalid', 정상 → {z1..z5}
+function readWatchZones() {
+  if (!document.getElementById('hrWatchToggle').checked) return null;
+  const v = WATCH_ZONES.map(z => parseInt(document.getElementById(`hrW_${z.key}`).value, 10));
+  if (v.some(x => !(x >= 80 && x <= 230))) return 'invalid';
+  for (let i = 1; i < v.length; i++) if (v[i] < v[i - 1]) return 'invalid';
+  return { z1: v[0], z2: v[1], z3: v[2], z4: v[3], z5: v[4] };
+}
+
 function setHrMaxMode(mode) {
   hrMaxMode = mode;
   const on = 'border:1px solid var(--orange);color:var(--orange)';
@@ -2182,6 +2228,11 @@ function setHrAutoInfo(m) {
 function applyHeartRateSettings(profile) {
   document.getElementById('settingHrRest').value = profile?.hr_rest || '';
   document.getElementById('settingHrMax').value = profile?.hr_max || '';
+  buildWatchInputs();
+  const wz = profile?.hr_watch_zones;
+  document.getElementById('hrWatchToggle').checked = !!wz;
+  WATCH_ZONES.forEach(z => { document.getElementById(`hrW_${z.key}`).value = wz?.[z.key] || ''; });
+  document.getElementById('hrWatchBox').style.display = wz ? 'block' : 'none';
   setHrMaxMode(profile?.hr_max ? 'manual' : 'auto');
 }
 
@@ -2195,6 +2246,25 @@ function currentHrValues() {
 
 function updateHrZonesPreview() {
   const box = document.getElementById('hrZonesBox');
+  const watch = readWatchZones();
+  if (watch && watch !== 'invalid') {
+    const ranges = [`${watch.z1}–${watch.z2 - 1}`, `${watch.z2}–${watch.z3 - 1}`, `${watch.z3}–${watch.z4 - 1}`, `${watch.z4}–${watch.z5}`, `${watch.z5}+`];
+    box.innerHTML =
+      `<div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">내 훈련 심박 구간 · ⌚ 시계 구간 기준</div>` +
+      WATCH_ZONES.map((z, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:4px 0">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${z.color};margin-right:8px"></span>${z.label}
+            <span style="color:var(--gray);font-size:11px"> · ${z.use}</span></span>
+          <span style="font-family:'DM Mono',monospace">${ranges[i]}</span>
+        </div>`).join('');
+    box.style.display = 'block';
+    return;
+  }
+  if (watch === 'invalid') {
+    box.innerHTML = '<div style="font-size:12px;color:#f5a623">⌚ 시계 구간 시작값 5개를 낮은 값부터 순서대로 입력해주세요</div>';
+    box.style.display = 'block';
+    return;
+  }
   const { max, rest } = currentHrValues();
   if (!max || max < 120 || max > 230) { box.style.display = 'none'; return; }
   const useRest = rest && rest >= 30 && rest < max - 20;
@@ -2223,7 +2293,11 @@ async function saveHeartRate() {
   const maxForCheck = hr_max || hrMaxAutoValue;
   if (hr_rest !== null && maxForCheck && hr_rest >= maxForCheck - 20) { toast('⚠️ 안정시 심박이 최대심박에 비해 너무 높아요'); return; }
 
-  const { error } = await sb.from('profiles').update({ hr_max, hr_rest }).eq('id', currentUser.id);
+  const watch = readWatchZones();
+  if (watch === 'invalid') { toast('⚠️ 시계 구간 시작값 5개를 낮은 값부터 순서대로 입력해주세요'); return; }
+  const hr_watch_zones = watch; // 체크 해제 시 null로 저장 → 계산 방식으로 복귀
+
+  const { error } = await sb.from('profiles').update({ hr_max, hr_rest, hr_watch_zones }).eq('id', currentUser.id);
   if (error) { toast('⚠️ 저장 실패: ' + error.message); return; }
   toast('✅ 심박 설정을 저장했어요. 약점 분석을 새 기준으로 다시 계산할게요');
   // 새 심박 기준으로 약점 프로파일 재계산 → 다음 코칭부터 반영
