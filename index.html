@@ -1613,20 +1613,40 @@ select.input-field option { background:var(--dark3); }
           <div class="sc-title">🏆 개인 최고 기록 (PR)</div>
           <div class="sc-sub-text">기록 갱신 시 업데이트하세요. AI 코치가 이 기록을 기반으로 분석합니다.</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <!-- 풀코스 -->
             <div>
               <label class="input-label">풀코스 (42.195km)</label>
+              <div id="prFullAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFullAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFullAutoDate"></span></div>
+              </div>
               <input class="input-field" type="text" id="settingPrFull" placeholder="예: 3:52:00">
             </div>
+            <!-- 하프코스 -->
             <div>
               <label class="input-label">하프코스 (21.0975km)</label>
+              <div id="prHalfAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prHalfAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prHalfAutoDate"></span></div>
+              </div>
               <input class="input-field" type="text" id="settingPrHalf" placeholder="예: 1:48:00">
             </div>
+            <!-- 10K -->
             <div>
               <label class="input-label">10K</label>
+              <div id="prTenKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prTenKAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prTenKAutoDate"></span></div>
+              </div>
               <input class="input-field" type="text" id="settingPrTenK" placeholder="예: 48:30">
             </div>
+            <!-- 5K -->
             <div>
               <label class="input-label">5K</label>
+              <div id="prFiveKAuto" style="display:none;background:var(--dark3);border-radius:10px;padding:10px 12px">
+                <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--orange)" id="prFiveKAutoVal">--</div>
+                <div style="font-size:10px;color:var(--gray);margin-top:3px">🤖 Strava 자동 갱신 · <span id="prFiveKAutoDate"></span></div>
+              </div>
               <input class="input-field" type="text" id="settingPrFiveK" placeholder="예: 23:00">
             </div>
           </div>
@@ -1903,10 +1923,28 @@ async function loadUserData() {
     document.getElementById('settingGoal').value = g.target_time || '';
     document.getElementById('settingRaceDate').value = g.race_date || '';
     document.getElementById('settingRaceName').value = g.race_name || '';
-    if (g.pr_full) document.getElementById('settingPrFull').value = g.pr_full;
-    if (g.pr_half) document.getElementById('settingPrHalf').value = g.pr_half;
-    if (g.pr_10k) document.getElementById('settingPrTenK').value = g.pr_10k;
-    if (g.pr_5k) document.getElementById('settingPrFiveK').value = g.pr_5k;
+    // PR — 자동 갱신 여부에 따라 UI 전환
+    function applyPrField(key, autoId, autoValId, autoDateId, inputId, placeholder) {
+      const val = g[key];
+      const updatedAt = g[`${key}_updated_at`];
+      if (val) {
+        if (updatedAt) {
+          // 자동 갱신된 경우: 읽기 전용 표시
+          document.getElementById(autoValId).textContent = val;
+          document.getElementById(autoDateId).textContent =
+            new Date(updatedAt).toLocaleDateString('ko-KR');
+          document.getElementById(autoId).style.display = 'block';
+          document.getElementById(inputId).style.display = 'none';
+        } else {
+          // 수동 입력된 경우: 입력 필드에 값 채움
+          document.getElementById(inputId).value = val;
+        }
+      }
+    }
+    applyPrField('pr_full', 'prFullAuto', 'prFullAutoVal', 'prFullAutoDate', 'settingPrFull');
+    applyPrField('pr_half', 'prHalfAuto', 'prHalfAutoVal', 'prHalfAutoDate', 'settingPrHalf');
+    applyPrField('pr_10k',  'prTenKAuto',  'prTenKAutoVal',  'prTenKAutoDate',  'settingPrTenK');
+    applyPrField('pr_5k',   'prFiveKAuto', 'prFiveKAutoVal', 'prFiveKAutoDate', 'settingPrFiveK');
 
     // 트라이애슬론 설정 로드
     if (g.tri_type) document.getElementById('settingTriType').value = g.tri_type;
