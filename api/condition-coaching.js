@@ -19,13 +19,19 @@ async function sbPatch(table, filter, data) {
   });
 }
 
+// 텔레그램 HTML 모드: AI 답변의 <, >, & 를 처리하지 않으면 메시지 전체가 거부됨
+function escapeTg(t) {
+  return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 async function sendTelegram(chatId, message) {
   if (!chatId || !process.env.TELEGRAM_BOT_TOKEN) return;
-  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' })
+  const send = (body) => fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
+  const text = message.length > 4000 ? message.slice(0, 4000) : message;
+  const r = await send({ chat_id: chatId, text, parse_mode: 'HTML' });
+  if (!r.ok) await send({ chat_id: chatId, text: text.replace(/<\/?b>/g, '') }); // 실패 시 서식 없이
 }
 
 function getWeekStart() {
@@ -147,9 +153,9 @@ ${memo ? `- 메모: ${memo}` : ''}
 
       // 텔레그램 알림
       const conditionEmoji = condition === '좋음' ? '⚡' : condition === '피로' ? '😴' : '😊';
-      const injuryText = injury_part !== '없음' ? `\n🚨 ${injury_part} 부상(${injury_level})` : '';
+      const injuryText = injury_part !== '없음' ? `\n🚨 ${escapeTg(injury_part)} 부상(${escapeTg(injury_level)})` : '';
       await sendTelegram(chatId,
-        `${conditionEmoji} <b>컨디션 반영 - 주간 계획 조정</b>${injuryText}\n─────────\n${result.coaching}\n\n📅 <b>이번 주 조정된 계획</b>\n${result.adjustment_reason}`
+        `${conditionEmoji} <b>컨디션 반영 - 주간 계획 조정</b>${injuryText}\n─────────\n${escapeTg(result.coaching)}\n\n📅 <b>이번 주 조정된 계획</b>\n${escapeTg(result.adjustment_reason)}`
       );
     }
 
