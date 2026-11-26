@@ -575,7 +575,10 @@ async function fetchClubRuns(anchor = Date.now(), days = 45) {
     try {
       const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 4000);
       const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(tm);
-      clubRunsCache = r.ok ? parseCsv(await r.text()) : [];
+      const body = await r.text();
+      clubRunsCache = r.ok ? parseCsv(body) : [];
+      const hasHeader = clubRunsCache[0]?.some(h => h.includes('날짜'));
+      console.log(`정모 일정 시트: HTTP ${r.status}, ${clubRunsCache.length}행, 제목줄 ${hasHeader ? '확인' : '없음 → ' + body.slice(0, 80).replace(/\s+/g, ' ')}`);
     } catch (e) { console.error('정모 일정 읽기 실패', e.message); clubRunsCache = []; }
   }
   const [head, ...body] = clubRunsCache;
@@ -2007,7 +2010,7 @@ async function buildAthleteProfile(userId, goal, userProfile) {
   // ⑦ 레이스 후반 저하 — 최근 1년 풀코스 거리(38km+) 러닝의 마지막 1/4 vs 전반
   //    (DB에 레이스 표시가 없어 거리로 판별 — 38km 이상 훈련도 포함될 수 있음)
   const raceFades = longRuns.filter(a => a.distance >= 38000)
-    .map(a => ({ date: a.start_date.slice(0, 10), h: splitLapHalves(parseLaps(a.laps), 0.25) }))
+    .map(a => ({ date: kstLabel(a.start_date), h: splitLapHalves(parseLaps(a.laps), 0.25) }))
     .filter(r => r.h)
     .slice(0, 3)
     .map(r => ({ date: r.date, fadePct: Math.round((r.h.late.pace / r.h.first.pace - 1) * 1000) / 10 }));
