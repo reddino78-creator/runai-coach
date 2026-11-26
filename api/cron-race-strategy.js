@@ -192,7 +192,12 @@ async function callClaude(prompt) {
 }
 
 async function deriveRealisticTargets(goal, training, daysLeft, phase, improvement, athleteNote) {
-  const userTargetSec = paceToSec(goal.target_pace || '5:27');
+  // 목표 페이스는 목표 기록에서 계산 (저장된 target_pace가 앱 기본값 5:27로 잘못 들어간 경우 방지)
+  const tt = String(goal.target_time || '').split(':').map(Number);
+  const userTargetSec = tt.length === 3 && !tt.some(isNaN)
+    ? Math.round((tt[0] * 3600 + tt[1] * 60 + tt[2]) / 42.195)
+    : paceToSec(goal.target_pace || '6:00');
+  goal = { ...goal, target_pace: secToPace(userTargetSec) };
   // 현재 레이스 페이스 기준점
   // - 최근 3개월 풀코스 레이스가 있으면: 실제 레이스 페이스 그대로 (가장 확실한 근거)
   // - 없으면: 훈련 페이스 × 레이스 효율 (레이스는 보통 훈련보다 3~7% 빠름, 완성도 반영)
